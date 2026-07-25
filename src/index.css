@@ -1,1 +1,19 @@
-@import "tailwindcss";
+@import 'tailwindcss';
+
+@theme {
+  /* Backgrounds */
+  --color-app-background: #0a0a0a;
+  --color-app-surface: #171717;
+  --color-app-surface-hover: #262626;
+
+  /* Borders */
+  --color-app-border: #262626;
+
+  /* Text */
+  --color-text-primary: #fafafa;
+  --color-text-secondary: #a3a3a3;
+  --color-text-muted: #737373;
+
+  /* Accent */
+  --color-accent: #ffffff;
+}

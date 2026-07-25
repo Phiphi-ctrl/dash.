@@ -1,10 +1,12 @@
+import Sidebar from './components/layout/Sidebar'
+import Dashboard from './pages/Dashboard'
+
 function App() {
   return (
-      <main className="min-h-screen bg-neutral-950 text-white">
-        <h1 className="text-4xl font-bold">
-          dash.
-        </h1>
-      </main>
+    <div className="flex min-h-screen text-white">
+      <Sidebar />
+      <Dashboard />
+    </div>
   )
 }
 
