@@ -3,14 +3,16 @@ export type Task = {
   title: string
   completed: boolean
   priority: TaskPriority
-  dueDate: string
   createdAt: string
+  startAt: string
+  endAt: string
 }
 
 export type TaskPriority = "low" | "medium" | "high"
 
-export type newTask = {
+export type NewTask = {
   title: string
   priority: TaskPriority
-  dueDate: string
+  startAt: string | null
+  endAt: string | null
 }

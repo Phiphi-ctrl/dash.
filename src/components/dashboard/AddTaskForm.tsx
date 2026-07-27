@@ -1,32 +1,35 @@
 import { useState } from 'react'
-import type { newTask, TaskPriority } from '../../types/Task.ts'
+import type { NewTask, TaskPriority } from '../../types/Task.ts'
+import SubmitButton from '../ui/SubmitButton.tsx'
 
 type AddTaskFormProps = {
-  onAddTask: (newTask : newTask) => void
+  onAddTask: (newTask : NewTask) => boolean
 }
 
 function AddTaskForm ({onAddTask}: AddTaskFormProps) {
   const [newTitle, setNewTitle] = useState('')
-  const [newDueDate, setDueDate] = useState('')
   const [newPriority, setNewPriority] = useState<TaskPriority>('medium')
+  const [newStartAt, setNewStartAt] = useState('')
+  const [newEndAt, setNewEndAt] = useState('')
 
-  function constructNewTask(newTitle : string, newDueDate : string, newPriority : TaskPriority) {
+  function constructNewTask() {
     return {
       title: newTitle,
       priority: newPriority,
-      dueDate: newDueDate,
+      startAt: newStartAt === '' ? null : new Date(newStartAt).toISOString(),
+      endAt: newEndAt === '' ? null : new Date(newEndAt).toISOString()
     }
   }
-
   return (
     <form
       className="mt-4 shrink-0 flex gap-2"
       onSubmit={(event) => {
         event.preventDefault()
-        onAddTask(constructNewTask(newTitle, newDueDate, newPriority))
-        setNewTitle('')
-        setDueDate('')
-        setNewPriority('medium')
+        if(onAddTask(constructNewTask())) {
+          setNewTitle('')
+          setNewStartAt('')
+          setNewEndAt('')
+        }
       }}
     >
       <input
@@ -37,25 +40,27 @@ function AddTaskForm ({onAddTask}: AddTaskFormProps) {
         className="flex-1 w-full rounded-lg border border-app-border bg-app-background p-3 outline-none"
       />
       <input
-        type="date"
-        value={newDueDate}
-        onChange={(event) => setDueDate(event.target.value)}
-        defaultValue={newDueDate}
+        type="datetime-local"
+        value={newStartAt}
+        onChange={(event) => setNewStartAt(event.target.value)}
+        className="flex-1 w-full rounded-lg border border-app-border bg-app-background p-3 outline-none"
+      />
+      <input
+        type="datetime-local"
+        value={newEndAt}
+        onChange={(event) => setNewEndAt(event.target.value)}
         className="flex-1 w-full rounded-lg border border-app-border bg-app-background p-3 outline-none"
       />
       <select
         value={newPriority}
         onChange={(event) => setNewPriority(event.target.value as TaskPriority)}
-        defaultValue={newPriority}
         className="flex-1 w-full rounded-lg border border-app-border bg-app-background p-3 outline-none"
       >
         <option value="low">Low</option>
         <option value="medium">Medium</option>
         <option value="high">High</option>
       </select>
-      <button type="submit" className="rounded-lg bg-white text-black p-3 cursor-pointer">
-        +
-      </button>
+      <SubmitButton icon={"+"}/>
     </form>
   )
 }

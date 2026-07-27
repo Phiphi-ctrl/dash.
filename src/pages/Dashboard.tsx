@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import TaskList from '../components/dashboard/tasks/TaskList'
 import AddTaskForm from '../components/dashboard/AddTaskForm'
-import type { newTask, Task} from '../types/Task'
+import type { NewTask, Task} from '../types/Task'
 
 function Dashboard() {
   const [tasks, setTasks] = useState<Task[]>(() => {
@@ -16,19 +16,31 @@ function Dashboard() {
     localStorage.setItem("dash.tasks", JSON.stringify(tasks))
   }, [tasks])
 
-  function handleAddTask(newTask : newTask) {
+  function handleAddTask(newTask : NewTask) {
     if (newTask.title.trim() === '') {
-      return
+      // the title is empty
+      return false
     }
+    if (newTask.startAt === null || newTask.endAt === null) {
+      // no startAt defined or no endAt defined
+      return false
+    }
+    if (Date.parse(newTask.endAt) <= Date.parse(newTask.startAt)) {
+      // the end is smaller or equal than the start
+      return false
+    }
+    console.log(newTask) // debug
     const task : Task = {
       id: crypto.randomUUID(),
-      title: newTask.title,
+      title: newTask.title.trim(),
       completed: false,
       priority: newTask.priority,
-      dueDate: newTask.dueDate,
-      createdAt: getTodayDate()
+      createdAt: getTodayDate(),
+      startAt: newTask.startAt,
+      endAt: newTask.endAt,
     }
     setTasks((currentTasks) => [...currentTasks, task])
+    return true
   }
   function handleDeleteTask(id : string) {
     setTasks((currentTasks) => currentTasks.filter(task => task.id !== id))
