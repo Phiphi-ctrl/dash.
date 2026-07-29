@@ -1,14 +1,16 @@
 import type { Task, TaskPriority } from '../../../types/Task.ts'
 import Checkbox from '../../ui/Checkbox.tsx'
 import Button from '../../ui/Button.tsx'
+import { Trash2 } from 'lucide-react'
 
 type TaskItemProps = {
   task: Task,
   onToggle: ( id: string ) => void,
   onDelete: ( id: string ) => void
+  today: Date
 }
 
-function TaskItem ({task, onToggle, onDelete} : TaskItemProps) {
+function TaskItem ({task, onToggle, onDelete, today} : TaskItemProps) {
   const start = new Date(task.startAt)
   const end = new Date(task.endAt)
 
@@ -59,10 +61,14 @@ function TaskItem ({task, onToggle, onDelete} : TaskItemProps) {
   }
 
   function getTimeRange(start: Date, end: Date) {
-    if(isSameDay(start, end)) {
-      return `${timeFormatter.format(start)} - ${timeFormatter.format(end)}`
+    // both today
+    if(isSameDay(start, end) && isSameDay(today, start)) {
+      return `Today ${timeFormatter.format(start)} → ${timeFormatter.format(end)}`
     }
-    return `${dateTimeFormatter.format(start)} - ${dateTimeFormatter.format(end)}`
+    if(isSameDay(start, end)) {
+      return `${dateTimeFormatter.format(start)} → ${timeFormatter.format(end)}`
+    }
+    return `${dateTimeFormatter.format(start)} → ${dateTimeFormatter.format(end)}`
   }
 
   return (
@@ -90,7 +96,15 @@ function TaskItem ({task, onToggle, onDelete} : TaskItemProps) {
       </div>
       <Button
         onClick={() => onDelete(task.id)}
-        icon={"🗑"}
+        Icon={Trash2}
+        borderBgTextHoverStyle={`
+        border-app-border 
+        bg-app-surface 
+        text-text-muted 
+        hover:bg-app-bg-delete-button-hover 
+        hover:border-app-border-delete-button-hover 
+        hover:text-text-delete-button-hover
+        `}
       />
     </li>
   )

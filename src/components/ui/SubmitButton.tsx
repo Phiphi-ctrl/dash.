@@ -1,26 +1,21 @@
-type SubmitButtonProps = {
-  icon: string;
-}
+import {
+  PlusIcon
+} from 'lucide-react'
 
-function SubmitButton({icon}: SubmitButtonProps) {
+
+function SubmitButton() {
   return (
     <button
       type="submit"
       className="
         shrink-0
+        p-3
         rounded-lg
         cursor-pointer
-        bg-app-surface
-        border
-        border-app-border
         text-text-secondary
-        p-2 ml-auto
-        hover:bg-app-surface-hover
         focus:outline-none
-        transition-colors
-        duration-400
       ">
-      {icon}
+      <PlusIcon className="size-4"/>
     </button>
   )
 }

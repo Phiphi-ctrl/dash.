@@ -7,7 +7,8 @@ function Checkbox({ checked, onChange }: CheckboxProps) {
   return (
     <label className="
         shrink-0
-        rounded-lg cursor-pointer
+        rounded-lg
+        cursor-pointer
         bg-app-surface border
         border-app-border
         text-text-secondary
@@ -25,7 +26,7 @@ function Checkbox({ checked, onChange }: CheckboxProps) {
       />
       <span>
           ✓
-        </span>
+      </span>
     </label>
   )
 }

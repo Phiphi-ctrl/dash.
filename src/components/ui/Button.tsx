@@ -1,29 +1,29 @@
+import type { LucideIcon } from 'lucide-react'
+
 type ButtonProps = {
   onClick: () => void,
-  icon?: string,
+  Icon: LucideIcon,
+  borderBgTextHoverStyle: string
 }
 
-function Button ({onClick, icon = 'Button'}: ButtonProps) {
+function Button ({onClick, Icon, borderBgTextHoverStyle}: ButtonProps) {
   return (
     <button
-      className="
+      className={`
         shrink-0
+        p-3
         rounded-lg
         cursor-pointer
-        bg-app-surface
         border
-        border-app-border
-        text-text-secondary
-        p-2 ml-auto
-        hover:bg-app-surface-hover
+        ${borderBgTextHoverStyle}
         focus:outline-none
         transition-colors
         duration-400
-        "
+        `}
       type="button"
       onClick={onClick}
     >
-      {icon}️
+      <Icon className="size-4" />
     </button>
   )
 }
