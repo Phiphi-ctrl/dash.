@@ -29,7 +29,7 @@ function TaskItem ({task, onToggle, onDelete, onEdit, today} : TaskItemProps) {
   }
 
   return (
-    <li className={`flex w-full ${getPriorityClass(task.priority)} gap-4 items-center border border-border rounded-lg p-2 h-13`}>
+    <li className={`flex w-full ${getPriorityClass(task.priority)} gap-4 items-center border border-border rounded-lg`}>
       <div>
         {task.emoji !== null && (
             <span className="text-xl size-9 pl-3 pr-2 cursor-default">

@@ -9,7 +9,7 @@ import {
   Flag,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { data } from '../../lib/emojiMart.ts'
+import { data } from '../../../../lib/emojiMart.ts'
 
 type CategoryOption = {
   id: string

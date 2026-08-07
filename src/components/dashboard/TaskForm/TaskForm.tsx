@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
-import type { NewTask, TaskPriority } from '../../types/Task.ts'
-import SubmitButton from '../ui/SubmitButton.tsx'
-import CancelButton from '../ui/CancelButton.tsx'
-import PriorityButton from './PriorityButton.tsx'
-import DateTimeRangePicker from './DateTimeRangePicker.tsx'
+import type { NewTask, TaskPriority } from '../../../types/Task.ts'
+import SubmitButton from '../../ui/SubmitButton.tsx'
+import CancelButton from '../../ui/CancelButton.tsx'
+import PriorityButton from './PriorityPicker/PriorityButton.tsx'
+import DateTimeRangePicker from './DateTimeRangePicker/DateTimeRangePicker.tsx'
 import {
   ArrowDownUpIcon,
   Calendar,
@@ -15,8 +15,8 @@ import {
   SmilePlus
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import TaskEmojiPicker from "./TaskEmojiPicker.tsx";
-import { getDuration, getTimeRange } from "../../utils/Datetime.ts";
+import TaskEmojiPicker from "./EmojiPicker/TaskEmojiPicker.tsx";
+import { getDuration, getTimeRange } from "../../../utils/Datetime.ts";
 
 
 type TaskFormProps = {

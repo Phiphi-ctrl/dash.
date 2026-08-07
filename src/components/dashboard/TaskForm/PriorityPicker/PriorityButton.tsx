@@ -1,4 +1,4 @@
-import type { TaskPriority } from '../../types/Task.ts'
+import type { TaskPriority } from '../../../../types/Task.ts'
 import type { LucideIcon } from 'lucide-react'
 
 type PriorityButtonProps = {

@@ -1,14 +1,15 @@
 import { useState, useEffect, useRef } from 'react'
-import TaskList from '../components/dashboard/tasks/TaskList'
-import TaskForm from '../components/dashboard/TaskForm.tsx'
+import TaskList from '../components/dashboard/TodoList/TaskList'
+import TaskForm from '../components/dashboard/TaskForm/TaskForm.tsx'
 import type { NewTask, Task} from '../types/Task'
 import Button from '../components/ui/Button.tsx'
 import { PlusIcon, ListChecks, LoaderCircle } from 'lucide-react'
 import LiveDateTime from '../components/dashboard/LiveDateTime.tsx'
+import ActiveTask from '../components/dashboard/Active/ActiveTask.tsx'
 
 function Dashboard() {
   const [tasks, setTasks] = useState<Task[]>(() => {
-    const storedTasks = localStorage.getItem("dash.tasks")
+    const storedTasks = localStorage.getItem("dash.TodoList")
     if(storedTasks === null) {
       return []
     }
@@ -46,7 +47,7 @@ function Dashboard() {
   }, [isAddTaskOpen])
 
   useEffect(() => {
-    localStorage.setItem("dash.tasks", JSON.stringify(tasks))
+    localStorage.setItem("dash.TodoList", JSON.stringify(tasks))
   }, [tasks])
 
   function handleAddTask(newTask : NewTask) {
@@ -192,22 +193,8 @@ function Dashboard() {
               <LoaderCircle className="size-5" />
               <h3 className="text-xl font-semibold">active.</h3>
             </div>
-            <Button
-              onClick={() => {
-                setEditingTask(null)
-                setIsAddTaskOpen((current) => !current)
-              }}
-              Icon={PlusIcon}
-              className={`
-            bg-app-surface 
-          border-border 
-          text-muted 
-          hover:bg-accent-soft
-          hover:border-accent
-          hover:text-accent
-            `}
-            />
           </div>
+          <ActiveTask tasks={tasks} today={today}/>
         </div>
       </section>
 
