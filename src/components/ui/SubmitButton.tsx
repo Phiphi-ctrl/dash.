@@ -14,8 +14,16 @@ function SubmitButton() {
         cursor-pointer
         text-text-secondary
         focus:outline-none
+        group
       ">
-      <PlusIcon className="size-4"/>
+      <PlusIcon className="
+          size-4
+          origin-center
+          transition-transform
+          duration-300
+          ease-out
+          group-hover:rotate-90
+        "/>
     </button>
   )
 }

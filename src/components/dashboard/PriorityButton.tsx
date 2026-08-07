@@ -1,26 +1,37 @@
 import type { TaskPriority } from '../../types/Task.ts'
+import type { LucideIcon } from 'lucide-react'
 
 type PriorityButtonProps = {
-  icon: string,
+  Icon: LucideIcon,
   selectedPriority: TaskPriority,
   buttonPriority: TaskPriority
   background: string,
   onClick: () => void,
 }
 
-function PriorityButton({icon, selectedPriority, buttonPriority, background, onClick}: PriorityButtonProps) {
+function PriorityButton({Icon, selectedPriority, buttonPriority, background, onClick}: PriorityButtonProps) {
 
   return (
     <button
       type="button"
       onClick={ onClick }
-      className={`border border-app-border rounded-lg text-text-secondary p-2 ${
+      className={`
+      flex
+      items-center
+      justify-center
+      border 
+      border-border 
+      rounded-lg 
+      text-foreground-secondary 
+      p-2 
+      ${
         buttonPriority === selectedPriority ?  background : 'bg-app-surface'
-      } `}
+      } 
+      `}
       aria-pressed={ buttonPriority === selectedPriority }
       aria-label={`${buttonPriority} priority`}
     >
-      {icon}
+      <Icon className="size-4"/>
     </button>
   )
 }

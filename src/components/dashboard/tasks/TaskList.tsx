@@ -5,14 +5,15 @@ type TaskListProps = {
   tasks: Task[],
   onToggle: (id: string) => void,
   onDelete: (id: string) => void,
+  onEdit: (task: Task) => void,
   today: Date
 }
 
-function TaskList({tasks, onToggle, onDelete, today} : TaskListProps) {
+function TaskList({tasks, onToggle, onDelete, onEdit, today} : TaskListProps) {
   return (
-    <div>
+    <div className="h-90 overflow-hidden overflow-y-auto mr-2">
       {tasks.length === 0 ? (
-        <p className="text-text-secondary">Nothing Planned yet...</p>
+        <p className="text-foreground-secondary">Nothing Planned yet...</p>
       ) : (
         <ul className="flex flex-col gap-2">
           {tasks.map((task) => (
@@ -21,6 +22,7 @@ function TaskList({tasks, onToggle, onDelete, today} : TaskListProps) {
               task={task}
               onToggle={onToggle}
               onDelete={onDelete}
+              onEdit={onEdit}
               today={today}
             />
           ))}

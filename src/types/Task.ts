@@ -3,9 +3,10 @@ export type Task = {
   title: string
   completed: boolean
   priority: TaskPriority
-  createdAt: string
   startAt: string
   endAt: string
+  createdAt: string
+  emoji: string | null
 }
 
 export type TaskPriority = "low" | "medium" | "high"
@@ -15,4 +16,5 @@ export type NewTask = {
   priority: TaskPriority
   startAt: string | null
   endAt: string | null
+  emoji: string | null
 }

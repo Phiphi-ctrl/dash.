@@ -9,14 +9,23 @@ function CancelButton ({onCancel}: CancelButtonProps) {
     <button
       onClick={onCancel}
       className="
-        shrink-0
-        rounded-lg
-        cursor-pointer
-        p-3
-        text-text-secondary
-        focus:outline-none
+      group
+      shrink-0
+      rounded-lg
+      cursor-pointer
+      p-3
+      text-text-secondary
+      focus:outline-none
      ">
-      <Trash2 className="size-4" />
+      <Trash2
+        className="
+        size-4
+        origin-center
+        transition-transform
+        duration-300
+        ease-out
+        group-hover:animate-bin-shake
+      "/>
     </button>
   )
 }

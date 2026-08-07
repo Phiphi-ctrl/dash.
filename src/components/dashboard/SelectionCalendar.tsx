@@ -4,12 +4,18 @@ import {
   ChevronRight,
   ChevronLeft,
 } from 'lucide-react'
+import {
+  replaceDateKeepTime,
+  monthFormatter,
+  dateToLocalDateTimeString,
+  weekdays
+} from '../../utils/Datetime.ts'
 
 type SelectionCalendarProps = {
   newStartAt: string;
   newEndAt: string;
+  today: Date;
   activeField: ActiveField;
-  dateToLocalDateTimeString: (date: Date)=> string
   handleStartCalenderChange: (date: string) => void;
   handleEndCalenderChange: (date: string) => void;
 }
@@ -17,34 +23,18 @@ type SelectionCalendarProps = {
 function SelectionCalendar ({
   newStartAt,
   newEndAt,
+  today,
   activeField,
-  dateToLocalDateTimeString,
   handleStartCalenderChange,
   handleEndCalenderChange,
 
 }: SelectionCalendarProps) {
 
-  const today = new Date();
   const numVisibleDays = 42;
 
   const [visibleMonth, setVisibleMonth] = useState(
     new Date(today.getFullYear(), today.getMonth(), 1)
   )
-
-  const monthFormatter = new Intl.DateTimeFormat(undefined, {
-    month: 'short',
-    year: 'numeric',
-  })
-
-  const weekdays = [
-    'Su',
-    'Mo',
-    'Tu',
-    'We',
-    'Th',
-    'Fr',
-    'Sa',
-  ]
 
   const firstDayThisMonth = new Date(
     visibleMonth.getFullYear(),
@@ -70,24 +60,7 @@ function SelectionCalendar ({
       )
   )
 
-  function replaceDateKeepTime(currentDateTime: string, selectedDate: Date) {
-    if(currentDateTime === '') {
-      return selectedDate
-    }
-    const current = new Date(currentDateTime);
-    const hours = current.getHours();
-    const minutes = current.getMinutes();
 
-    return new Date(
-      selectedDate.getFullYear(),
-      selectedDate.getMonth(),
-      selectedDate.getDate(),
-      hours,
-      minutes,
-      0,
-      0,
-    )
-  }
 
   function nextMonth (current: Date) {
     const nextMonth = new Date(current)
@@ -164,51 +137,51 @@ function SelectionCalendar ({
   function getDayStyle (day: Date) {
     if(day.getFullYear() === today.getFullYear() && day.getMonth() === today.getMonth() && day.getDate() === today.getDate()) {
       if(isStart(day)) {
-        return 'text-text-primary bg-accent-marked rounded-s-xl'
+        return 'text-foreground bg-calendar-today rounded-s-xl'
       }
       if(isEnd(day)) {
-        return 'text-text-primary bg-accent-marked rounded-e-xl'
+        return 'text-foreground bg-calendar-today rounded-e-xl'
       }
       if(isBetweenStartAndEnd(day)) {
-        return 'text-text-primary bg-accent-marked'
+        return 'text-foreground bg-calendar-today'
       }
-      return 'text-text-primary bg-accent-marked rounded-xl'
+      return 'text-foreground bg-calendar-today rounded-xl'
     }
     if(day.getMonth() === visibleMonth.getMonth()) {
       if(isStart(day)) {
         if(end === null) {
-          return 'text-text-primary bg-app-mark-calendar rounded-xl'
+          return 'text-foreground bg-accent rounded-xl'
         }
-        return 'text-text-primary bg-app-mark-calendar rounded-s-xl'
+        return 'text-foreground bg-accent rounded-s-xl'
       }
       if(isEnd(day)) {
         if(start === null) {
-          return 'text-text-primary bg-app-mark-calendar rounded-xl'
+          return 'text-foreground bg-accent rounded-xl'
         }
-        return 'text-text-primary bg-app-mark-calendar rounded-e-xl'
+        return 'text-foreground bg-accent rounded-e-xl'
       }
       if(isBetweenStartAndEnd(day)) {
-        return 'text-text-primary bg-app-days-between'
+        return 'text-foreground bg-accent-high'
       }
-      return 'text-text-primary rounded-xl'
+      return 'text-foreground rounded-xl'
     }
     if(day.getMonth() !== visibleMonth.getMonth()) {
       if(isStart(day)) {
         if(end === null) {
-          return 'text-text-primary bg-app-mark-calendar rounded-xl'
+          return 'text-foreground bg-accent-medium rounded-xl'
         }
-        return 'text-text-muted bg-app-mark-calendar-muted rounded-s-xl'
+        return 'text-muted bg-accent-medium rounded-s-xl'
       }
       if(isEnd(day)) {
         if(start === null) {
-          return 'text-text-primary bg-app-mark-calendar rounded-xl'
+          return 'text-foreground bg-accent-medium rounded-xl'
         }
-        return 'text-text-muted bg-app-mark-calendar-muted rounded-e-xl'
+        return 'text-muted bg-accent-medium rounded-e-xl'
       }
       if(isBetweenStartAndEnd(day)) {
-        return 'text-text-muted bg-app-days-between'
+        return 'text-muted bg-accent-soft'
       }
-      return 'text-text-muted rounded-xl'
+      return 'text-muted rounded-xl'
     }
     return ''
   }
@@ -216,10 +189,10 @@ function SelectionCalendar ({
   return (
     <div className="flex flex-col gap-2 text-sm">
       <div className="flex">
-        <div className="w-full text-text-secondary">
+        <div className="w-full text-foreground-secondary">
           {monthFormatter.format(visibleMonth)}
         </div>
-        <div className="flex gap-4 text-text-secondary">
+        <div className="flex gap-4 text-foreground-secondary">
           <button
             type="button"
             className=""
@@ -240,7 +213,7 @@ function SelectionCalendar ({
         {weekdays.map((day) => (
           <div
             key={day}
-            className="size-8 flex justify-center items-center text-text-secondary"
+            className="size-8 flex justify-center items-center text-foreground-secondary"
           >
             {day}
           </div>
@@ -262,7 +235,7 @@ function SelectionCalendar ({
             flex
             justify-center 
             items-center 
-            hover:bg-app-surface-hover
+            hover:bg-surface-hover
             transition-[border-radius,background-color,color]
             duration-600
             ease-out

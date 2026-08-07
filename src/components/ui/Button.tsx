@@ -3,10 +3,10 @@ import type { LucideIcon } from 'lucide-react'
 type ButtonProps = {
   onClick: () => void,
   Icon: LucideIcon,
-  borderBgTextHoverStyle: string
+  className: string
 }
 
-function Button ({onClick, Icon, borderBgTextHoverStyle}: ButtonProps) {
+function Button ({onClick, Icon, className}: ButtonProps) {
   return (
     <button
       className={`
@@ -15,7 +15,7 @@ function Button ({onClick, Icon, borderBgTextHoverStyle}: ButtonProps) {
         rounded-lg
         cursor-pointer
         border
-        ${borderBgTextHoverStyle}
+        ${className}
         focus:outline-none
         transition-colors
         duration-400
