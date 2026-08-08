@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import type { NewTask, TaskPriority } from '../../../types/Task.ts'
+import type { NewTask, TaskPriority, TaskTemplate } from '../../../types/Task.ts'
 import SubmitButton from '../../ui/SubmitButton.tsx'
 import CancelButton from '../../ui/CancelButton.tsx'
 import PriorityButton from './PriorityPicker/PriorityButton.tsx'
@@ -12,11 +12,12 @@ import {
   ArrowDownFromLine,
   Minus,
   ClockFading,
-  SmilePlus
+  SmilePlus, SaveCheck,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import TaskEmojiPicker from "./EmojiPicker/TaskEmojiPicker.tsx";
 import { getDuration, getTimeRange } from "../../../utils/Datetime.ts";
+import SaveTemplateButton from '../../ui/SaveTemplateButton.tsx'
 
 
 type TaskFormProps = {
@@ -47,6 +48,24 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
   const datePickerRef = useRef<HTMLDivElement>(null)
   const emojiPickerRef = useRef<HTMLDivElement>(null)
   const canCloseDatePickerRef = useRef(true)
+
+  const [templates, setTemplates] = useState<TaskTemplate[]>(() => {
+    const storedTemplates = localStorage.getItem('dash.taskTemplates')
+
+    if(storedTemplates === null) {
+      return []
+    }
+
+    return JSON.parse(storedTemplates)
+  })
+
+
+  useEffect(() => {
+    localStorage.setItem(
+      'dash.taskTemplates',
+      JSON.stringify(templates),
+    )
+  }, [templates])
 
   function handleCanCloseChange(canClose: boolean) {
     canCloseDatePickerRef.current = canClose
@@ -160,6 +179,39 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
     setNewEmoji(nativeEmoji)
   }
 
+  function handleSaveTemplate() {
+    const title = newTitle.trim()
+    if(title === '') {
+      console.log('Please enter a title')
+      return
+    }
+    const found = templates.find((template) =>
+      template.title === title &&
+      template.priority === newPriority &&
+      template.emoji === newEmoji
+    )
+    if(found) {
+      console.log('Template already exists')
+      return
+    }
+    const template: TaskTemplate = {
+      id: crypto.randomUUID(),
+      title: title,
+      priority: newPriority,
+      emoji: newEmoji,
+    }
+    setTemplates((currentTemplates) => [
+      ...currentTemplates,
+      template
+    ])
+  }
+
+  function handleTemplateSelect(template: TaskTemplate) {
+    setNewTitle(template.title)
+    setNewPriority(template.priority)
+    setNewEmoji(template.emoji)
+  }
+
   return (
     <form
       className="flex flex-col gap-20 p-12"
@@ -183,6 +235,9 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
           className={`w-full truncate rounded-lg bg-app-surface text-3xl font-bold focus:outline-none 
           ${newTitle.trim() === '' ? 'text-muted' : ''}`}
         />
+        <div className="flex-1 max-w-xs">
+          <SaveTemplateButton onSave={handleSaveTemplate} />
+        </div>
         <div className="flex-1 max-w-xs">
           <SubmitButton />
         </div>
@@ -317,7 +372,40 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
             ))}
           </div>
         </div>
+
+        {/*Templates*/}
+        <div className="flex mt-20">
+          <div className="grid size-8 place-items-center">
+            <SaveCheck className="size-4"/>
+          </div>
+          <span className="p-1">
+          Templates
+          </span>
+        </div>
+
+        <div className="col-span-2 flex flex-col gap-3">
+          <div className="flex flex-wrap gap-2 h-72 overflow-hidden overflow-y-auto scrollbar-none">
+            {templates.map((template) => (
+              <button
+                key={template.id}
+                type="button"
+                onClick={() => handleTemplateSelect(template)}
+                className="flex gap-3 bg-surface cursor-pointer border border-border rounded-lg w-fit p-3 hover:bg-surface-hover"
+              >
+                <div className="flex items-center">
+                  <span className="text-lg size-6">{template.emoji}</span>
+                </div>
+                <div className="flex flex-col">
+                  <span>{template.title}</span>
+                  <span className=" flex text-xs text-muted">24m</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
       </div>
+
     </form>
   )
 }

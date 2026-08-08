@@ -18,3 +18,10 @@ export type NewTask = {
   endAt: string | null
   emoji: string | null
 }
+
+export type TaskTemplate = {
+  id: string
+  title: string
+  priority: TaskPriority
+  emoji: string | null
+}

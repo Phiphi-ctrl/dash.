@@ -158,7 +158,7 @@ function TaskEmojiPicker ({onSelect} : TaskEmojiPickerProps) {
       </div>
 
       {/*Emoji grid*/}
-      <div className="grid grid-cols-8 overflow-x-hidden overflow-y-auto rounded-lg border-border h-63">
+      <div className="grid grid-cols-8 overflow-x-hidden overflow-y-auto rounded-lg border-border h-63 scrollbar-none">
         {categoryEmojis.map((emoji) => {
           const nativeEmoji = emoji.skins[0]?.native
 

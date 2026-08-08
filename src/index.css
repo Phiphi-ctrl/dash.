@@ -36,7 +36,7 @@
   --color-accent-medium: rgb(35 94 197 / 20%);
   --color-accent-soft: rgb(35 94 197 / 15%);
 
-  --color-accent-secondary: #3D5A6C;
+  --color-accent-secondary: #2f3954;
 
 
   /*
@@ -128,4 +128,15 @@
   #root {
     min-height: 100dvh;
   }
+}
+
+.active-task-progress-circle {
+  transition: stroke 180ms ease, filter 180ms ease;
+}
+
+.active-task-progress-circle:hover {
+  stroke: color-mix(in srgb, var(--color-accent-secondary) 68%, rgba(255, 255, 255, 0.52) 32%);
+  filter:
+    drop-shadow(0 0 6px color-mix(in srgb, var(--color-accent-secondary) 60%, rgba(255, 255, 255, 0.43) 40%))
+    drop-shadow(0 0 14px color-mix(in srgb, var(--color-accent-secondary) 75%, transparent 25%));
 }

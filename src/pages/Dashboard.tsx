@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import TaskList from '../components/dashboard/TodoList/TaskList'
 import TaskForm from '../components/dashboard/TaskForm/TaskForm.tsx'
-import type { NewTask, Task} from '../types/Task'
+import type { NewTask, Task } from '../types/Task'
 import Button from '../components/ui/Button.tsx'
 import { PlusIcon, ListChecks, LoaderCircle } from 'lucide-react'
 import LiveDateTime from '../components/dashboard/LiveDateTime.tsx'
@@ -15,6 +15,7 @@ function Dashboard() {
     }
     return JSON.parse(storedTasks)
   })
+
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false)
 
   const [editingTask, setEditingTask] = useState<Task | null>(null)
@@ -77,6 +78,7 @@ function Dashboard() {
     setTasks((currentTasks) => [...currentTasks, task])
     return true
   }
+
   function handleDeleteTaskItem(id : string) {
     setTasks((currentTasks) => currentTasks.filter(task => task.id !== id))
   }

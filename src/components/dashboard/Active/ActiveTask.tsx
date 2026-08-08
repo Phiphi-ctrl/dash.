@@ -44,7 +44,7 @@ function ActiveTask ({tasks, today}: ActiveTaskProps) {
     return (end.getTime() - current.getTime()) / 1000 / 60
   }
 
-  const minutesTillEndString = activeTask ? `${ Math.round(getMinutesTillEnd(activeTask, now))}m left` : ''
+  const minutesTillEndString = activeTask ? `${ Math.round(getMinutesTillEnd(activeTask, now))}m left` : '.  .  .'
 
   const viewBoxSize = 180
 
@@ -76,13 +76,14 @@ function ActiveTask ({tasks, today}: ActiveTaskProps) {
           <div className="flex justify-center items-center p-6">
             <div className={`relative size-[${viewBoxSize}px]`}>
               <svg
+                className="overflow-visible"
                 width={viewBoxSize}
                 height={viewBoxSize}
                 viewBox={`0 0 ${viewBoxSize} ${viewBoxSize}`}
               >
                 {/* background track */}
                 <circle
-                  className="text-border"
+                  className="text-border stroke-surface"
                   cx={viewBoxSize / 2}
                   cy={viewBoxSize / 2}
                   r={radius}
@@ -93,7 +94,7 @@ function ActiveTask ({tasks, today}: ActiveTaskProps) {
 
                 {/* progress */}
                 <circle
-                  className="stroke-accent-secondary"
+                  className="active-task-progress-circle stroke-accent-secondary"
                   cx={viewBoxSize / 2}
                   cy={viewBoxSize / 2}
                   r={radius}
@@ -109,7 +110,7 @@ function ActiveTask ({tasks, today}: ActiveTaskProps) {
 
               </svg>
               {/* center content */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
                 <span className="font-semibold text-3xl">
                   {Math.round(progress * 100)}%
                 </span>
@@ -139,7 +140,70 @@ function ActiveTask ({tasks, today}: ActiveTaskProps) {
           </div>
         </div>
         ) : (
-        <span className="text-foreground-secondary">No current task enjoy your Free time!</span>
+        <div className="grid grid-cols-1 border border-border rounded-lg p-8">
+          {/*Task title*/}
+          <div className="flex flex-col gap-4 p-2">
+            <div className="flex text-muted h-9">
+              <div className="flex justify-center items-center">Nothing In Progress</div>
+              <div className="relative ml-auto">
+                <PulseDot className="absolute right-3 top-3"/>
+              </div>
+            </div>
+            <div className="text-xl text-foreground-secondary">
+              No active tasks
+            </div>
+          </div>
+          {/*Progress Circle*/}
+          <div className="flex justify-center items-center p-6">
+            <div className={`relative size-[${viewBoxSize}px]`}>
+              <svg
+                className="overflow-visible"
+                width={viewBoxSize}
+                height={viewBoxSize}
+                viewBox={`0 0 ${viewBoxSize} ${viewBoxSize}`}
+              >
+                {/* background track */}
+                <circle
+                  className="text-border stroke-surface"
+                  cx={viewBoxSize / 2}
+                  cy={viewBoxSize / 2}
+                  r={radius}
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="25"
+                />
+
+              </svg>
+              {/* center content */}
+              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                <span className="font-semibold text-3xl">
+                  {Math.round(progress * 100)}%
+                </span>
+                <span className="text-xs text-foreground-secondary">
+                  {minutesTillEndString}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="flex gap-2 p-6 text-foreground-secondary">
+            <div className="flex gap-2">
+              <div className="flex items-center justify-center">
+                <Calendar className="size-4"/>
+              </div>
+              <div>
+                .  .  .
+              </div>
+            </div>
+            <div className="flex ml-auto gap-2">
+              <div className="flex items-center justify-center">
+                <ArrowDownUp className="size-4"/>
+              </div>
+              <div>
+                .  .  .
+              </div>
+            </div>
+          </div>
+        </div>
         )
       }
     </div>
