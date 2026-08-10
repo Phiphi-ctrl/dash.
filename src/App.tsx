@@ -5,7 +5,7 @@ function App() {
   return (
     <div className="flex h-full text-white overflow-hidden">
       <Sidebar />
-      <div className="min-w-0 min-h-0 flex-1 overflow-y-auto">
+      <div className="min-w-0 min-h-0 flex-1 overflow-y-auto dash-scrollbar">
         <Dashboard />
       </div>
     </div>

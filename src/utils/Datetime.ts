@@ -90,7 +90,7 @@ export const weekdays = [
 ]
 
 // DatetimeRangePicker
-const inputFormatter = new Intl.DateTimeFormat('en-US', {
+export const inputFormatter = new Intl.DateTimeFormat('en-US', {
   month: 'short',
   day: 'numeric',
   year: 'numeric',
@@ -199,3 +199,47 @@ export function formatDateTimeInput(dateString: string): string {
   return `${parts.month} ${parts.day}, ${parts.year} ${parts.hour}:${parts.minute}`
 }
 // ------canonical to human readable
+
+// Dashboard Calendar
+
+
+export function getStartOfWeek(date: Date): Date {
+  const start = new Date(date)
+
+  const dayIndex = (start.getDay() + 6) % 7
+
+  start.setDate(start.getDate() - dayIndex)
+
+  start.setHours(0, 0, 0, 0)
+
+  return start
+}
+
+export const dayFormatter = new Intl.DateTimeFormat(undefined, {
+  weekday: 'short',
+  day: 'numeric',
+})
+
+export function getDayRange(startAt: string, endAt: string) {
+  if (startAt === '' || endAt === '') {
+    return '. . .'
+  }
+  const start = new Date(startAt)
+  const end = new Date(endAt)
+
+  return `${dayFormatter.format(start)} → ${dayFormatter.format(end)}`
+}
+
+export function getHourRange(startAt: string, endAt: string) {
+  if(startAt === '' || endAt === '') {
+    return ['']
+  }
+  const start = new Date(startAt)
+  const end = new Date(endAt)
+
+  if(isSameDay(start, end)) {
+    return [timeFormatter.format(start), timeFormatter.format(end)]
+  }
+  return [dateTimeFormatter.format(start), dateTimeFormatter.format(end)]
+}
+

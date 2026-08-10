@@ -7,6 +7,7 @@ export type Task = {
   endAt: string
   createdAt: string
   emoji: string | null
+  completedAt: string | null
 }
 
 export type TaskPriority = "low" | "medium" | "high"
@@ -17,6 +18,7 @@ export type NewTask = {
   startAt: string | null
   endAt: string | null
   emoji: string | null
+  completed: boolean
 }
 
 export type TaskTemplate = {

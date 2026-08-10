@@ -3,9 +3,11 @@ import TaskList from '../components/dashboard/TodoList/TaskList'
 import TaskForm from '../components/dashboard/TaskForm/TaskForm.tsx'
 import type { NewTask, Task } from '../types/Task'
 import Button from '../components/ui/Button.tsx'
-import { PlusIcon, ListChecks, LoaderCircle } from 'lucide-react'
+import { PlusIcon, ListChecks, LoaderCircle, Calendar } from 'lucide-react'
 import LiveDateTime from '../components/dashboard/LiveDateTime.tsx'
 import ActiveTask from '../components/dashboard/Active/ActiveTask.tsx'
+import { inputFormatter } from '../utils/Datetime.ts'
+import CalendarElement from '../components/dashboard/Calendar/CalendarElement.tsx'
 
 function Dashboard() {
   const [tasks, setTasks] = useState<Task[]>(() => {
@@ -74,6 +76,7 @@ function Dashboard() {
       startAt: newTask.startAt,
       endAt: newTask.endAt,
       emoji: newTask.emoji,
+      completedAt: null
     }
     setTasks((currentTasks) => [...currentTasks, task])
     return true
@@ -82,9 +85,18 @@ function Dashboard() {
   function handleDeleteTaskItem(id : string) {
     setTasks((currentTasks) => currentTasks.filter(task => task.id !== id))
   }
+
   function handleToggleTaskItem(id: string) {
-    setTasks((currentTasks) => currentTasks.map((task) => task.id === id ? {...task, completed: !task.completed} : task))
+    setTasks((currentTasks) =>
+      currentTasks.map((task) =>
+        task.id === id ?
+          {
+            ...task,
+            completed: !task.completed,
+            completedAt: !task.completed ? inputFormatter.format(new Date()) : null,
+          } : task))
   }
+
   function handleEditTaskItem(task: Task) {
     setEditingTask(task)
     setIsAddTaskOpen(true)
@@ -147,18 +159,52 @@ function Dashboard() {
     startAt: null,
     endAt: null,
     emoji: null,
+    completed: false
+  }
+
+  function handleUpdateTask(
+    id: string,
+    changes: Partial<Task>
+  ) {
+    setTasks((currentTasks) =>
+      currentTasks.map((task) =>
+        task.id === id
+          ? { ...task, ...changes }
+          : task
+      )
+    )
   }
 
   const today = new Date();
 
   return (
-    <main className="flex flex-1 z-0 flex-col p-20">
-      <header className="mb-8">
+    <main className="flex flex-1 z-0 flex-col p-10 gap-8">
+      <header>
         <LiveDateTime />
 
         <h2 className="text-5xl font-bold">board.</h2>
       </header>
-      <section className="grid grid-cols-2 rounded-lg gap-10">
+      <section className="flex mt-5">
+        <div className="flex flex-col gap-1 w-full">
+          <div className="flex justify-between mb-4 p-2">
+            <div className="flex justify-center items-center p-2 gap-3">
+              <Calendar className="size-5" />
+              <h3 className="text-xl font-semibold">calendar.</h3>
+            </div>
+          </div>
+          <CalendarElement today={today} tasks={tasks} onUpdateTask={handleUpdateTask} />
+        </div>
+      </section>
+      <section className="grid grid-cols-2 gap-10">
+        <div className="flex flex-col gap-1">
+          <div className="flex justify-between mb-4 p-2">
+            <div className="flex justify-center items-center p-2 gap-3">
+              <LoaderCircle className="size-5" />
+              <h3 className="text-xl font-semibold">active.</h3>
+            </div>
+          </div>
+          <ActiveTask tasks={tasks} today={today} onToggle={handleToggleTaskItem} />
+        </div>
         <div className="flex flex-col gap-1">
           <div className="flex justify-between mb-4 p-2">
             <div className="flex justify-center items-center p-2 gap-3">
@@ -188,15 +234,6 @@ function Dashboard() {
             onEdit={handleEditTaskItem}
             today={today}
           />
-        </div>
-        <div className="flex flex-col gap-1">
-          <div className="flex justify-between mb-4 p-2">
-            <div className="flex justify-center items-center p-2 gap-3">
-              <LoaderCircle className="size-5" />
-              <h3 className="text-xl font-semibold">active.</h3>
-            </div>
-          </div>
-          <ActiveTask tasks={tasks} today={today}/>
         </div>
       </section>
 
@@ -236,6 +273,7 @@ function Dashboard() {
                   startAt: editingTask.startAt,
                   endAt: editingTask.endAt,
                   emoji: editingTask.emoji,
+                  completed: editingTask.completed,
                 }}
                 today={today}
               />

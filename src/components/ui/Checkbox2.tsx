@@ -1,20 +1,21 @@
-import { CheckCheck } from 'lucide-react'
+import { Check, CheckCheck } from 'lucide-react'
 
 type CheckboxProps = {
   checked: boolean
   onChange: () => void
-  className: string
+  classNameUnchecked: string
+  classNameChecked: string
 }
 
-function Checkbox({ checked, onChange, className}: CheckboxProps) {
+function Checkbox({ checked, onChange, classNameUnchecked, classNameChecked}: CheckboxProps) {
   return (
     <label
       className={`
         shrink-0
-        p-3
+        p-2
         rounded-lg
         cursor-pointer
-        ${className}
+        ${checked ? classNameChecked : classNameUnchecked}
         transition-colors
         duration-400
         `}
@@ -26,7 +27,8 @@ function Checkbox({ checked, onChange, className}: CheckboxProps) {
         className="peer sr-only"
       />
       <span>
-          <CheckCheck className="size-4" />
+        {checked ? <CheckCheck className="size-4" /> : <Check className="size-4"/>}
+
       </span>
     </label>
   )

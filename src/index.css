@@ -66,10 +66,20 @@
   /*
    * Task priorities
    */
+  --color-priority-high: #393f50;
+  --color-priority-medium: color-mix(
+    in oklab,
+    var(--color-priority-high) 50%,
+    transparent
+  );
 
-  --color-priority-low: #222631;
-  --color-priority-medium: #222631;
-  --color-priority-high: #2b2f3d;
+  --color-priority-low: color-mix(
+          in oklab,
+          var(--color-priority-medium) 50%,
+          transparent
+  );
+
+
 
 
 
@@ -104,6 +114,33 @@
   }
 }
 
+@keyframes active-task-progress-enter {
+  from {
+    stroke-dashoffset: var(--progress-start);
+  }
+
+  to {
+    stroke-dashoffset: var(--progress-end);
+  }
+}
+
+.active-task-progress-circle {
+  animation: active-task-progress-enter 800ms ease-out;
+
+  transition:
+          stroke-dashoffset 800ms linear,
+          stroke 180ms ease,
+          filter 180ms ease;
+}
+
+.active-task-progress-circle:hover {
+  stroke: color-mix(in srgb, var(--color-accent-secondary) 68%, rgba(255, 255, 255, 0.52) 32%);
+  filter:
+          drop-shadow(0 0 6px color-mix(in srgb, var(--color-accent-secondary) 60%, rgba(255, 255, 255, 0.43) 40%))
+          drop-shadow(0 0 14px color-mix(in srgb, var(--color-accent-secondary) 75%, transparent 25%));
+}
+
+
 
 @layer base {
   html,
@@ -130,13 +167,20 @@
   }
 }
 
-.active-task-progress-circle {
-  transition: stroke 180ms ease, filter 180ms ease;
+.dash-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-surface-hover) transparent;
 }
 
-.active-task-progress-circle:hover {
-  stroke: color-mix(in srgb, var(--color-accent-secondary) 68%, rgba(255, 255, 255, 0.52) 32%);
-  filter:
-    drop-shadow(0 0 6px color-mix(in srgb, var(--color-accent-secondary) 60%, rgba(255, 255, 255, 0.43) 40%))
-    drop-shadow(0 0 14px color-mix(in srgb, var(--color-accent-secondary) 75%, transparent 25%));
+.dash-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.dash-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.dash-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 9999px;
 }

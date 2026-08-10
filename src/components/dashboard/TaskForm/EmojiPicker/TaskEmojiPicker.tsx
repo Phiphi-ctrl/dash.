@@ -109,7 +109,7 @@ function TaskEmojiPicker ({onSelect} : TaskEmojiPickerProps) {
   }
 
   return (
-    <div className="bg-surface rounded-lg border border-border p-4">
+    <div className="bg-surface rounded-lg border border-border p-4 w-full">
       {/*Frequent*/}
       <div className="grid grid-cols-8 grid-rows-2 rounded-lg border-border">
         {frequentEmojis.map((emoji) => {
