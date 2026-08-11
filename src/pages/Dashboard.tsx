@@ -1,220 +1,92 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
 import TaskList from '../components/dashboard/TodoList/TaskList'
-import TaskForm from '../components/dashboard/TaskForm/TaskForm.tsx'
-import type { NewTask, Task } from '../types/Task'
+import type { Task } from '../types/Task'
 import Button from '../components/ui/Button.tsx'
-import { PlusIcon, ListChecks, LoaderCircle, Calendar } from 'lucide-react'
+import { PlusIcon, ListChecks, LoaderCircle, ChevronDown, ChevronUp, LineStyle } from 'lucide-react'
 import LiveDateTime from '../components/dashboard/LiveDateTime.tsx'
 import ActiveTask from '../components/dashboard/Active/ActiveTask.tsx'
-import { inputFormatter } from '../utils/Datetime.ts'
-import CalendarElement from '../components/dashboard/Calendar/CalendarElement.tsx'
 
-function Dashboard() {
-  const [tasks, setTasks] = useState<Task[]>(() => {
-    const storedTasks = localStorage.getItem("dash.TodoList")
-    if(storedTasks === null) {
-      return []
-    }
-    return JSON.parse(storedTasks)
-  })
+type DashboardProps = {
+  today: Date
+  tasks: Task[]
+  handleToggleTaskItem: (id: string) => void
+  handleDeleteTaskItem: (id: string) => void
+  setEditingTask: (task: Task | null) => void
+  setIsAddTaskOpen: (isOpen: boolean) => void
+  handleEditTaskItem: (task: Task) => void
+}
 
-  const [isAddTaskOpen, setIsAddTaskOpen] = useState(false)
 
-  const [editingTask, setEditingTask] = useState<Task | null>(null)
+function Dashboard({
+                     today,
+                     tasks,
+                     handleToggleTaskItem,
+                     setEditingTask,
+                     setIsAddTaskOpen,
+                     handleDeleteTaskItem,
+                     handleEditTaskItem }: DashboardProps) {
 
-  const addTaskRef = useRef<HTMLDivElement>(null)
+  const [isActiveOpen, setIsActiveOpen] = useState(true)
 
-  useEffect(() => {
-    if(!isAddTaskOpen) {
-      return
-    }
+  const [isToDoOpen, setIsToDoOpen] = useState(true)
 
-    function handleDocumentClick(event: MouseEvent) {
-      if(!(event.target instanceof Node)) {
-        return
-      }
-
-      const clickedInside =
-        addTaskRef.current?.contains(event.target)
-
-      if(!clickedInside) {
-        setIsAddTaskOpen(false)
-      }
-    }
-
-    document.addEventListener('mousedown', handleDocumentClick)
-
-    return () => {
-      document.removeEventListener('mousedown', handleDocumentClick)
-    }
-  }, [isAddTaskOpen])
-
-  useEffect(() => {
-    localStorage.setItem("dash.TodoList", JSON.stringify(tasks))
-  }, [tasks])
-
-  function handleAddTask(newTask : NewTask) {
-    if (newTask.title.trim() === '') {
-      // the title is empty
-      return false
-    }
-    if (newTask.startAt === null || newTask.endAt === null) {
-      // no startAt defined or no endAt defined
-      return false
-    }
-    if (Date.parse(newTask.endAt) <= Date.parse(newTask.startAt)) {
-      // the end is smaller or equal than the start
-      return false
-    }
-    console.log(newTask) // debug
-    const task : Task = {
-      id: crypto.randomUUID(),
-      title: newTask.title.trim(),
-      completed: false,
-      priority: newTask.priority,
-      createdAt: new Date().toISOString(),
-      startAt: newTask.startAt,
-      endAt: newTask.endAt,
-      emoji: newTask.emoji,
-      completedAt: null
-    }
-    setTasks((currentTasks) => [...currentTasks, task])
-    return true
-  }
-
-  function handleDeleteTaskItem(id : string) {
-    setTasks((currentTasks) => currentTasks.filter(task => task.id !== id))
-  }
-
-  function handleToggleTaskItem(id: string) {
-    setTasks((currentTasks) =>
-      currentTasks.map((task) =>
-        task.id === id ?
-          {
-            ...task,
-            completed: !task.completed,
-            completedAt: !task.completed ? inputFormatter.format(new Date()) : null,
-          } : task))
-  }
-
-  function handleEditTaskItem(task: Task) {
-    setEditingTask(task)
-    setIsAddTaskOpen(true)
-  }
-
-  function handleEditTaskForm(
-      id: string,
-      updatedValues: NewTask,
-  ) {
-    if (updatedValues.title.trim() === '') {
-      return false
-    }
-
-    const { startAt, endAt } = updatedValues
-
-    if (startAt === null || endAt === null) {
-      return false
-    }
-
-    if (Date.parse(endAt) <= Date.parse(startAt)) {
-      return false
-    }
-
-    setTasks((currentTasks) =>
-        currentTasks.map((task) =>
-            task.id === id
-                ? {
-                  ...task,
-                  ...updatedValues,
-                  startAt,
-                  endAt,
-                }
-                : task,
-        ),
-    )
-
-    return true
-  }
-
-  function submitTaskAdd(values: NewTask) { // here we are gonna have two different ones one for adding a new task and one for editing
-    if(handleAddTask(values)) {
-      setEditingTask(null)
-      setIsAddTaskOpen(false)
-    }
-  }
-
-  function submitTaskEdit(values: NewTask) {
-    if(editingTask === null) {
-      return
-    }// here we are gonna have two different ones one for adding a new task and one for editing
-    if(handleEditTaskForm(editingTask.id, values)) {
-      setEditingTask(null)
-      setIsAddTaskOpen(false)
-    }
-  }
-
-  const emptyTaskValues: NewTask = {
-    title: '',
-    priority: 'medium',
-    startAt: null,
-    endAt: null,
-    emoji: null,
-    completed: false
-  }
-
-  function handleUpdateTask(
-    id: string,
-    changes: Partial<Task>
-  ) {
-    setTasks((currentTasks) =>
-      currentTasks.map((task) =>
-        task.id === id
-          ? { ...task, ...changes }
-          : task
-      )
-    )
-  }
-
-  const today = new Date();
 
   return (
     <main className="flex flex-1 z-0 flex-col p-10 gap-8">
-      <header>
+      <header className="flex flex-col gap-2">
         <LiveDateTime />
-
-        <h2 className="text-5xl font-bold">board.</h2>
-      </header>
-      <section className="flex mt-5">
-        <div className="flex flex-col gap-1 w-full">
-          <div className="flex justify-between mb-4 p-2">
-            <div className="flex justify-center items-center p-2 gap-3">
-              <Calendar className="size-5" />
-              <h3 className="text-xl font-semibold">calendar.</h3>
-            </div>
-          </div>
-          <CalendarElement today={today} tasks={tasks} onUpdateTask={handleUpdateTask} />
+        <div className="flex gap-4 items-center">
+          <LineStyle className="size-12 text-muted"/>
+          <h2 className="text-5xl font-bold">board.</h2>
         </div>
-      </section>
+      </header>
+
       <section className="grid grid-cols-2 gap-10">
+        {/*Active Section*/}
         <div className="flex flex-col gap-1">
           <div className="flex justify-between mb-4 p-2">
             <div className="flex justify-center items-center p-2 gap-3">
               <LoaderCircle className="size-5" />
               <h3 className="text-xl font-semibold">active.</h3>
+              <button
+                className="cursor-pointer"
+                type="button"
+                onClick={() => setIsActiveOpen((current) => !current)}
+              >
+                {isActiveOpen ? (
+                  <ChevronUp className="size-6"/>
+                ) : (
+                  <ChevronDown className="size-6"/>
+                )}
+              </button>
             </div>
           </div>
-          <ActiveTask tasks={tasks} today={today} onToggle={handleToggleTaskItem} />
+          {isActiveOpen && (
+            <ActiveTask tasks={tasks} today={today} onToggle={handleToggleTaskItem} />
+          )}
         </div>
+        {/*To-do section*/}
         <div className="flex flex-col gap-1">
           <div className="flex justify-between mb-4 p-2">
             <div className="flex justify-center items-center p-2 gap-3">
               <ListChecks className="size-5" />
               <h3 className="text-xl font-semibold">To-Do list.</h3>
+              <button
+                className="cursor-pointer"
+                type="button"
+                onClick={() => setIsToDoOpen((current) => !current)}
+              >
+                {isToDoOpen ? (
+                  <ChevronUp className="size-6"/>
+                ) : (
+                  <ChevronDown className="size-6"/>
+                )}
+              </button>
             </div>
             <Button
               onClick={() => {
                 setEditingTask(null)
-                setIsAddTaskOpen((current) => !current)
+                setIsAddTaskOpen(true)
               }}
               Icon={PlusIcon}
               className={`
@@ -227,60 +99,17 @@ function Dashboard() {
             `}
             />
           </div>
-          <TaskList
-            tasks={tasks}
-            onToggle={handleToggleTaskItem}
-            onDelete={handleDeleteTaskItem}
-            onEdit={handleEditTaskItem}
-            today={today}
-          />
+          {isToDoOpen && (
+            <TaskList
+              tasks={tasks}
+              onToggle={handleToggleTaskItem}
+              onDelete={handleDeleteTaskItem}
+              onEdit={handleEditTaskItem}
+              today={today}
+            />
+          )}
         </div>
       </section>
-
-      <div>
-        {isAddTaskOpen && editingTask === null && (
-          <div className="fixed inset-0 z-50 flex justify-end p-2">
-            <div
-              className="w-full rounded-lg max-w-lg border border-border bg-surface p-1"
-              ref={addTaskRef}
-            >
-              <TaskForm
-                onClose={() => {
-                  setIsAddTaskOpen(false)
-                }}
-                onSubmit={submitTaskAdd}
-                initialValues={emptyTaskValues}
-                today={today}
-              />
-            </div>
-          </div>
-        )}
-        {isAddTaskOpen && editingTask !== null && (
-          <div className="fixed inset-0 z-50 flex justify-end p-2">
-            <div
-              className="w-full rounded-lg max-w-lg border border-border bg-surface p-1"
-              ref={addTaskRef}
-            >
-              <TaskForm
-                onClose={() => {
-                  setIsAddTaskOpen(false)
-                  setEditingTask(null)
-                }}
-                onSubmit={submitTaskEdit}
-                initialValues={{
-                  title: editingTask.title,
-                  priority: editingTask.priority,
-                  startAt: editingTask.startAt,
-                  endAt: editingTask.endAt,
-                  emoji: editingTask.emoji,
-                  completed: editingTask.completed,
-                }}
-                today={today}
-              />
-            </div>
-          </div>
-        )}
-      </div>
     </main>
   )
 }

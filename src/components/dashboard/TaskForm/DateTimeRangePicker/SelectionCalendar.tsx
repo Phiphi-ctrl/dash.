@@ -231,12 +231,13 @@ function SelectionCalendar ({
                 handleEndCalenderChange(dateToLocalDateTimeString(replaceDateKeepTime(newEndAt, day)))
             )}
             className={`
+            calendar-day-button
             size-8
             flex
             justify-center 
             items-center 
-            hover:bg-surface-hover
             transition-[border-radius,background-color,color]
+            hover:bg-surface-hover
             duration-600
             ease-out
             ${getDayStyle(day)}

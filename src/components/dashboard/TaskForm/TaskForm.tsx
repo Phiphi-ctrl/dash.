@@ -15,6 +15,7 @@ import { getDuration, getTimeRange } from "../../../utils/Datetime.ts";
 import SaveTemplateButton from '../../ui/SaveTemplateButton.tsx'
 import Checkbox2 from '../../ui/Checkbox2.tsx'
 import PriorityPicker from './PriorityPicker/PriorityPicker.tsx'
+import { createPortal } from 'react-dom'
 
 
 type TaskFormProps = {
@@ -40,9 +41,32 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false)
   const [isPriorityPickerOpen, setIsPriorityPickerOpen] = useState(false)
 
-  const datePickerRef = useRef<HTMLDivElement>(null)
-  const emojiPickerRef = useRef<HTMLDivElement>(null)
-  const priorityPickerRef = useRef<HTMLDivElement>(null)
+  type PopoverPosition = {
+    left: number
+    top: number
+  }
+
+  const [datePopoverPosition, setDatePopoverPosition] =
+    useState<PopoverPosition | null>(null)
+  const dateAnchorRef =
+    useRef<HTMLDivElement>(null)
+  const datePopoverRef =
+    useRef<HTMLDivElement>(null)
+
+  const [emojiPopoverPosition, setEmojiPopoverPosition] =
+    useState<PopoverPosition | null>(null)
+  const emojiAnchorRef =
+    useRef<HTMLDivElement>(null)
+  const emojiPopoverRef =
+    useRef<HTMLDivElement>(null)
+
+  const [priorityPopoverPosition, setPriorityPopoverPosition] =
+    useState<PopoverPosition | null>(null)
+  const priorityAnchorRef =
+    useRef<HTMLDivElement>(null)
+  const priorityPopoverRef =
+    useRef<HTMLDivElement>(null)
+
   const canCloseDatePickerRef = useRef(true)
 
   const [templates, setTemplates] = useState<TaskTemplate[]>(() => {
@@ -73,17 +97,22 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
     }
 
     function handleDocumentClickDP(event: MouseEvent) {
+
       if(!(event.target instanceof Node)) {
         return
       }
-      const clickedInside =
-        datePickerRef.current?.contains(event.target)
 
-      if(!clickedInside) {
-        if(!canCloseDatePickerRef.current) {
-          console.log('Cannot close date picker there is an invalid input')
+      const clickedAnchor =
+        dateAnchorRef.current?.contains(event.target)
+
+      const clickedPopover =
+        datePopoverRef.current?.contains(event.target)
+
+      if (!clickedAnchor && !clickedPopover) {
+        if (!canCloseDatePickerRef.current) {
           return
         }
+
         setIsDatePickerOpen(false)
       }
       // detect whether event.target is outside the datePickRef
@@ -105,10 +134,15 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
       if(!(event.target instanceof Node)) {
         return
       }
-      const clickedInside =
-        emojiPickerRef.current?.contains(event.target)
 
-      if(!clickedInside) {
+      const clickedAnchor =
+        emojiAnchorRef.current?.contains(event.target)
+
+      const clickedPopover =
+        emojiPopoverRef.current?.contains(event.target)
+
+      if (!clickedAnchor && !clickedPopover) {
+
         setIsEmojiPickerOpen(false)
       }
     }
@@ -125,24 +159,29 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
       return
     }
 
-    function handleDocumentClickEP(event: MouseEvent) {
+    function handleDocumentClickPP(event: MouseEvent) {
       if(!(event.target instanceof Node)) {
         return
       }
-      const clickedInside =
-        priorityPickerRef.current?.contains(event.target)
 
-      if (!clickedInside) {
+      const clickedAnchor =
+        priorityAnchorRef.current?.contains(event.target)
+
+      const clickedPopover =
+        priorityPopoverRef.current?.contains(event.target)
+
+      if (!clickedAnchor && !clickedPopover) {
+
         setIsPriorityPickerOpen(false)
       }
     }
 
-    document.addEventListener('click', handleDocumentClickEP)
+    document.addEventListener('click', handleDocumentClickPP)
 
     return () => {
-      document.removeEventListener('click', handleDocumentClickEP)
+      document.removeEventListener('click', handleDocumentClickPP)
     }
-  })
+  }, [isPriorityPickerOpen])
 
   function constructTaskValues(): NewTask {
     return {
@@ -172,6 +211,18 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
     }
     canCloseDatePickerRef.current = true
     if(!isEmojiPickerOpen) {
+      const rect =
+        dateAnchorRef.current?.getBoundingClientRect()
+
+      if (rect === undefined) {
+        return
+      }
+
+      setDatePopoverPosition({
+        left: rect.left,
+        top: rect.bottom + 10,
+      })
+
       setIsDatePickerOpen(true)
     }
     return
@@ -183,6 +234,18 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
       return
     }
     if(!isDatePickerOpen) {
+      const rect =
+        emojiAnchorRef.current?.getBoundingClientRect()
+
+      if (rect === undefined) {
+        return
+      }
+
+      setEmojiPopoverPosition({
+        left: rect.left,
+        top: rect.bottom + 10,
+      })
+
       setIsEmojiPickerOpen(true)
     }
     return
@@ -194,6 +257,18 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
       return
     }
     if(!isPriorityPickerOpen) {
+      const rect =
+        priorityAnchorRef.current?.getBoundingClientRect()
+
+      if (rect === undefined) {
+        return
+      }
+
+      setPriorityPopoverPosition({
+        left: rect.left,
+        top: rect.bottom + 10,
+      })
+
       setIsPriorityPickerOpen(true)
     }
     return
@@ -266,41 +341,8 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
     >
 
       {/*Top: Title and Cancel/Add button*/}
-      <div className="flex gap-4">
-        {/*Icon*/}
-        <div className="relative flex items-center text-foreground" ref={emojiPickerRef}>
-          <button
-            type="button"
-            onClick={handleEmojiPickerToggle}
-            className="
-            min-w-8
-            cursor-pointer
-            text-4xl
-            size-10
-            text-foreground
-            "
-          >
-            {newEmoji ??
-              <SmilePlus />
-            }
-          </button>
-          {isEmojiPickerOpen && (
-            <div className="absolute left-0 top-full z-50 mt-2 w-80">
-              <TaskEmojiPicker onSelect={handleEmojiSelect}/>
-            </div>
-          )}
-        </div>
-        <input
-          type="text"
-          value={newTitle}
-          onChange={(event) => {
-            setNewTitle(event.target.value)
-          }}
-          placeholder="New Task . . ."
-          className={`w-full truncate rounded-lg bg-app-surface text-3xl font-bold focus:outline-none 
-          ${newTitle.trim() === '' ? 'text-muted' : ''}`}
-        />
-        <div className="flex">
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center justify-end ml-auto">
           <div className="flex-1 max-w-xs">
             <SaveTemplateButton onSave={handleSaveTemplate} />
           </div>
@@ -311,10 +353,62 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
             <CancelButton onCancel={onClose} />
           </div>
         </div>
+        {/*Icon and title*/}
+        <div className="flex items-center justify-end gap-4">
+          <div className="relative flex items-center text-foreground" ref={emojiAnchorRef}>
+            <button
+              type="button"
+              onClick={handleEmojiPickerToggle}
+              className="
+            min-w-8
+            cursor-pointer
+            text-4xl
+            size-10
+            text-foreground
+            "
+            >
+              {newEmoji ??
+                <SmilePlus />
+              }
+            </button>
+            {isEmojiPickerOpen && emojiPopoverPosition !== null &&  createPortal(
+              <div
+                ref={emojiPopoverRef}
+                className="
+                fixed
+                z-[100]
+                p-4
+                "
+                style={{
+                  top: emojiPopoverPosition.top,
+                  left: emojiPopoverPosition.left,
+                }}
+              >
+                <div className="glass-panel-bg"/>
+                <div className="relative z-10">
+                  <TaskEmojiPicker onSelect={handleEmojiSelect}/>
+                </div>
+              </div>,
+
+              document.body
+            )}
+          </div>
+          <input
+            type="text"
+            value={newTitle}
+            onChange={(event) => {
+              setNewTitle(event.target.value)
+            }}
+            placeholder="New Task . . ."
+            className={`w-full truncate rounded-lg bg-app-surface text-3xl font-bold focus:outline-none 
+          ${newTitle.trim() === '' ? 'text-muted' : ''}`}
+          />
+        </div>
+
       </div>
 
       {/*Main Property List*/}
-      <div className="grid grid-cols-2 gap-5">
+      <div className="grid grid-cols-2 gap-4">
 
         {/*Calendar and date selection*/}
         <div className="flex">
@@ -326,7 +420,7 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
           </span>
         </div>
         <div className="flex items-center relative -ml-20">
-          <div ref={datePickerRef}>
+          <div ref={dateAnchorRef}>
             <button
               type="button"
               onClick={handleDatePickerToggle}
@@ -334,19 +428,33 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
             >
               {getTimeRange(newStartAt, newEndAt, today)}
             </button>
-            {isDatePickerOpen && (
+            {isDatePickerOpen && datePopoverPosition !== null && createPortal(
               <div
-                className="z-50 absolute mt-2 top-full p-4 rounded-lg bg-surface border border-border"
+                ref={datePopoverRef}
+                className="
+                fixed
+                z-[100]
+                p-4
+                "
+                style={{
+                  left: datePopoverPosition.left,
+                  top: datePopoverPosition.top,
+                }}
               >
-                <DateTimeRangePicker
-                  newStartAt={newStartAt}
-                  newEndAt={newEndAt}
-                  setNewStartAt={setNewStartAt}
-                  setNewEndAt={setNewEndAt}
-                  onCanCloseChange={handleCanCloseChange}
-                  today={today}
-                />
-              </div>
+                <div className="glass-panel-bg"/>
+                <div className="relative z-10">
+                  <DateTimeRangePicker
+                    newStartAt={newStartAt}
+                    newEndAt={newEndAt}
+                    setNewStartAt={setNewStartAt}
+                    setNewEndAt={setNewEndAt}
+                    onCanCloseChange={handleCanCloseChange}
+                    today={today}
+                  />
+                </div>
+              </div>,
+
+              document.body
             )}
           </div>
         </div>
@@ -364,19 +472,6 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
           {getDuration(newStartAt, newEndAt)}
         </div>
 
-        {/*Notes section (maybe add a text input or add a section below)*/}
-        <div className="flex">
-          <div className="grid size-8 place-items-center">
-            <FileText className="size-4"/>
-          </div>
-          <span className="p-1">
-          Notes
-          </span>
-        </div>
-        <div className="flex items-center text-muted -ml-20">
-          Notes here
-        </div>
-
         {/*Priority*/}
         <div className="flex">
           <div className="grid size-8 place-items-center">
@@ -387,7 +482,7 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
           </span>
         </div>
         <div className="flex items-center relative -ml-20">
-          <div ref={priorityPickerRef}>
+          <div ref={priorityAnchorRef}>
             <button
               type="button"
               onClick={handlePriorityPickerToggle}
@@ -396,12 +491,26 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
               {newPriority ? newPriority.charAt(0).toUpperCase() + newPriority.slice(1) : 'Priority'}
             </button>
 
-            {isPriorityPickerOpen && (
+            {isPriorityPickerOpen && priorityPopoverPosition !== null && createPortal(
               <div
-                className="z-50 absolute mt-2 top-full rounded-lg bg-surface border border-border p-2 w-50"
+                ref={priorityPopoverRef}
+                className="
+                fixed
+                z-[100]
+                p-4
+                "
+                style={{
+                  top: priorityPopoverPosition.top,
+                  left: priorityPopoverPosition.left,
+                }}
               >
-                <PriorityPicker onClick={handlePrioritySelect} currentlySelected={newPriority} />
-              </div>
+                <div className="glass-panel-bg"/>
+                <div className="relative z-10">
+                  <PriorityPicker onClick={handlePrioritySelect} currentlySelected={newPriority} />
+                </div>
+              </div>,
+
+              document.body
             )}
           </div>
         </div>
@@ -440,6 +549,19 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
           </div>
         </div>
 
+        {/*Notes section (maybe add a text input or add a section below)*/}
+        <div className="flex">
+          <div className="grid size-8 place-items-center">
+            <FileText className="size-4"/>
+          </div>
+          <span className="p-1">
+          Notes
+          </span>
+        </div>
+        <div className="flex items-center text-muted -ml-20">
+          Notes here
+        </div>
+
         {/*Templates*/}
         <div className="flex mt-10">
           <div className="grid size-8 place-items-center">
@@ -453,24 +575,22 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
           <div className="flex flex-wrap gap-2 h-30 overflow-hidden overflow-y-auto overflow-x-hidden dash-scrollbar">
             {templates.map((template) => (
               <div
-                className="flex border border-border rounded-lg h-14"
+                className="flex border glass-surface rounded-lg h-14"
                 key={template.id}
               >
                 <button
                   type="button"
                   onClick={() => handleTemplateSelect(template)}
-                  className="flex min-w-0 flex-1 bg-surface cursor-pointer p-3"
+                  className="flex min-w-0 flex-1 cursor-pointer p-3"
                 >
                   {template.emoji ? (
                     <div className="flex items-baseline gap-2">
                       <span className="text-lg size-6">{template.emoji}</span>
                       <span className="truncate">{template.title}</span>
-                      <span className="text-xs text-muted">24m</span>
                     </div>
                   ) : (
                     <div className="flex items-baseline gap-2">
                       <span className="truncate">{template.title}</span>
-                      <span className="text-xs text-muted">24m</span>
                     </div>
                   )}
 

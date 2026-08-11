@@ -84,6 +84,10 @@
 
 
 
+
+
+
+
   /*
    * Bin Shake
    */
@@ -112,6 +116,57 @@
       transform: rotate(7deg);
     }
   }
+}
+
+.glass-panel-bg {
+  @apply
+  absolute
+  inset-0
+  pointer-events-none
+  rounded-3xl
+  bg-transparent
+  backdrop-blur-lg
+  border
+  border-white/10
+  shadow-2xl;
+}
+
+.glass-surface {
+  @apply
+  bg-transparent
+  backdrop-blur-xl
+  border
+  border-white/10
+  shadow-xl
+  rounded-2xl;
+}
+
+.glass-panel {
+  @apply
+  bg-transparent
+  backdrop-blur-2xl
+  border
+  border-white/10
+  shadow-2xl
+  rounded-3xl;
+}
+
+.calendar-day-button {
+  transform: translateZ(0);
+}
+
+.popover-content-layer {
+  transform: translateZ(0);
+}
+
+.glass-popover {
+  @apply
+  bg-surface/50
+  backdrop-blur-xl
+  border
+  border-white/10
+  shadow-lg
+  rounded-2xl;
 }
 
 @keyframes active-task-progress-enter {

@@ -7,4 +7,7 @@
 - [x] add support for multiple active tasks by swiping left on the active task or with a -> button it showing you the other active tasks and keep the shortest in view first
 - [x] add deleting templates button to templates plus implied functionality
 - [ ] connect details to actual task form in active task
-- [ ] add calendar render to board.
+- [x] add calendar render to board.
+
+- Safari 26.x: backdrop-filter popovers may show hover repaint artifacts.
+  Fixed in newer WebKit / Safari 27.

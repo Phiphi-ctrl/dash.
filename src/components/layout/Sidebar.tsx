@@ -1,13 +1,13 @@
 import {
   LayoutDashboard,
   Minus,
-  Calendar,
   UserRound,
   Settings,
   ChartPie,
-  House,
-  LibraryBig
+  LineStyle,
+  Notebook, Calendar,
 } from 'lucide-react'
+import { NavLink } from 'react-router'
 
 function Sidebar() {
 
@@ -68,8 +68,9 @@ function Sidebar() {
 
       {/*Main Navigation*/}
       <div className="mt-15 flex flex-col gap-4">
-        <button
-          type="button"
+        <NavLink
+          to="/"
+          end
           className="
           flex
           h-11
@@ -84,43 +85,18 @@ function Sidebar() {
           "
         >
           <div className="flex size-8 shrink-0 items-center justify-center">
-            <House className="size-5" />
+            <LineStyle className="size-5" />
           </div>
 
           <span
             className={spanStyle}
           >
-            Home
+            Board
           </span>
-        </button>
-        <button
-          type="button"
-          className="
-          flex
-          h-11
-          w-full
-          items-center
-          rounded-lg
-          px-4
-          text-foreground-secondary
-          transition-colors
-          hover:bg-surface-hover
-          hover:text-foreground
-          "
-        >
-          <div className="flex size-8 shrink-0 items-center justify-center">
-            <LayoutDashboard className="size-5" />
-          </div>
-
-          <span
-            className={spanStyle}
-          >
-            Dashboard
-          </span>
-        </button>
-
-        <button
-          type="button"
+        </NavLink>
+        <NavLink
+          to="/calendar"
+          end
           className="
           flex
           h-11
@@ -143,9 +119,35 @@ function Sidebar() {
           >
             Calendar
           </span>
-        </button>
-        <button
-          type="button"
+        </NavLink>
+        <NavLink
+          to="/categories"
+          className="
+          flex
+          h-11
+          w-full
+          items-center
+          rounded-lg
+          px-4
+          text-foreground-secondary
+          transition-colors
+          hover:bg-surface-hover
+          hover:text-foreground
+          "
+        >
+          <div className="flex size-8 shrink-0 items-center justify-center">
+            <LayoutDashboard className="size-5" />
+          </div>
+
+          <span
+            className={spanStyle}
+          >
+            Categories
+          </span>
+        </NavLink>
+        <NavLink
+          to="/stats"
+          end
           className="
           flex
           h-11
@@ -168,9 +170,10 @@ function Sidebar() {
           >
             Stats
           </span>
-        </button>
-        <button
-          type="button"
+        </NavLink>
+        <NavLink
+          to="/notes"
+          end
           className="
           flex
           h-11
@@ -185,7 +188,7 @@ function Sidebar() {
           "
         >
           <div className="flex size-8 shrink-0 items-center justify-center">
-            <LibraryBig className="size-5" />
+            <Notebook className="size-5" />
           </div>
 
           <span
@@ -193,7 +196,7 @@ function Sidebar() {
           >
             Notes
           </span>
-        </button>
+        </NavLink>
       </div>
 
       {/*Bottom Navigation*/}

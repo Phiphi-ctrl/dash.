@@ -2,13 +2,16 @@ import {
   getStartOfWeek,
   dayFormatter,
   monthFormatter,
-  getDayRange,
-  getHourRange,
-  isSameDay,
-  inputFormatter
+  getDayRange, getHourRange, getTimeRange,
 } from '../../../utils/Datetime.ts'
-import {Fragment, useEffect, useState} from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import {
+  Fragment,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState
+} from 'react'
+import { ChevronLeft, ChevronRight, Pen, Trash2, X } from 'lucide-react'
 import type { Task } from '../../../types/Task.ts'
 
 type CalendarProps = {
@@ -18,6 +21,9 @@ type CalendarProps = {
       id: string,
       changes: Partial<Task>
   ) => void
+  onCreateTaskAt: ( startAt: Date ) => void
+  onEdit: (task: Task ) => void,
+  onDelete: (id: string) => void,
 }
 
 type CalendarTaskSegment = {
@@ -32,22 +38,26 @@ type PositionedCalendarTaskSegment = CalendarTaskSegment & {
   laneCount: number
 }
 
-function CalendarElement ({ today, tasks, onUpdateTask} : CalendarProps) {
+export type DragState =
+  | {
+  mode: 'resize-end'
+  taskId: string
+  previewStartAt: string
+  previewEndAt: string
+}
+  | {
+  mode: 'move'
+  taskId: string
+  durationMs: number
+  previewStartAt: string
+  previewEndAt: string
+}
+  | null
+
+function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, onDelete} : CalendarProps) {
   const [visibleWeekStart, setVisibleWeekStart] = useState(
     () => getStartOfWeek(today)
   )
-
-  type DragState =
-      | {
-    mode: 'resize-end'
-    taskId: string
-  }
-      | {
-    mode: 'move'
-    taskId: string
-    durationMs: number
-  }
-      | null
 
   const [dragState, setDragState] =
       useState<DragState>(null)
@@ -56,17 +66,140 @@ function CalendarElement ({ today, tasks, onUpdateTask} : CalendarProps) {
     if (dragState === null) return
 
     function handlePointerUp() {
+      if (dragState === null) return
+
+      onUpdateTask(dragState.taskId, {
+        startAt: dragState.previewStartAt,
+        endAt: dragState.previewEndAt,
+      })
+
       setDragState(null)
     }
 
-    window.addEventListener('pointerup', handlePointerUp)
-    window.addEventListener('pointercancel', handlePointerUp)
+    function handlePointerCancel() {
+      setDragState(null)
+    }
+
+    window.addEventListener(
+        'pointerup',
+        handlePointerUp
+    )
+
+    window.addEventListener(
+        'pointercancel',
+        handlePointerCancel
+    )
 
     return () => {
-      window.removeEventListener('pointerup', handlePointerUp)
-      window.removeEventListener('pointercancel', handlePointerUp)
+      window.removeEventListener(
+          'pointerup',
+          handlePointerUp
+      )
+
+      window.removeEventListener(
+          'pointercancel',
+          handlePointerCancel
+      )
     }
-  }, [dragState])
+  }, [dragState, onUpdateTask])
+
+  const draggedCardRef =
+      useRef<HTMLDivElement | null>(null)
+
+  const firstRectRef =
+      useRef<DOMRect | null>(null)
+
+  const flipAnimationRef =
+      useRef<Animation | null>(null)
+
+  const draggedLayoutRef =
+      useRef<HTMLDivElement | null>(null)
+
+  const draggedSurfaceRef =
+      useRef<HTMLDivElement | null>(null)
+
+  function captureFirstRect() {
+    firstRectRef.current =
+        draggedLayoutRef.current?.getBoundingClientRect()
+        ?? null
+  }
+
+  useLayoutEffect(() => {
+    const layoutElement = draggedLayoutRef.current
+    const cardElement = draggedCardRef.current
+    const surfaceElement = draggedSurfaceRef.current
+    const first = firstRectRef.current
+
+    if (
+        layoutElement === null ||
+        first === null ||
+        dragState === null
+    ) {
+      return
+    }
+
+    flipAnimationRef.current?.cancel()
+
+    const last =
+        layoutElement.getBoundingClientRect()
+
+    const deltaX = first.left - last.left
+    const deltaY = first.top - last.top
+
+    const scaleX = first.width / last.width
+    const scaleY = first.height / last.height
+
+    if (
+        dragState.mode === 'move' &&
+        cardElement !== null
+    ) {
+      flipAnimationRef.current =
+          cardElement.animate(
+              [
+                {
+                  transform:
+                      `translate(${deltaX}px, ${deltaY}px)`,
+                },
+                {
+                  transform: 'translate(0, 0)',
+                },
+              ],
+              {
+                duration: 120,
+                easing: 'ease-out',
+              }
+          )
+    }
+
+    if (
+        dragState.mode === 'resize-end' &&
+        surfaceElement !== null
+    ) {
+      flipAnimationRef.current =
+          surfaceElement.animate(
+              [
+                {
+                  transform:
+                      `scale(${scaleX}, ${scaleY})`,
+                  transformOrigin: 'top left',
+                },
+                {
+                  transform: 'scale(1, 1)',
+                  transformOrigin: 'top left',
+                },
+              ],
+              {
+                duration: 120,
+                easing: 'ease-out',
+              }
+          )
+    }
+    firstRectRef.current = null
+  }, [
+      dragState?.previewStartAt,
+      dragState?.previewEndAt,
+      dragState
+  ])
 
   function getVisibleWeekEnd (date: Date) {
     const end = new Date(date)
@@ -153,30 +286,64 @@ function CalendarElement ({ today, tasks, onUpdateTask} : CalendarProps) {
               gridRow: timeSlot + 1,
               gridColumn: dayIndex + 2,
             }}
+            onClick={() => {
+              if (dragState !== null) return
+
+              const startAt = getDateFromTimeSlot(
+                  day,
+                  timeSlot
+              )
+
+              onCreateTaskAt(startAt)
+            }}
             onPointerEnter={() => {
 
               if (dragState === null) return
 
 
-              if (dragState?.mode === 'resize-end') {
+              if (dragState.mode === 'resize-end') {
                 const newEnd = getDateFromTimeSlot(
                     day,
                     timeSlot + 1
                 )
 
-                onUpdateTask(dragState.taskId, {
-                  endAt: newEnd.toISOString(),
+                captureFirstRect()
+                setDragState((current) => {
+                  if (current?.mode !== 'resize-end') {
+                    return current
+                  }
+
+                  if (newEnd <= new Date(current.previewStartAt)) {
+                    return current
+                  }
+
+                  return {
+                    ...current,
+                    previewEndAt: newEnd.toISOString(),
+                  }
                 })
               }
 
-              if (dragState?.mode === 'move') {
-                const newStart = getDateFromTimeSlot(day, timeSlot)
+              if (dragState.mode === 'move') {
+                const newStart = getDateFromTimeSlot(
+                    day,
+                    timeSlot
+                )
 
-                const newEnd = new Date(newStart.getTime() + dragState?.durationMs)
+                const newEnd = new Date(
+                    newStart.getTime() + dragState.durationMs
+                )
+                captureFirstRect()
+                setDragState((current) => {
+                  if (current?.mode !== 'move') {
+                    return current
+                  }
 
-                onUpdateTask(dragState.taskId, {
-                  endAt: newEnd.toISOString(),
-                  startAt: newStart.toISOString(),
+                  return {
+                    ...current,
+                    previewStartAt: newStart.toISOString(),
+                    previewEndAt: newEnd.toISOString(),
+                  }
                 })
               }
 
@@ -195,10 +362,25 @@ function CalendarElement ({ today, tasks, onUpdateTask} : CalendarProps) {
     )
   }
 
-  function buildTaskSegments () {
+  const displayTasks = tasks.map((task) => {
+    if (
+        dragState === null ||
+        task.id !== dragState.taskId
+    ) {
+      return task
+    }
+
+    return {
+      ...task,
+      startAt: dragState.previewStartAt,
+      endAt: dragState.previewEndAt,
+    }
+  })
+
+  function buildTaskSegments (taskList: Task[]) {
     const taskSegments: CalendarTaskSegment[] = []
     days.forEach((day, dayIndex) => {
-      tasks.forEach((task) => {
+      taskList.forEach((task) => {
         const dayStart = new Date(day)
 
         const dayEnd = new Date(day)
@@ -330,14 +512,18 @@ function CalendarElement ({ today, tasks, onUpdateTask} : CalendarProps) {
     return positionedSegments
   }
 
-  const taskSegments = buildTaskSegments()
+  const taskSegments = buildTaskSegments(displayTasks)
 
   const positionedTaskSegments =
       layoutTaskSegments(taskSegments)
 
+  const [isInfoOpen, setIsInfoOpen] = useState(false)
+
+  const [infoTaskId, setInfoTaskId] = useState<string | null>(null)
+
   return (
     <div className="flex flex-col w-full gap-8">
-      <div className="flex p-6">
+      <div className="flex">
         <div className="text-3xl font-bold">
           {monthFormatter.format(visibleWeekStart)}
         </div>
@@ -363,6 +549,7 @@ function CalendarElement ({ today, tasks, onUpdateTask} : CalendarProps) {
           </button>
         </div>
       </div>
+      {/*Day grid*/}
       <div className="flex flex-col w-full">
         <div className="grid grid-cols-[4rem_repeat(7,minmax(0,1fr))] place-items-center">
           <time></time>
@@ -396,120 +583,205 @@ function CalendarElement ({ today, tasks, onUpdateTask} : CalendarProps) {
           grid-cols-[4rem_repeat(7,minmax(0,1fr))]
           grid-rows-[repeat(96,1.25rem)]
           w-full
-          h-120 overflow-y-auto
+          h-140 overflow-y-auto
           ${dragState !== null ? 'select-none' : ''}
           `}
         >
           {timeSlots.map((timeSlot) => (
             timeSlotRow(timeSlot)
           ))}
-
           {positionedTaskSegments.map((segment) => {
-            console.log(positionedTaskSegments)
-            const slotSpan = segment.endSlot - segment.startSlot
-            const isVeryNarrow = segment.laneCount >= 3
             const timeRange = getHourRange(
               segment.task.startAt,
               segment.task.endAt
             )
-            const isTiny = slotSpan <= 2
             const startRange = timeRange[0]
+            const popupToLeft = segment.dayIndex >= 5
             const endRange = timeRange[1]
             return (
               <div
+                ref={
+                  segment.task.id === dragState?.taskId
+                    ? draggedLayoutRef
+                    : undefined
+                }
                 key={`${segment.task.id}-${segment.dayIndex}`}
                 style={{
                   gridColumn: segment.dayIndex + 2,
                   gridRow: `${segment.startSlot + 1} / ${segment.endSlot + 1}`,
 
                   width: `${100 / segment.laneCount}%`,
+
                   transform: `translateX(${segment.laneIndex * 100}%)`,
+
                   justifySelf: 'start',
                 }}
                 className={`
                 relative
-                z-10
                 m-0.5
-                overflow-hidden
-                rounded-md
-                bg-accent-soft
+                ${
+                  infoTaskId === segment.task.id
+                    ? 'z-50'
+                    : 'z-10'
+                }
+                
                 ${dragState !== null ? 'pointer-events-none' : ''}
-                ${isTiny ? 'px-1' : 'p-1'}
-                transition-[width,height,transform,background-color]
-                duration-150
-                ease-out
                 `}
               >
                 <div
+                  ref={
+                    segment.task.id === dragState?.taskId
+                      ? draggedCardRef
+                      : undefined
+                  }
                   className={`
-                  flex min-w-0
-                  pl-3
-                  ${isTiny ? 'flex-col text-xs pt-2' : 'flex-col'}
-                  cursor-pointer
+                  relative
+                  h-full
+                  w-full
                   `}
-
                 >
-                  <span
+                  <div
+                    ref={
+                      segment.task.id === dragState?.taskId
+                        ? draggedSurfaceRef
+                        : undefined
+                    }
                     className="
-                    absolute
-                    left-1
-                    top-1
-                    bottom-1
-                    w-1
-                    rounded-lg
-                    bg-accent
-                    "
-                  />
-                  <div className="flex flex-wrap">
-                      <span>{segment.task.emoji}</span>
-                      <span className="truncate">{segment.task.title}</span>
+                      absolute
+                      inset-0
+                      overflow-hidden
+                      rounded-md
+                      bg-surface
+                      "
+                  >
+                    <span
+                      className="
+                        absolute
+                        left-1
+                        top-1
+                        bottom-1
+                        w-1
+                        rounded-lg
+                        bg-surface-hover
+                      "
+                    />
                   </div>
-                  {slotSpan >= 3 && !isVeryNarrow && (
-                      <span className="truncate whitespace-nowrap text-foreground-secondary">
+                  <div>
+                    <button
+                      className={`
+                      relative
+                      z-10
+                      h-full
+                      w-full
+                      flex
+                      flex-col
+                      ml-3
+                      `}
+                      onClick={() => {
+                        setIsInfoOpen((current) => !current)
+                        setInfoTaskId(segment.task.id)
+                      }}
+                    >
+                      <div className="flex gap-1">
+                        <span>{segment.task.emoji}</span>
+                        <span className="truncate">{segment.task.title}</span>
+                      </div>
+                      <span className="flex text-foreground-secondary">
                         {startRange}–{endRange}
                       </span>
-                  )}
+                    </button>
+                    {isInfoOpen && infoTaskId === segment.task.id && (
+                      <div
+                        className={`
+                        absolute
+                        ${popupToLeft ? 'right-full mr-3' : 'left-full ml-3'}
+                        top-0
+                        z-50
+                        w-64
+                        glass-popover
+                        p-4
+                        flex
+                        flex-col
+                        gap-4
+                        `}
+                      >
+                        <div className="flex items-center justify-end gap-4">
+                          <div className="flex gap-4">
+                            <button
+                              onClick={() => {onEdit(segment.task)}}
+                            >
+                              <Pen className="size-4"/>
+                            </button>
+                            <button
+                              onClick={() => {onDelete(segment.task.id)}}
+                            >
+                              <Trash2 className="size-4"/>
+                            </button>
+                          </div>
+                          <button
+                            onClick={() => setIsInfoOpen((current) => !current)}
+                          >
+                            <X className="size-4"/>
+                          </button>
+                        </div>
+                        <div className="flex gap-2">
+                          <span>{segment.task.emoji}</span>
+                          <span>{segment.task.title}</span>
+                        </div>
+                        <div className="flex flex-col text-foreground-secondary">
+                          <span>{getTimeRange(segment.task.startAt, segment.task.endAt, today)}</span>
+                          <span>{segment.task.completed ? 'Completed' : 'Pending'}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div
-                    className="
+                  className="
                     absolute
                     bottom-0
                     left-0
                     right-0
                     h-2
+                    z-20
                     cursor-ns-resize
                     "
-                    onPointerDown={(event) => {
-                      event.preventDefault()
+                  onPointerDown={(event) => {
+                    event.preventDefault()
 
-                      setDragState({
-                        mode: 'resize-end',
-                        taskId: segment.task.id,
-                      })
-                    }}
+                    setDragState({
+                      mode: 'resize-end',
+                      taskId: segment.task.id,
+                      previewStartAt: segment.task.startAt,
+                      previewEndAt: segment.task.endAt,
+                    })
+                  }}
                 />
                 <div
-                    className="
+                  className="
                     absolute
                     top-0
                     left-0
                     right-0
                     h-3
+                    z-20
                     cursor-grab
                     "
-                    onPointerDown={(event) => {
-                      event.preventDefault()
-                      event.stopPropagation()
+                  onPointerDown={(event) => {
+                    event.preventDefault()
+                    event.stopPropagation()
 
-                      const start = new Date(segment.task.startAt)
-                      const end = new Date(segment.task.endAt)
+                    const start = new Date(segment.task.startAt)
+                    const end = new Date(segment.task.endAt)
 
-                      setDragState({
-                        mode: 'move',
-                        taskId: segment.task.id,
-                        durationMs: end.getTime() - start.getTime(),
-                      })
-                    }}
+                    setDragState({
+                      mode: 'move',
+                      taskId: segment.task.id,
+                      durationMs: end.getTime() - start.getTime(),
+                      previewStartAt: segment.task.startAt,
+                      previewEndAt: segment.task.endAt,
+                    })
+                  }}
                 />
               </div>
             )

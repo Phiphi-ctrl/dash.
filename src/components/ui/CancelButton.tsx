@@ -1,4 +1,4 @@
-import { Trash2 } from 'lucide-react'
+import { ChevronsRight } from 'lucide-react'
 
 type CancelButtonProps = {
   onCancel: () => void
@@ -17,14 +17,13 @@ function CancelButton ({onCancel}: CancelButtonProps) {
       text-text-secondary
       focus:outline-none
      ">
-      <Trash2
+      <ChevronsRight
         className="
-        size-4
+        size-5
         origin-center
         transition-transform
         duration-300
         ease-out
-        group-hover:animate-bin-shake
       "/>
     </button>
   )
