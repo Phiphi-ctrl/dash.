@@ -6,6 +6,7 @@ import {
 } from '../../../utils/Datetime.ts'
 import {
   Fragment,
+  type PointerEvent as ReactPointerEvent,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -54,6 +55,58 @@ export type DragState =
 }
   | null
 
+type PendingSegmentInteraction = {
+  pointerId: number
+  taskId: string
+  startX: number
+  startY: number
+  durationMs: number
+  previewStartAt: string
+  previewEndAt: string
+  dragStarted: boolean
+}
+
+type MovePreview = {
+  previewStartAt: string
+  previewEndAt: string
+}
+
+const taskSegmentDragThresholdPx = 5
+
+function getCalendarMovePreviewAtPoint(
+    clientX: number,
+    clientY: number,
+    durationMs: number
+): MovePreview | null {
+  const slotElement =
+      document.elementsFromPoint(clientX, clientY).find(
+          (element): element is HTMLElement =>
+            element instanceof HTMLElement &&
+            element.dataset.calendarSlotStartAt !== undefined
+      )
+
+  const slotStartAt =
+      slotElement?.dataset.calendarSlotStartAt
+
+  if (slotStartAt === undefined) {
+    return null
+  }
+
+  const newStart = new Date(slotStartAt)
+
+  if (Number.isNaN(newStart.getTime())) {
+    return null
+  }
+
+  const newEnd =
+      new Date(newStart.getTime() + durationMs)
+
+  return {
+    previewStartAt: newStart.toISOString(),
+    previewEndAt: newEnd.toISOString(),
+  }
+}
+
 function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, onDelete} : CalendarProps) {
   const [visibleWeekStart, setVisibleWeekStart] = useState(
     () => getStartOfWeek(today)
@@ -61,6 +114,8 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
 
   const [dragState, setDragState] =
       useState<DragState>(null)
+
+  const [infoTaskId, setInfoTaskId] = useState<string | null>(null)
 
   useEffect(() => {
     if (dragState === null) return
@@ -118,11 +173,153 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
   const draggedSurfaceRef =
       useRef<HTMLDivElement | null>(null)
 
+  const pendingSegmentInteractionRef =
+      useRef<PendingSegmentInteraction | null>(null)
+
   function captureFirstRect() {
     firstRectRef.current =
         draggedLayoutRef.current?.getBoundingClientRect()
         ?? null
   }
+
+  useEffect(() => {
+    function updateMovePreviewFromPointer(
+        event: PointerEvent,
+        pending: PendingSegmentInteraction
+    ): MovePreview | null {
+      const preview =
+          getCalendarMovePreviewAtPoint(
+              event.clientX,
+              event.clientY,
+              pending.durationMs
+          )
+
+      if (preview === null) {
+        return null
+      }
+
+      firstRectRef.current =
+          draggedLayoutRef.current?.getBoundingClientRect()
+          ?? null
+
+      setDragState((current) => {
+        if (
+            current?.mode !== 'move' ||
+            current.taskId !== pending.taskId
+        ) {
+          return current
+        }
+
+        if (
+            current.previewStartAt === preview.previewStartAt &&
+            current.previewEndAt === preview.previewEndAt
+        ) {
+          return current
+        }
+
+        return {
+          ...current,
+          previewStartAt: preview.previewStartAt,
+          previewEndAt: preview.previewEndAt,
+        }
+      })
+
+      return preview
+    }
+
+    function handlePointerMove(event: PointerEvent) {
+      const pending =
+          pendingSegmentInteractionRef.current
+
+      if (
+          pending === null ||
+          pending.pointerId !== event.pointerId
+      ) {
+        return
+      }
+
+      if (pending.dragStarted) {
+        updateMovePreviewFromPointer(event, pending)
+        return
+      }
+
+      const deltaX = event.clientX - pending.startX
+      const deltaY = event.clientY - pending.startY
+      const distance =
+          Math.hypot(deltaX, deltaY)
+
+      if (distance < taskSegmentDragThresholdPx) {
+        return
+      }
+
+      pending.dragStarted = true
+
+      const preview =
+          getCalendarMovePreviewAtPoint(
+              event.clientX,
+              event.clientY,
+              pending.durationMs
+          )
+
+      setDragState({
+        mode: 'move',
+        taskId: pending.taskId,
+        durationMs: pending.durationMs,
+        previewStartAt:
+          preview?.previewStartAt ?? pending.previewStartAt,
+        previewEndAt:
+          preview?.previewEndAt ?? pending.previewEndAt,
+      })
+    }
+
+    function handlePointerUp(event: PointerEvent) {
+      const pending =
+          pendingSegmentInteractionRef.current
+
+      if (
+          pending === null ||
+          pending.pointerId !== event.pointerId
+      ) {
+        return
+      }
+
+      pendingSegmentInteractionRef.current = null
+
+      if (pending.dragStarted) {
+        return
+      }
+
+      setInfoTaskId((currentTaskId) =>
+        currentTaskId === pending.taskId
+          ? null
+          : pending.taskId
+      )
+    }
+
+    function handlePointerCancel(event: PointerEvent) {
+      const pending =
+          pendingSegmentInteractionRef.current
+
+      if (
+          pending === null ||
+          pending.pointerId !== event.pointerId
+      ) {
+        return
+      }
+
+      pendingSegmentInteractionRef.current = null
+    }
+
+    window.addEventListener('pointermove', handlePointerMove)
+    window.addEventListener('pointerup', handlePointerUp)
+    window.addEventListener('pointercancel', handlePointerCancel)
+
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove)
+      window.removeEventListener('pointerup', handlePointerUp)
+      window.removeEventListener('pointercancel', handlePointerCancel)
+    }
+  }, [])
 
   useLayoutEffect(() => {
     const layoutElement = draggedLayoutRef.current
@@ -200,6 +397,40 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
       dragState?.previewEndAt,
       dragState
   ])
+
+  function toggleTaskInfo(taskId: string) {
+    setInfoTaskId((currentTaskId) =>
+      currentTaskId === taskId
+        ? null
+        : taskId
+    )
+  }
+
+  function handleTaskSegmentPointerDown(
+      event: ReactPointerEvent<HTMLButtonElement>,
+      segment: PositionedCalendarTaskSegment
+  ) {
+    if (event.button !== 0) {
+      return
+    }
+
+    event.preventDefault()
+    event.stopPropagation()
+
+    const start = new Date(segment.task.startAt)
+    const end = new Date(segment.task.endAt)
+
+    pendingSegmentInteractionRef.current = {
+      pointerId: event.pointerId,
+      taskId: segment.task.id,
+      startX: event.clientX,
+      startY: event.clientY,
+      durationMs: end.getTime() - start.getTime(),
+      previewStartAt: segment.task.startAt,
+      previewEndAt: segment.task.endAt,
+      dragStarted: false,
+    }
+  }
 
   function getVisibleWeekEnd (date: Date) {
     const end = new Date(date)
@@ -286,6 +517,9 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
               gridRow: timeSlot + 1,
               gridColumn: dayIndex + 2,
             }}
+            data-calendar-slot-start-at={
+              getDateFromTimeSlot(day, timeSlot).toISOString()
+            }
             onClick={() => {
               if (dragState !== null) return
 
@@ -520,10 +754,6 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
   const positionedTaskSegments =
       layoutTaskSegments(taskSegments)
 
-  const [isInfoOpen, setIsInfoOpen] = useState(false)
-
-  const [infoTaskId, setInfoTaskId] = useState<string | null>(null)
-
   return (
     <div className="flex flex-col w-full gap-8">
       <div className="flex">
@@ -601,17 +831,21 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
             const startRange = timeRange[0]
             const popupToLeft = segment.dayIndex >= 5
             const endRange = timeRange[1]
-            const timeSlotRange = segment.endSlot -segment.startSlot
-            const isSmall = timeSlotRange <= 2
-            const isTiny = timeSlotRange <= 1
-            function getHorizontalSize() {
-              if(isSmall) {
-                return 'small'
-              }
-              if(isTiny) {
-                return 'tiny'
-              }
-            }
+            const segmentSlotSpan =
+                segment.endSlot - segment.startSlot
+            const isTinySegment =
+                segmentSlotSpan <= 1
+            const isShortSegment =
+                segmentSlotSpan === 2
+            const canShowTimeRange =
+                segmentSlotSpan >= 2
+            const segmentContentPadding =
+                isTinySegment
+                  ? 'pl-4 pr-2 py-0'
+                  : isShortSegment
+                    ? 'pl-4 pr-2 py-0.5'
+                    : 'pl-4 pr-2 py-1'
+
             return (
               <div
                 ref={
@@ -683,44 +917,57 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
                   </div>
                   {/*Text and time display in a segment*/}
                   <button
+                    type="button"
+                    aria-expanded={infoTaskId === segment.task.id}
                     className={`
                     absolute
                     inset-0
                     z-10
+                    cursor-grab
+                    active:cursor-grabbing
                     
                     flex
                     flex-col
+                    text-left
+                    ${isTinySegment ? 'justify-center' : 'justify-start gap-0.5'}
                     
                     min-h-0
                     min-w-0
                     
                     overflow-hidden
                     
-                    pl-4
-                    pr-2
-                    py-1
+                    ${segmentContentPadding}
                     `}
-                    onClick={() => {
-                      setIsInfoOpen((current) => !current)
-                      setInfoTaskId(segment.task.id)
+                    onPointerDown={(event) =>
+                      handleTaskSegmentPointerDown(event, segment)
+                    }
+                    onClick={(event) => {
+                      if (event.detail !== 0) {
+                        return
+                      }
+
+                      toggleTaskInfo(segment.task.id)
                     }}
                   >
 
-                    <div className="flex flex-wrap min-w-0 gap-1 text-xs ">
-
-                      <span className="shrink-0">
-                        {segment.task.emoji}
-                      </span>
-                      <span className="truncate">
+                    <div className="flex min-w-0 max-w-full items-center gap-1 text-xs leading-4">
+                      {segment.task.emoji !== null && (
+                        <span className="shrink-0 leading-none">
+                          {segment.task.emoji}
+                        </span>
+                      )}
+                      <span className="min-w-0 truncate">
                         {segment.task.title}
                       </span>
-                      <span className="flex text-foreground-secondary text-wrap">
-                          {startRange}–{endRange}
-                        </span>
                     </div>
+                    {canShowTimeRange && (
+                      <span className="block min-w-0 max-w-full truncate text-[0.65rem] leading-3 text-foreground-secondary">
+                        {startRange}–{endRange}
+                      </span>
+                    )}
 
                   </button>
-                  {isInfoOpen && infoTaskId === segment.task.id && (
+                  {infoTaskId === segment.task.id && (
                     <div
                       className={`
                       absolute
@@ -749,7 +996,7 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
                           </button>
                         </div>
                         <button
-                          onClick={() => setIsInfoOpen((current) => !current)}
+                          onClick={() => setInfoTaskId(null)}
                         >
                           <X className="size-4"/>
                         </button>
@@ -778,36 +1025,11 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
                     "
                   onPointerDown={(event) => {
                     event.preventDefault()
+                    event.stopPropagation()
 
                     setDragState({
                       mode: 'resize-end',
                       taskId: segment.task.id,
-                      previewStartAt: segment.task.startAt,
-                      previewEndAt: segment.task.endAt,
-                    })
-                  }}
-                />
-                <div
-                  className="
-                    absolute
-                    top-0
-                    left-0
-                    right-0
-                    h-3
-                    z-20
-                    cursor-grab
-                    "
-                  onPointerDown={(event) => {
-                    event.preventDefault()
-                    event.stopPropagation()
-
-                    const start = new Date(segment.task.startAt)
-                    const end = new Date(segment.task.endAt)
-
-                    setDragState({
-                      mode: 'move',
-                      taskId: segment.task.id,
-                      durationMs: end.getTime() - start.getTime(),
                       previewStartAt: segment.task.startAt,
                       previewEndAt: segment.task.endAt,
                     })
