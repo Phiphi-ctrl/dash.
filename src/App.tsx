@@ -31,6 +31,8 @@ function App() {
     return JSON.parse(storedTasks)
   })
 
+  const sortedTasks = [...tasks].sort((a, b) => Date.parse(b.startAt) - Date.parse(a.startAt))
+
   const [newTaskInitialValues, setNewTaskInitialValues] =
     useState<NewTask>(() => createEmptyTaskValues())
 
@@ -182,7 +184,7 @@ function App() {
             path="/"
             element={<Dashboard
               today={today}
-              tasks={tasks}
+              tasks={sortedTasks}
               setEditingTask={setEditingTask}
               setIsAddTaskOpen={setIsAddTaskOpen}
               handleDeleteTaskItem={handleDeleteTaskItem}
@@ -194,7 +196,7 @@ function App() {
           <Route
             path="/calendar"
             element={<CalendarPage
-              tasks={tasks}
+              tasks={sortedTasks}
               today={today}
               handleCreateTaskAt={handleCreateTaskAt}
               handleUpdateTask={handleUpdateTask}

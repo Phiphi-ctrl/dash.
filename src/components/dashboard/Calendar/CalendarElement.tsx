@@ -61,6 +61,7 @@ type PendingSegmentInteraction = {
   startX: number
   startY: number
   durationMs: number
+  grabOffsetSlots: number
   previewStartAt: string
   previewEndAt: string
   dragStarted: boolean
@@ -72,11 +73,13 @@ type MovePreview = {
 }
 
 const taskSegmentDragThresholdPx = 5
+const calendarSlotDurationMs = 15 * 60 * 1000
 
 function getCalendarMovePreviewAtPoint(
     clientX: number,
     clientY: number,
-    durationMs: number
+    durationMs: number,
+    grabOffsetSlots: number
 ): MovePreview | null {
   const slotElement =
       document.elementsFromPoint(clientX, clientY).find(
@@ -92,11 +95,17 @@ function getCalendarMovePreviewAtPoint(
     return null
   }
 
-  const newStart = new Date(slotStartAt)
+  const cursorSlotStart = new Date(slotStartAt)
 
-  if (Number.isNaN(newStart.getTime())) {
+  if (Number.isNaN(cursorSlotStart.getTime())) {
     return null
   }
+
+  const newStart =
+      new Date(
+          cursorSlotStart.getTime() -
+          grabOffsetSlots * calendarSlotDurationMs
+      )
 
   const newEnd =
       new Date(newStart.getTime() + durationMs)
@@ -191,7 +200,8 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
           getCalendarMovePreviewAtPoint(
               event.clientX,
               event.clientY,
-              pending.durationMs
+              pending.durationMs,
+              pending.grabOffsetSlots
           )
 
       if (preview === null) {
@@ -258,7 +268,8 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
           getCalendarMovePreviewAtPoint(
               event.clientX,
               event.clientY,
-              pending.durationMs
+              pending.durationMs,
+              pending.grabOffsetSlots
           )
 
       setDragState({
@@ -419,6 +430,22 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
 
     const start = new Date(segment.task.startAt)
     const end = new Date(segment.task.endAt)
+    const segmentRect =
+        event.currentTarget.getBoundingClientRect()
+    const segmentSlotSpan =
+        segment.endSlot - segment.startSlot
+    const grabOffsetRatio =
+        segmentRect.height === 0
+          ? 0
+          : (event.clientY - segmentRect.top) / segmentRect.height
+    const grabOffsetSlots =
+        Math.min(
+            Math.max(
+                Math.floor(grabOffsetRatio * segmentSlotSpan),
+                0
+            ),
+            Math.max(segmentSlotSpan - 1, 0)
+        )
 
     pendingSegmentInteractionRef.current = {
       pointerId: event.pointerId,
@@ -426,6 +453,7 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
       startX: event.clientX,
       startY: event.clientY,
       durationMs: end.getTime() - start.getTime(),
+      grabOffsetSlots,
       previewStartAt: segment.task.startAt,
       previewEndAt: segment.task.endAt,
       dragStarted: false,
@@ -923,8 +951,8 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
                     absolute
                     inset-0
                     z-10
-                    cursor-grab
-                    active:cursor-grabbing
+                    cursor-pointer
+                    active:cursor-crosshair
                     
                     flex
                     flex-col

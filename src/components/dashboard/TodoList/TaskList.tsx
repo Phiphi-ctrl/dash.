@@ -1,5 +1,6 @@
 import type { Task } from '../../../types/Task.ts'
 import TaskItem from './TaskItem.tsx'
+import { isSameDay } from '../../../utils/Datetime.ts'
 
 type TaskListProps = {
   tasks: Task[],
@@ -10,13 +11,15 @@ type TaskListProps = {
 }
 
 function TaskList({tasks, onToggle, onDelete, onEdit, today} : TaskListProps) {
+
+  const filteredTodayTasks = tasks.filter((task: Task) => isSameDay(today, new Date(task.startAt)) && !task.completed)
   return (
     <div className="h-134 overflow-hidden overflow-y-auto mr-2">
-      {tasks.length === 0 ? (
+      {filteredTodayTasks.length === 0 ? (
         <p className="text-foreground-secondary">Nothing Planned yet...</p>
       ) : (
         <ul className="flex flex-col gap-2">
-          {tasks.map((task) => (
+          {filteredTodayTasks.map((task) => (
             <TaskItem
               key = {task.id}
               task={task}
