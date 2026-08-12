@@ -354,6 +354,9 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
             w-full
             border-r-2
             border-border/10
+            transition-[border-radius,background-color,color]
+            duration-600
+            ease-out
             ${isFullHour(timeSlot) ? 'border-t-2' : ''}
           `}
           />
@@ -557,7 +560,6 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
             <button
               className={`
               flex 
-              
               border-border 
               text-foreground-secondary 
               w-full 
@@ -590,6 +592,7 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
           {timeSlots.map((timeSlot) => (
             timeSlotRow(timeSlot)
           ))}
+          {/*Positioned Task Segments*/}
           {positionedTaskSegments.map((segment) => {
             const timeRange = getHourRange(
               segment.task.startAt,
@@ -598,6 +601,17 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
             const startRange = timeRange[0]
             const popupToLeft = segment.dayIndex >= 5
             const endRange = timeRange[1]
+            const timeSlotRange = segment.endSlot -segment.startSlot
+            const isSmall = timeSlotRange <= 2
+            const isTiny = timeSlotRange <= 1
+            function getHorizontalSize() {
+              if(isSmall) {
+                return 'small'
+              }
+              if(isTiny) {
+                return 'tiny'
+              }
+            }
             return (
               <div
                 ref={
@@ -654,6 +668,7 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
                       bg-surface
                       "
                   >
+                    {/*left indicator bar (visual)*/}
                     <span
                       className="
                         absolute
@@ -666,75 +681,90 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
                       "
                     />
                   </div>
-                  <div>
-                    <button
+                  {/*Text and time display in a segment*/}
+                  <button
+                    className={`
+                    absolute
+                    inset-0
+                    z-10
+                    
+                    flex
+                    flex-col
+                    
+                    min-h-0
+                    min-w-0
+                    
+                    overflow-hidden
+                    
+                    pl-4
+                    pr-2
+                    py-1
+                    `}
+                    onClick={() => {
+                      setIsInfoOpen((current) => !current)
+                      setInfoTaskId(segment.task.id)
+                    }}
+                  >
+
+                    <div className="flex flex-wrap min-w-0 gap-1 text-xs ">
+
+                      <span className="shrink-0">
+                        {segment.task.emoji}
+                      </span>
+                      <span className="truncate">
+                        {segment.task.title}
+                      </span>
+                      <span className="flex text-foreground-secondary text-wrap">
+                          {startRange}–{endRange}
+                        </span>
+                    </div>
+
+                  </button>
+                  {isInfoOpen && infoTaskId === segment.task.id && (
+                    <div
                       className={`
-                      relative
-                      z-10
-                      h-full
-                      w-full
+                      absolute
+                      ${popupToLeft ? 'right-full mr-3' : 'left-full ml-3'}
+                      top-0
+                      z-50
+                      w-64
+                      glass-popover
+                      p-4
                       flex
                       flex-col
-                      ml-3
+                      gap-4
                       `}
-                      onClick={() => {
-                        setIsInfoOpen((current) => !current)
-                        setInfoTaskId(segment.task.id)
-                      }}
                     >
-                      <div className="flex gap-1">
-                        <span>{segment.task.emoji}</span>
-                        <span className="truncate">{segment.task.title}</span>
-                      </div>
-                      <span className="flex text-foreground-secondary">
-                        {startRange}–{endRange}
-                      </span>
-                    </button>
-                    {isInfoOpen && infoTaskId === segment.task.id && (
-                      <div
-                        className={`
-                        absolute
-                        ${popupToLeft ? 'right-full mr-3' : 'left-full ml-3'}
-                        top-0
-                        z-50
-                        w-64
-                        glass-popover
-                        p-4
-                        flex
-                        flex-col
-                        gap-4
-                        `}
-                      >
-                        <div className="flex items-center justify-end gap-4">
-                          <div className="flex gap-4">
-                            <button
-                              onClick={() => {onEdit(segment.task)}}
-                            >
-                              <Pen className="size-4"/>
-                            </button>
-                            <button
-                              onClick={() => {onDelete(segment.task.id)}}
-                            >
-                              <Trash2 className="size-4"/>
-                            </button>
-                          </div>
+                      <div className="flex items-center justify-end gap-4">
+                        <div className="flex gap-4">
                           <button
-                            onClick={() => setIsInfoOpen((current) => !current)}
+                            onClick={() => {onEdit(segment.task)}}
                           >
-                            <X className="size-4"/>
+                            <Pen className="size-4"/>
+                          </button>
+                          <button
+                            onClick={() => {onDelete(segment.task.id)}}
+                          >
+                            <Trash2 className="size-4"/>
                           </button>
                         </div>
-                        <div className="flex gap-2">
-                          <span>{segment.task.emoji}</span>
-                          <span>{segment.task.title}</span>
-                        </div>
-                        <div className="flex flex-col text-foreground-secondary">
-                          <span>{getTimeRange(segment.task.startAt, segment.task.endAt, today)}</span>
-                          <span>{segment.task.completed ? 'Completed' : 'Pending'}</span>
-                        </div>
+                        <button
+                          onClick={() => setIsInfoOpen((current) => !current)}
+                        >
+                          <X className="size-4"/>
+                        </button>
                       </div>
-                    )}
-                  </div>
+                      <div className="flex gap-2">
+                        <span>{segment.task.emoji}</span>
+                        <span>{segment.task.title}</span>
+                      </div>
+                      <div className="flex flex-col text-foreground-secondary">
+                        <span>{getTimeRange(segment.task.startAt, segment.task.endAt, today)}</span>
+                        <span>{segment.task.completed ? 'Completed' : 'Pending'}</span>
+                      </div>
+                    </div>
+                  )}
+
                 </div>
                 <div
                   className="

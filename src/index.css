@@ -66,7 +66,7 @@
   /*
    * Task priorities
    */
-  --color-priority-high: #393f50;
+  --color-priority-high: #323646;
   --color-priority-medium: color-mix(
     in oklab,
     var(--color-priority-high) 50%,
@@ -151,13 +151,7 @@
   rounded-3xl;
 }
 
-.calendar-day-button {
-  transform: translateZ(0);
-}
 
-.popover-content-layer {
-  transform: translateZ(0);
-}
 
 .glass-popover {
   @apply

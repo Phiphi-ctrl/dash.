@@ -236,8 +236,8 @@ function SelectionCalendar ({
             flex
             justify-center 
             items-center 
+            cursor-pointer
             transition-[border-radius,background-color,color]
-            hover:bg-surface-hover
             duration-600
             ease-out
             ${getDayStyle(day)}

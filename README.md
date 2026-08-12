@@ -9,5 +9,13 @@
 - [ ] connect details to actual task form in active task
 - [x] add calendar render to board.
 
-- Safari 26.x: backdrop-filter popovers may show hover repaint artifacts.
-  Fixed in newer WebKit / Safari 27.
+- Safari 26.x: backdrop-filter popovers may show hover repaint artifacts. This issue does not persist in chrome
+
+# User test simulation
+
+- [ ] Add today indicator for the calendar section so the user knows at the first sight what day is today. 
+Either mark the day at the top in red or use the surface-hover color to make the entire day row a different color.
+- [ ] maybe also add a current time indicator and later on we can actually make it so once you open the calendar the current time is already scrolled into view.
+- [ ] content trimming on tasksegments in calendar f.e. 30 mins seems to have overflowing time.
+- [ ] eventually start the settings page where you can set the mode to light mode
+  

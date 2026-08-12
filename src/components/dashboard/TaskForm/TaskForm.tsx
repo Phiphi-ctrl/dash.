@@ -331,7 +331,7 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
 
   return (
     <form
-      className="flex flex-col gap-20 p-12"
+      className="flex flex-col gap-20 p-12 will-change-contents"
       onSubmit={(event) => {
         event.preventDefault()
         const values = constructTaskValues()
