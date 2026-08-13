@@ -2,7 +2,7 @@ import {
   getStartOfWeek,
   dayFormatter,
   monthFormatter,
-  getDayRange, getHourRange, getTimeRange,
+  getDayRange, getHourRange, getTimeRange, isSameDay
 } from '../../../utils/Datetime.ts'
 import {
   Fragment,
@@ -14,6 +14,7 @@ import {
 } from 'react'
 import { ChevronLeft, ChevronRight, Pen, Trash2, X } from 'lucide-react'
 import type { Task } from '../../../types/Task.ts'
+import * as React from 'react'
 
 type CalendarProps = {
   today: Date
@@ -120,6 +121,18 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
   const [visibleWeekStart, setVisibleWeekStart] = useState(
     () => getStartOfWeek(today)
   )
+
+  const [now, setNow] = useState(() => new Date())
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setNow(new Date())
+    }, 30000)
+
+    return () => {
+      window.clearInterval(intervalId)
+    }
+  })
 
   const [dragState, setDragState] =
       useState<DragState>(null)
@@ -515,6 +528,22 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
     )
   }
 
+  const currentDayIndex = days.findIndex((day) => isSameDay(day, now))
+
+  const currentMinutes =
+    now.getHours() * 60 +
+    now.getMinutes() +
+    now.getSeconds() / 60
+
+  const currentSlotIndex =
+    Math.floor(currentMinutes / 15)
+
+  const currentSlotFraction =
+    (currentMinutes % 15) / 15
+
+  const currentTimeOffsetRem =
+    currentSlotFraction * 1.25
+
   function timeSlotRow(timeSlot: number) {
     return (
       <Fragment key={timeSlot}>
@@ -615,7 +644,7 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
             h-full
             w-full
             border-r-2
-            border-border/10
+            border-border/30
             transition-[border-radius,background-color,color]
             duration-600
             ease-out
@@ -847,9 +876,34 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
           ${dragState !== null ? 'select-none' : ''}
           `}
         >
+          {/*time slots which are all the buttons for each 15 min slot*/}
           {timeSlots.map((timeSlot) => (
             timeSlotRow(timeSlot)
           ))}
+          {/*time indicator line*/}
+          {currentDayIndex !== -1 && (
+
+            <div
+              style={{
+                gridColumn: currentDayIndex + 2,
+                gridRow: currentSlotIndex + 1,
+                marginTop: `${currentTimeOffsetRem}rem`
+              }}
+              className="
+              relative
+              z-30
+              self-start
+              h-0.5
+              w-full
+              bg-calendar-today
+              pointer-events-none
+              "
+            >
+              <span className="absolute left-0 top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-calendar-today"/>
+            </div>
+
+
+          )}
           {/*Positioned Task Segments*/}
           {positionedTaskSegments.map((segment) => {
             const timeRange = getHourRange(
@@ -922,12 +976,15 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
                         ? draggedSurfaceRef
                         : undefined
                     }
+                    style={{
+                      '--task-color-calendar': segment.task.color,
+                    } as React.CSSProperties}
                     className="
                       absolute
                       inset-0
                       overflow-hidden
                       rounded-md
-                      bg-surface
+                      bg-[var(--task-color-calendar)]/50
                       "
                   >
                     {/*left indicator bar (visual)*/}
@@ -939,7 +996,7 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
                         bottom-1
                         w-1
                         rounded-lg
-                        bg-surface-hover
+                        bg-[var(--task-color-calendar)]
                       "
                     />
                   </div>
@@ -989,7 +1046,7 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
                       </span>
                     </div>
                     {canShowTimeRange && (
-                      <span className="block min-w-0 max-w-full truncate text-[0.65rem] leading-3 text-foreground-secondary">
+                      <span className="block min-w-0 max-w-full truncate text-[0.65rem] leading-3 text-foreground">
                         {startRange}–{endRange}
                       </span>
                     )}

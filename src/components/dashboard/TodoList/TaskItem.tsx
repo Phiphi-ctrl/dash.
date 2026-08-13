@@ -1,4 +1,4 @@
-import type { Task, TaskPriority } from '../../../types/Task.ts'
+import type { Task } from '../../../types/Task.ts'
 import Checkbox from '../../ui/Checkbox.tsx'
 import Button from '../../ui/Button.tsx'
 import { Trash2 } from 'lucide-react'
@@ -15,21 +15,9 @@ type TaskItemProps = {
 
 function TaskItem ({task, onToggle, onDelete, onEdit, today} : TaskItemProps) {
 
-  function getPriorityClass( priority: TaskPriority ) {
-    switch ( priority ) {
-      case 'low':
-        return 'bg-priority-low'
-      case 'medium':
-        return 'bg-priority-medium'
-      case 'high':
-        return 'bg-priority-high'
-      default:
-        return ''
-    }
-  }
 
   return (
-    <li className={`flex w-full ${getPriorityClass(task.priority)} gap-4 items-center border border-border rounded-lg p-4`}>
+    <li className={`flex w-full bg-transparent gap-4 items-center border border-border rounded-lg p-4`}>
       <div>
         {task.emoji !== null && (
             <span className="text-3xl size-9 pl-2 pr-2 cursor-default">

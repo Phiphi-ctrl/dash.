@@ -8,7 +8,7 @@ import {
   Calendar,
   FileText,
   ClockFading,
-  SmilePlus, SaveCheck, Check, Trash2,
+  SmilePlus, SaveCheck, Check, Trash2, Palette,
 } from 'lucide-react'
 import TaskEmojiPicker from "./EmojiPicker/TaskEmojiPicker.tsx";
 import { getDuration, getTimeRange } from "../../../utils/Datetime.ts";
@@ -16,6 +16,8 @@ import SaveTemplateButton from '../../ui/SaveTemplateButton.tsx'
 import Checkbox2 from '../../ui/Checkbox2.tsx'
 import PriorityPicker from './PriorityPicker/PriorityPicker.tsx'
 import { createPortal } from 'react-dom'
+import * as React from 'react'
+import ColorPicker from './ColorPicker/ColorPicker.tsx'
 
 
 type TaskFormProps = {
@@ -36,10 +38,12 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
       initialValues.endAt ?? '',
   )
   const [newCompleted, setNewCompleted] = useState(initialValues.completed)
+  const [newColor, setNewColor] = useState<string>(initialValues.color)
 
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false)
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false)
   const [isPriorityPickerOpen, setIsPriorityPickerOpen] = useState(false)
+  const [isColorPickerOpen, setIsColorPickerOpen] = useState(false)
 
   type PopoverPosition = {
     left: number
@@ -65,6 +69,13 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
   const priorityAnchorRef =
     useRef<HTMLDivElement>(null)
   const priorityPopoverRef =
+    useRef<HTMLDivElement>(null)
+
+  const [colorPopoverPosition, setColorPopoverPosition] =
+    useState<PopoverPosition | null>(null)
+  const colorAnchorRef =
+    useRef<HTMLDivElement>(null)
+  const colorPopoverRef =
     useRef<HTMLDivElement>(null)
 
   const canCloseDatePickerRef = useRef(true)
@@ -183,6 +194,35 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
     }
   }, [isPriorityPickerOpen])
 
+  useEffect(() => {
+    if(!isColorPickerOpen) {
+      return
+    }
+
+    function handleDocumentClickCP(event: MouseEvent) {
+      if(!(event.target instanceof Node)) {
+        return
+      }
+
+      const clickedAnchor =
+        colorAnchorRef.current?.contains(event.target)
+
+      const clickedPopover =
+        colorPopoverRef.current?.contains(event.target)
+
+      if (!clickedAnchor && !clickedPopover) {
+
+        setIsColorPickerOpen(false)
+      }
+    }
+
+    document.addEventListener('click', handleDocumentClickCP)
+
+    return () => {
+      document.removeEventListener('click', handleDocumentClickCP)
+    }
+  }, [isColorPickerOpen])
+
   function constructTaskValues(): NewTask {
     return {
       title: newTitle,
@@ -197,6 +237,7 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
               : new Date(newEndAt).toISOString(),
       emoji: newEmoji,
       completed: newCompleted,
+      color: newColor,
     }
   }
 
@@ -274,9 +315,37 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
     return
   }
 
+  function handleColorPickerToggle () {
+    if(isColorPickerOpen) {
+      setIsColorPickerOpen(false)
+      return
+    }
+    if(!isColorPickerOpen) {
+      const rect =
+        colorAnchorRef.current?.getBoundingClientRect()
+
+      if (rect === undefined) {
+        return
+      }
+
+      setColorPopoverPosition({
+        left: rect.left,
+        top: rect.bottom + 10,
+      })
+
+      setIsColorPickerOpen(true)
+    }
+    return
+  }
+
   function handlePrioritySelect (priority: TaskPriority) {
     setNewPriority(priority)
     setIsPriorityPickerOpen(false)
+  }
+
+  function handleColorSelect (color: string) {
+    setNewColor(color)
+    setIsColorPickerOpen(false)
   }
 
   function handleEmojiSelect(
@@ -507,6 +576,54 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
                 <div className="glass-panel-bg"/>
                 <div className="relative z-10">
                   <PriorityPicker onClick={handlePrioritySelect} currentlySelected={newPriority} />
+                </div>
+              </div>,
+
+              document.body
+            )}
+          </div>
+        </div>
+
+        {/*Color*/}
+        <div className="flex">
+          <div className="grid size-8 place-items-center">
+            <Palette className="size-4"/>
+          </div>
+          <span className="p-1">
+          Color
+          </span>
+        </div>
+        <div className="flex items-center relative -ml-20">
+          <div ref={colorAnchorRef}>
+            <button
+              type="button"
+              onClick={handleColorPickerToggle}
+              className="text-foreground-secondary cursor-pointer"
+            >
+              <div
+                style={{
+                  '--task-color-taskform': newColor,
+                } as React.CSSProperties}
+                className="inline-block bg-[var(--task-color-taskform)] rounded-full size-4"
+              />
+            </button>
+
+            {isColorPickerOpen && colorPopoverPosition !== null && createPortal(
+              <div
+                ref={colorPopoverRef}
+                className="
+                fixed
+                z-[100]
+                p-4
+                "
+                style={{
+                  top: colorPopoverPosition.top,
+                  left: colorPopoverPosition.left,
+                }}
+              >
+                <div className="glass-panel-bg"/>
+                <div className="relative z-10">
+                  <ColorPicker onClick={handleColorSelect} />
                 </div>
               </div>,
 

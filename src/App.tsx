@@ -18,6 +18,7 @@ function createEmptyTaskValues(): NewTask {
     endAt: null,
     emoji: null,
     completed: false,
+    color: '#36374d'
   }
 }
 
@@ -31,7 +32,7 @@ function App() {
     return JSON.parse(storedTasks)
   })
 
-  const sortedTasks = [...tasks].sort((a, b) => Date.parse(b.startAt) - Date.parse(a.startAt))
+  const sortedTasks = [...tasks].sort((a, b) => Date.parse(a.startAt) - Date.parse(b.startAt))
 
   const [newTaskInitialValues, setNewTaskInitialValues] =
     useState<NewTask>(() => createEmptyTaskValues())
@@ -67,7 +68,8 @@ function App() {
       startAt: newTask.startAt,
       endAt: newTask.endAt,
       emoji: newTask.emoji,
-      completedAt: null
+      completedAt: '',
+      color: newTask.color
     }
     setTasks((currentTasks) => [...currentTasks, task])
     return true
@@ -84,7 +86,7 @@ function App() {
           {
             ...task,
             completed: !task.completed,
-            completedAt: !task.completed ? inputFormatter.format(new Date()) : null,
+            completedAt: !task.completed ? inputFormatter.format(new Date()) : '',
           } : task))
   }
 
@@ -256,6 +258,7 @@ function App() {
                   endAt: editingTask.endAt,
                   emoji: editingTask.emoji,
                   completed: editingTask.completed,
+                  color: editingTask.color,
                 }}
                 today={today}
               />
