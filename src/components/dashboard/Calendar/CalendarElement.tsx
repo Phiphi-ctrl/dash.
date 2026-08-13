@@ -195,6 +195,15 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
   const draggedSurfaceRef =
       useRef<HTMLDivElement | null>(null)
 
+  const calendarGridRef =
+      useRef<HTMLDivElement | null>(null)
+
+  const currentTimeIndicatorRef =
+      useRef<HTMLDivElement | null>(null)
+
+  const hasScrolledToCurrentTimeRef =
+      useRef(false)
+
   const pendingSegmentInteractionRef =
       useRef<PendingSegmentInteraction | null>(null)
 
@@ -544,6 +553,67 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
   const currentTimeOffsetRem =
     currentSlotFraction * 1.25
 
+  useLayoutEffect(() => {
+    if (
+        hasScrolledToCurrentTimeRef.current ||
+        currentDayIndex === -1
+    ) {
+      return
+    }
+
+    const scrollElement =
+        calendarGridRef.current
+    const currentTimeIndicator =
+        currentTimeIndicatorRef.current
+
+    if (
+        scrollElement === null ||
+        currentTimeIndicator === null
+    ) {
+      return
+    }
+
+    const animationFrameId =
+        window.requestAnimationFrame(() => {
+          const scrollRect =
+              scrollElement.getBoundingClientRect()
+          const indicatorRect =
+              currentTimeIndicator.getBoundingClientRect()
+
+          const indicatorCenter =
+              indicatorRect.top -
+              scrollRect.top +
+              scrollElement.scrollTop +
+              indicatorRect.height / 2
+          const maxScrollTop =
+              Math.max(
+                  scrollElement.scrollHeight -
+                  scrollElement.clientHeight,
+                  0
+              )
+
+          scrollElement.scrollTop =
+              Math.min(
+                  Math.max(
+                      indicatorCenter -
+                      scrollElement.clientHeight / 2,
+                      0
+                  ),
+                  maxScrollTop
+              )
+
+          hasScrolledToCurrentTimeRef.current = true
+        })
+
+    return () => {
+      window.cancelAnimationFrame(animationFrameId)
+    }
+  }, [
+      currentDayIndex,
+      currentSlotIndex,
+      currentTimeOffsetRem
+  ])
+
   function timeSlotRow(timeSlot: number) {
     return (
       <Fragment key={timeSlot}>
@@ -875,6 +945,7 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
           h-140 overflow-y-auto
           ${dragState !== null ? 'select-none' : ''}
           `}
+          ref={calendarGridRef}
         >
           {/*time slots which are all the buttons for each 15 min slot*/}
           {timeSlots.map((timeSlot) => (
@@ -884,6 +955,7 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
           {currentDayIndex !== -1 && (
 
             <div
+              ref={currentTimeIndicatorRef}
               style={{
                 gridColumn: currentDayIndex + 2,
                 gridRow: currentSlotIndex + 1,
@@ -1090,8 +1162,16 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
                         <span>{segment.task.emoji}</span>
                         <span>{segment.task.title}</span>
                       </div>
-                      <div className="flex flex-col text-foreground-secondary">
-                        <span>{getTimeRange(segment.task.startAt, segment.task.endAt, today)}</span>
+                      <div className="flex flex-col text-foreground-secondary gap-2">
+                        <div className="flex gap-2 items-center">
+                          <span
+                            style={{
+                              '--task-color-task': segment.task.color,
+                            } as React.CSSProperties}
+                            className="bg-[var(--task-color-task)] rounded-full size-4"
+                          />
+                          <span>{getTimeRange(segment.task.startAt, segment.task.endAt, today)}</span>
+                        </div>
                         <span>{segment.task.completed ? 'Completed' : 'Pending'}</span>
                       </div>
                     </div>

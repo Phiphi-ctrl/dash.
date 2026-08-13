@@ -1,6 +1,7 @@
 import type { Task } from '../../../types/Task.ts'
 import { useEffect, useState } from 'react'
 import ActiveTaskCard from './ActiveTaskCard.tsx'
+import * as React from 'react'
 
 
 type ActiveTaskProps = {
@@ -39,9 +40,12 @@ function ActiveTask ({tasks, today, onToggle}: ActiveTaskProps) {
 
   return (
     <div className="flex flex-col">
-      <div className="flex flex-wrap rounded-lg gap-2 h-15">
+      <div className="flex flex-wrap rounded-lg gap-2">
         {activeTasks.map((task) => (
           <button
+            style={{
+              '--task-color-active': task.color,
+            } as React.CSSProperties}
             type="button"
             key={task.id}
             onClick={() => {
@@ -52,7 +56,7 @@ function ActiveTask ({tasks, today, onToggle}: ActiveTaskProps) {
             gap-2 
             cursor-pointer 
             border
-            ${task.id === selectedTask?.id ? 'border-accent bg-accent-soft' : 'border-border'}
+            ${task.id === selectedTask?.id ? 'border-[var(--task-color-active)]' : 'border-border'}
             rounded-4xl 
             p-4
             `}

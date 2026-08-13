@@ -160,7 +160,7 @@
   border
   border-white/10
   shadow-lg
-  rounded-2xl;
+  rounded-4xl;
 }
 
 @keyframes active-task-progress-enter {

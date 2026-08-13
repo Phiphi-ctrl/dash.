@@ -140,7 +140,7 @@ function ActiveTaskCard({ activeTask, today, onToggle, now } : ActiveTaskCardPro
                 <span className="text-4xl font-bold">{activeTask.title}</span>
               </div>
               <div className="relative ml-auto">
-                <PulseDot className="absolute right-3 top-3"/>
+                <PulseDot className="absolute right-3 top-3" color={activeTask.color} />
               </div>
             </div>
           </div>
@@ -169,6 +169,11 @@ function ActiveTaskCard({ activeTask, today, onToggle, now } : ActiveTaskCardPro
 
                 {/* progress */}
                 <circle
+                  style={{
+                    '--progress-start': circumference,
+                    '--progress-end': offset,
+                    '--task-active-color': activeTask.color,
+                  } as React.CSSProperties}
                   cx={viewBoxSize / 2}
                   cy={viewBoxSize / 2}
                   r={radius}
@@ -180,16 +185,12 @@ function ActiveTaskCard({ activeTask, today, onToggle, now } : ActiveTaskCardPro
                   strokeLinecap={'round'}
                   className="
                   active-task-progress-circle
-                  stroke-accent-secondary
+                  stroke-[var(--task-active-color)]
                   "
 
                   onMouseMove={handleProgressMouseMove}
                   onMouseLeave={() => setTooltipPosition(null)}
                   transform={`rotate(-90 ${viewBoxSize / 2} ${viewBoxSize / 2})`}
-                  style={{
-                    '--progress-start': circumference,
-                    '--progress-end': offset,
-                  } as React.CSSProperties}
 
                 />
 

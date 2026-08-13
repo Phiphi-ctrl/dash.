@@ -9,7 +9,6 @@ export type Task = {
   emoji: string | null
   completedAt: string
   color: string
-
 }
 
 export type TaskPriority = "low" | "medium" | "high"
