@@ -363,7 +363,8 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
     const found = templates.find((template) =>
       template.title === title &&
       template.priority === newPriority &&
-      template.emoji === newEmoji
+      template.emoji === newEmoji &&
+      template.color === newColor
     )
     if(found) {
       console.log('Template already exists')
@@ -374,6 +375,7 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
       title: title,
       priority: newPriority,
       emoji: newEmoji,
+      color: newColor
     }
     setTemplates((currentTemplates) => [
       ...currentTemplates,
@@ -385,6 +387,7 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
     setNewTitle(template.title)
     setNewPriority(template.priority)
     setNewEmoji(template.emoji)
+    setNewColor(template.color)
   }
 
   function handleTemplateDelete (templateIn: TaskTemplate) {
@@ -538,7 +541,9 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
           </span>
         </div>
         <div className="flex items-center text-foreground -ml-20">
-          {getDuration(newStartAt, newEndAt)}
+          {
+            getDuration(newStartAt, newEndAt)
+          }
         </div>
 
         {/*Priority*/}

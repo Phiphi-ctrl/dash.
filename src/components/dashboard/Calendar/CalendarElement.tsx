@@ -2,7 +2,7 @@ import {
   getStartOfWeek,
   dayFormatter,
   monthFormatter,
-  getDayRange, getHourRange, getTimeRange, isSameDay
+  getDayRange, getHourRange, getTimeRange, isSameDay, getDuration,
 } from '../../../utils/Datetime.ts'
 import {
   Fragment,
@@ -12,7 +12,7 @@ import {
   useRef,
   useState
 } from 'react'
-import { ChevronLeft, ChevronRight, Pen, Trash2, X } from 'lucide-react'
+import { CheckCheck, ChevronLeft, ChevronRight, ClockFading, Pen, Trash2, X } from 'lucide-react'
 import type { Task } from '../../../types/Task.ts'
 import * as React from 'react'
 
@@ -1081,7 +1081,6 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
                     inset-0
                     z-10
                     cursor-pointer
-                    active:cursor-crosshair
                     
                     flex
                     flex-col
@@ -1131,12 +1130,12 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
                       ${popupToLeft ? 'right-full mr-3' : 'left-full ml-3'}
                       top-0
                       z-50
-                      w-64
+                      w-78
                       glass-popover
                       p-4
                       flex
                       flex-col
-                      gap-4
+                      gap-5
                       `}
                     >
                       <div className="flex items-center justify-end gap-4">
@@ -1172,7 +1171,15 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
                           />
                           <span>{getTimeRange(segment.task.startAt, segment.task.endAt, today)}</span>
                         </div>
-                        <span>{segment.task.completed ? 'Completed' : 'Pending'}</span>
+                        <div className="flex gap-2 items-center">
+                          <ClockFading className="size-4"/>
+                          <span>{getDuration(segment.task.startAt, segment.task.endAt)}</span>
+                        </div>
+                        <div className="flex gap-2 items-center">
+                          <CheckCheck className="size-4"/>
+                          <span>{segment.task.completed ? 'Completed' : 'Pending'}</span>
+                        </div>
+
                       </div>
                     </div>
                   )}

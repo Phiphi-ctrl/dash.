@@ -18,7 +18,7 @@ function createEmptyTaskValues(): NewTask {
     endAt: null,
     emoji: null,
     completed: false,
-    color: '#36374d'
+    color: '#36374d',
   }
 }
 
@@ -69,7 +69,7 @@ function App() {
       endAt: newTask.endAt,
       emoji: newTask.emoji,
       completedAt: '',
-      color: newTask.color
+      color: newTask.color,
     }
     setTasks((currentTasks) => [...currentTasks, task])
     return true

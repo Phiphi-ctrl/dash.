@@ -28,4 +28,5 @@ export type TaskTemplate = {
   title: string
   priority: TaskPriority
   emoji: string | null
+  color: string
 }
