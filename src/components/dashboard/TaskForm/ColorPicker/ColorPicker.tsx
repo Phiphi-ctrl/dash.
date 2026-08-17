@@ -9,12 +9,12 @@ type ColorPickerProps = {
 function ColorPicker({onClick}: ColorPickerProps) {
 
     const colorArray = [
-      '#13070C',
       '#C4C4C4',
       '#36374d',
       '#7F9183',
       '#B9BAA3',
-      '#CC7E85'
+      '#CC7E85',
+      '#D38B5D',
     ]
     return (
         <div className="p-2 grid grid-cols-4">

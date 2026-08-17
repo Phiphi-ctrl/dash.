@@ -1,5 +1,8 @@
 import type { Task } from '../types/Task.ts'
 import CalendarElement from '../components/dashboard/Calendar/CalendarElement.tsx'
+import LiveDateTime from '../components/dashboard/LiveDateTime.tsx'
+import { Calendar } from 'lucide-react'
+import type { Category } from '../types/Category.ts'
 
 type CalendarPageProps = {
   today: Date
@@ -8,14 +11,22 @@ type CalendarPageProps = {
   handleCreateTaskAt: (startAt: Date) => void
   onEdit: (task: Task ) => void,
   onDelete: (id: string) => void,
+  categories: Category[]
 }
 
-function CalendarPage( {today, tasks, handleUpdateTask, handleCreateTaskAt, onEdit, onDelete}: CalendarPageProps ) {
+function CalendarPage( {today, tasks, handleUpdateTask, handleCreateTaskAt, onEdit, onDelete, categories}: CalendarPageProps ) {
 
   return (
-    <main className="flex flex-1 flex-col p-10">
+    <main className="flex flex-1 flex-col px-10">
+      <header className="flex gap-1 items-center justify-between">
+        <LiveDateTime />
+        <div className="flex gap-1 text-foreground-secondary">
+          <Calendar />
+          <span>calendar.</span>
+        </div>
+      </header>
       {/*calendar section*/}
-      <section className="flex mt-1">
+      <section className="flex mt-4">
         <div className="flex flex-col gap-1 w-full">
           <CalendarElement
             today={today}
@@ -24,6 +35,7 @@ function CalendarPage( {today, tasks, handleUpdateTask, handleCreateTaskAt, onEd
             onCreateTaskAt={handleCreateTaskAt}
             onEdit={onEdit}
             onDelete={onDelete}
+            categories={categories}
           />
         </div>
       </section>

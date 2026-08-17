@@ -6,9 +6,8 @@ import DateTimeRangePicker from './DateTimeRangePicker/DateTimeRangePicker.tsx'
 import {
   ArrowDownUpIcon,
   Calendar,
-  FileText,
   ClockFading,
-  SmilePlus, SaveCheck, Check, Trash2, Palette,
+  SmilePlus, SaveCheck, Check, Trash2, LayoutDashboard,
 } from 'lucide-react'
 import TaskEmojiPicker from "./EmojiPicker/TaskEmojiPicker.tsx";
 import { getDuration, getTimeRange } from "../../../utils/Datetime.ts";
@@ -17,17 +16,18 @@ import Checkbox2 from '../../ui/Checkbox2.tsx'
 import PriorityPicker from './PriorityPicker/PriorityPicker.tsx'
 import { createPortal } from 'react-dom'
 import * as React from 'react'
-import ColorPicker from './ColorPicker/ColorPicker.tsx'
+import CategoryPicker from './CategoryPicker/CategoryPicker.tsx'
 
 
 type TaskFormProps = {
   initialValues: NewTask
   onClose: () => void
   onSubmit: (values: NewTask) => void
+  categories: Category[]
   today: Date
 }
 
-function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
+function TaskForm ({initialValues, onClose, onSubmit, categories, today}: TaskFormProps) {
   const [newTitle, setNewTitle] = useState(initialValues.title)
   const [newPriority, setNewPriority] = useState<TaskPriority>(initialValues.priority)
   const [newEmoji, setNewEmoji] = useState<string | null>(initialValues.emoji)
@@ -38,12 +38,18 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
       initialValues.endAt ?? '',
   )
   const [newCompleted, setNewCompleted] = useState(initialValues.completed)
-  const [newColor, setNewColor] = useState<string>(initialValues.color)
+  const [newCategoryId, setNewCategoryId] = useState(initialValues.categoryId)
 
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false)
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false)
   const [isPriorityPickerOpen, setIsPriorityPickerOpen] = useState(false)
-  const [isColorPickerOpen, setIsColorPickerOpen] = useState(false)
+  const [isCategoryPickerOpen, setIsCategoryPickerOpen] = useState(false)
+
+  const selectedCategory =
+    categories.find(
+      (category) =>
+        category.id === newCategoryId
+    ) ?? null
 
   type PopoverPosition = {
     left: number
@@ -71,11 +77,11 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
   const priorityPopoverRef =
     useRef<HTMLDivElement>(null)
 
-  const [colorPopoverPosition, setColorPopoverPosition] =
+  const [categoryPopoverPosition, setCategoryPopoverPosition] =
     useState<PopoverPosition | null>(null)
-  const colorAnchorRef =
+  const categoryAnchorRef =
     useRef<HTMLDivElement>(null)
-  const colorPopoverRef =
+  const categoryPopoverRef =
     useRef<HTMLDivElement>(null)
 
   const canCloseDatePickerRef = useRef(true)
@@ -195,7 +201,7 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
   }, [isPriorityPickerOpen])
 
   useEffect(() => {
-    if(!isColorPickerOpen) {
+    if(!isCategoryPickerOpen) {
       return
     }
 
@@ -205,14 +211,14 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
       }
 
       const clickedAnchor =
-        colorAnchorRef.current?.contains(event.target)
+        categoryAnchorRef.current?.contains(event.target)
 
       const clickedPopover =
-        colorPopoverRef.current?.contains(event.target)
+        categoryPopoverRef.current?.contains(event.target)
 
       if (!clickedAnchor && !clickedPopover) {
 
-        setIsColorPickerOpen(false)
+        setIsCategoryPickerOpen(false)
       }
     }
 
@@ -221,23 +227,27 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
     return () => {
       document.removeEventListener('click', handleDocumentClickCP)
     }
-  }, [isColorPickerOpen])
+  }, [isCategoryPickerOpen])
 
   function constructTaskValues(): NewTask {
     return {
       title: newTitle,
       priority: newPriority,
+
       startAt:
-          newStartAt === ''
-              ? null
-              : new Date(newStartAt).toISOString(),
+        newStartAt === ''
+          ? null
+          : new Date(newStartAt).toISOString(),
+
       endAt:
-          newEndAt === ''
-              ? null
-              : new Date(newEndAt).toISOString(),
+        newEndAt === ''
+          ? null
+          : new Date(newEndAt).toISOString(),
+
       emoji: newEmoji,
       completed: newCompleted,
-      color: newColor,
+
+      categoryId: newCategoryId,
     }
   }
 
@@ -315,27 +325,25 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
     return
   }
 
-  function handleColorPickerToggle () {
-    if(isColorPickerOpen) {
-      setIsColorPickerOpen(false)
+  function handleCategoryPickerToggle() {
+    if (isCategoryPickerOpen) {
+      setIsCategoryPickerOpen(false)
       return
     }
-    if(!isColorPickerOpen) {
-      const rect =
-        colorAnchorRef.current?.getBoundingClientRect()
 
-      if (rect === undefined) {
-        return
-      }
+    const rect =
+      categoryAnchorRef.current?.getBoundingClientRect()
 
-      setColorPopoverPosition({
-        left: rect.left,
-        top: rect.bottom + 10,
-      })
-
-      setIsColorPickerOpen(true)
+    if (rect === undefined) {
+      return
     }
-    return
+
+    setCategoryPopoverPosition({
+      left: rect.left,
+      top: rect.bottom + 10,
+    })
+
+    setIsCategoryPickerOpen(true)
   }
 
   function handlePrioritySelect (priority: TaskPriority) {
@@ -343,9 +351,11 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
     setIsPriorityPickerOpen(false)
   }
 
-  function handleColorSelect (color: string) {
-    setNewColor(color)
-    setIsColorPickerOpen(false)
+  function handleCategorySelect(
+    categoryId: string | null
+  ) {
+    setNewCategoryId(categoryId)
+    setIsCategoryPickerOpen(false)
   }
 
   function handleEmojiSelect(
@@ -360,11 +370,12 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
       console.log('Please enter a title')
       return
     }
-    const found = templates.find((template) =>
-      template.title === title &&
-      template.priority === newPriority &&
-      template.emoji === newEmoji &&
-      template.color === newColor
+    const found = templates.find(
+      (template) =>
+        template.title === title &&
+        template.priority === newPriority &&
+        template.emoji === newEmoji &&
+        template.categoryId === newCategoryId
     )
     if(found) {
       console.log('Template already exists')
@@ -372,10 +383,10 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
     }
     const template: TaskTemplate = {
       id: crypto.randomUUID(),
-      title: title,
+      title,
       priority: newPriority,
       emoji: newEmoji,
-      color: newColor
+      categoryId: newCategoryId,
     }
     setTemplates((currentTemplates) => [
       ...currentTemplates,
@@ -383,11 +394,13 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
     ])
   }
 
-  function handleTemplateSelect(template: TaskTemplate) {
+  function handleTemplateSelect(
+    template: TaskTemplate
+  ) {
     setNewTitle(template.title)
     setNewPriority(template.priority)
     setNewEmoji(template.emoji)
-    setNewColor(template.color)
+    setNewCategoryId(template.categoryId)
   }
 
   function handleTemplateDelete (templateIn: TaskTemplate) {
@@ -403,7 +416,7 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
 
   return (
     <form
-      className="flex flex-col gap-20 p-12 will-change-contents"
+      className="flex flex-col gap-15 p-12 will-change-contents"
       onSubmit={(event) => {
         event.preventDefault()
         const values = constructTaskValues()
@@ -414,7 +427,7 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
 
       {/*Top: Title and Cancel/Add button*/}
       <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-end ml-auto">
+        <div className="flex items-center justify-end ml-auto text-foreground">
           <div className="flex-1 max-w-xs">
             <SaveTemplateButton onSave={handleSaveTemplate} />
           </div>
@@ -436,7 +449,7 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
             cursor-pointer
             text-4xl
             size-10
-            text-foreground
+            text-foreground-secondary
             "
             >
               {newEmoji ??
@@ -473,7 +486,7 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
             }}
             placeholder="New Task . . ."
             className={`w-full truncate rounded-lg bg-app-surface text-3xl font-bold focus:outline-none 
-          ${newTitle.trim() === '' ? 'text-muted' : ''}`}
+          ${newTitle.trim() === '' ? 'text-muted' : 'text-foreground'}`}
           />
         </div>
 
@@ -483,7 +496,7 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
       <div className="grid grid-cols-2 gap-4">
 
         {/*Calendar and date selection*/}
-        <div className="flex">
+        <div className="flex text-foreground">
           <div className="grid size-8 place-items-center">
             <Calendar className="size-4"/>
           </div>
@@ -532,7 +545,7 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
         </div>
 
         {/*Duration*/}
-        <div className="flex">
+        <div className="flex text-foreground">
           <div className="grid size-8 place-items-center">
             <ClockFading className="size-4"/>
           </div>
@@ -547,7 +560,7 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
         </div>
 
         {/*Priority*/}
-        <div className="flex">
+        <div className="flex text-foreground">
           <div className="grid size-8 place-items-center">
             <ArrowDownUpIcon className="size-4"/>
           </div>
@@ -589,56 +602,8 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
           </div>
         </div>
 
-        {/*Color*/}
-        <div className="flex">
-          <div className="grid size-8 place-items-center">
-            <Palette className="size-4"/>
-          </div>
-          <span className="p-1">
-          Color
-          </span>
-        </div>
-        <div className="flex items-center relative -ml-20">
-          <div ref={colorAnchorRef}>
-            <button
-              type="button"
-              onClick={handleColorPickerToggle}
-              className="text-foreground-secondary cursor-pointer"
-            >
-              <div
-                style={{
-                  '--task-color-taskform': newColor,
-                } as React.CSSProperties}
-                className="inline-block bg-[var(--task-color-taskform)] rounded-full size-4"
-              />
-            </button>
-
-            {isColorPickerOpen && colorPopoverPosition !== null && createPortal(
-              <div
-                ref={colorPopoverRef}
-                className="
-                fixed
-                z-[100]
-                p-4
-                "
-                style={{
-                  top: colorPopoverPosition.top,
-                  left: colorPopoverPosition.left,
-                }}
-              >
-                <div className="glass-panel-bg"/>
-                <div className="relative z-10">
-                  <ColorPicker onClick={handleColorSelect} />
-                </div>
-              </div>,
-
-              document.body
-            )}
-          </div>
-        </div>
-
         {/*Completed*/}
-        <div className="flex">
+        <div className="flex text-foreground">
           <div className="grid size-8 place-items-center">
             <Check className="size-4"/>
           </div>
@@ -671,21 +636,75 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
           </div>
         </div>
 
-        {/*Notes section (maybe add a text input or add a section below)*/}
-        <div className="flex">
+        {/*Category*/}
+        <div className="flex text-foreground items-center">
           <div className="grid size-8 place-items-center">
-            <FileText className="size-4"/>
+            <LayoutDashboard className="size-4"/>
           </div>
           <span className="p-1">
-          Notes
+          Category
           </span>
         </div>
-        <div className="flex items-center text-muted -ml-20">
-          Notes here
+        <div className="flex items-center relative -ml-20">
+          <div ref={categoryAnchorRef}>
+            <button
+              type="button"
+              onClick={handleCategoryPickerToggle}
+              className="
+                flex
+                items-center
+                gap-2
+                cursor-pointer
+                rounded-4xl
+                p-2
+                text-foreground-secondary
+              "
+            >
+              {selectedCategory !== null ? (
+                <>
+                  <span
+                    className="size-3 rounded-full"
+                    style={{
+                      backgroundColor: selectedCategory.color,
+                    }}
+                  />
+                  <span>{selectedCategory.name}</span>
+                </>
+              ) : (
+                <span>No Category</span>
+              )}
+            </button>
+
+            {isCategoryPickerOpen && categoryPopoverPosition !== null && createPortal(
+              <div
+                ref={categoryPopoverRef}
+                className="
+                fixed
+                z-[100]
+                p-4
+                "
+                style={{
+                  top: categoryPopoverPosition.top,
+                  left: categoryPopoverPosition.left,
+                }}
+              >
+                <div className="glass-panel-bg"/>
+                <div className="relative z-10">
+                  <CategoryPicker
+                    categories={categories}
+                    currentlySelected={newCategoryId}
+                    onSelect={handleCategorySelect}
+                  />
+                </div>
+              </div>,
+
+              document.body
+            )}
+          </div>
         </div>
 
         {/*Templates*/}
-        <div className="flex mt-10">
+        <div className="flex text-foreground">
           <div className="grid size-8 place-items-center">
             <SaveCheck className="size-4"/>
           </div>
@@ -694,41 +713,42 @@ function TaskForm ({initialValues, onClose, onSubmit, today}: TaskFormProps) {
           </span>
         </div>
         <div className="col-span-2">
-          <div className="flex flex-wrap gap-2 h-30 overflow-hidden overflow-y-auto overflow-x-hidden dash-scrollbar">
-            {templates.map((template) => (
-              <div
-                className="flex border glass-surface rounded-lg h-14"
-                key={template.id}
-              >
-                <button
-                  type="button"
-                  onClick={() => handleTemplateSelect(template)}
-                  className="flex min-w-0 flex-1 cursor-pointer p-3"
+          <div className="template-scroll-wrapper relative">
+            <div className="flex flex-wrap gap-4 h-42 overflow-y-auto overflow-x-hidden dash-scrollbar p-6 template-scroll-fade">
+              {templates.map((template) => (
+                <div
+                  className="flex border glass-surface h-14 hover:-translate-y-1/12 transition-transform"
+                  key={template.id}
                 >
-                  {template.emoji ? (
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-lg size-6">{template.emoji}</span>
-                      <span className="truncate">{template.title}</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-baseline gap-2">
-                      <span className="truncate">{template.title}</span>
-                    </div>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => handleTemplateSelect(template)}
+                    className="flex min-w-0 flex-1 cursor-pointer p-3 text-foreground"
+                  >
+                    {template.emoji ? (
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-lg size-6">{template.emoji}</span>
+                        <span className="truncate">{template.title}</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-baseline gap-2">
+                        <span className="truncate">{template.title}</span>
+                      </div>
+                    )}
 
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleTemplateDelete(template)}
-                  className="ml-auto shrink-0 cursor-pointer p-3 text-muted hover:text-danger"
-                >
-                  <Trash2 className="size-4"/>
-                </button>
-              </div>
-            ))}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleTemplateDelete(template)}
+                    className="ml-auto shrink-0 cursor-pointer p-3 text-muted hover:text-danger"
+                  >
+                    <Trash2 className="size-4"/>
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-
       </div>
 
     </form>

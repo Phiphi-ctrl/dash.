@@ -9,6 +9,9 @@ import { useEffect, useState } from 'react'
 import type { NewTask, Task } from './types/Task.ts'
 import { inputFormatter } from './utils/Datetime.ts'
 import TaskForm from './components/dashboard/TaskForm/TaskForm.tsx'
+import Settings from './pages/Settings.tsx'
+import type { NewCategory, Category } from './types/Category.ts'
+import CategoryForm from './components/dashboard/CategoryForm/CategoryForm.tsx'
 
 function createEmptyTaskValues(): NewTask {
   return {
@@ -18,11 +21,21 @@ function createEmptyTaskValues(): NewTask {
     endAt: null,
     emoji: null,
     completed: false,
-    color: '#36374d',
+    categoryId: null,
   }
 }
 
 function App() {
+
+  const [categories, setCategories] = useState<Category[]>(() => {
+    const storedCategories = localStorage.getItem("dash.categories")
+    if(!storedCategories) return []
+    return JSON.parse(storedCategories)
+  })
+
+  useEffect(() => {
+    localStorage.setItem("dash.categories", JSON.stringify(categories))
+  }, [categories])
 
   const [tasks, setTasks] = useState<Task[]>(() => {
     const storedTasks = localStorage.getItem("dash.tasks")
@@ -32,6 +45,10 @@ function App() {
     return JSON.parse(storedTasks)
   })
 
+  useEffect(() => {
+    localStorage.setItem("dash.tasks", JSON.stringify(tasks))
+  }, [tasks])
+
   const sortedTasks = [...tasks].sort((a, b) => Date.parse(a.startAt) - Date.parse(b.startAt))
 
   const [newTaskInitialValues, setNewTaskInitialValues] =
@@ -39,11 +56,30 @@ function App() {
 
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false)
 
-  const [editingTask, setEditingTask] = useState<Task | null>(null)
+  const [isAddCategoryOpen, setIsAddCategoryOpen] = useState(false)
 
-  useEffect(() => {
-    localStorage.setItem("dash.tasks", JSON.stringify(tasks))
-  }, [tasks])
+  function handleAddCategory(newCategory: NewCategory) {
+    if (newCategory.name.trim() === '') {
+      return false
+    }
+    if (newCategory.color.trim() === '') {
+      return false
+    }
+    const category: Category = {
+      id: crypto.randomUUID(),
+      name: newCategory.name,
+      color: newCategory.color,
+      createdAt: new Date().toISOString(),
+    }
+    setCategories((currentCategories) => [...currentCategories, category])
+    return true
+  }
+
+  function handleDeleteCategory(id: string) {
+    setCategories((currentCategories) => currentCategories.filter((c) => c.id !== id))
+  }
+
+  const [editingTask, setEditingTask] = useState<Task | null>(null)
 
   function handleAddTask(newTask : NewTask) {
     if (newTask.title.trim() === '') {
@@ -58,8 +94,7 @@ function App() {
       // the end is smaller or equal than the start
       return false
     }
-    console.log(newTask) // debug
-    const task : Task = {
+    const task: Task = {
       id: crypto.randomUUID(),
       title: newTask.title.trim(),
       completed: false,
@@ -69,7 +104,7 @@ function App() {
       endAt: newTask.endAt,
       emoji: newTask.emoji,
       completedAt: '',
-      color: newTask.color,
+      categoryId: newTask.categoryId,
     }
     setTasks((currentTasks) => [...currentTasks, task])
     return true
@@ -165,6 +200,12 @@ function App() {
     }
   }
 
+  function submitCategoryAdd(values: NewCategory) {
+    if(handleAddCategory(values)) {
+      setIsAddCategoryOpen(false)
+    }
+  }
+
   function submitTaskEdit(values: NewTask) {
     if(editingTask === null) {
       return
@@ -192,6 +233,7 @@ function App() {
               handleDeleteTaskItem={handleDeleteTaskItem}
               handleEditTaskItem={handleEditTaskItem}
               handleToggleTaskItem={handleToggleTaskItem}
+              categories={categories}
             />}
           />
 
@@ -204,12 +246,17 @@ function App() {
               handleUpdateTask={handleUpdateTask}
               onEdit={handleEditTaskItem}
               onDelete={handleDeleteTaskItem}
+              categories={categories}
             />}
           />
 
           <Route
             path="/categories"
-            element={<Categories />}
+            element={<Categories
+              categories={categories}
+              setIsAddCategoryOpen={setIsAddCategoryOpen}
+              handleDeleteCategory={handleDeleteCategory}
+            />}
           />
 
           <Route
@@ -221,11 +268,16 @@ function App() {
             path="/notes"
             element={<Notes />}
           />
+
+          <Route
+            path="/settings"
+            element={<Settings />}
+          />
         </Routes>
       </div>
       <div>
         {isAddTaskOpen && editingTask === null && (
-          <div className="fixed inset-0 z-50 flex justify-end p-2">
+          <div className="fixed inset-0 z-50 flex justify-end p-2 overflow-hidden">
             <div
               className="w-full max-w-lg p-1 glass-surface"
             >
@@ -235,13 +287,14 @@ function App() {
                 }}
                 onSubmit={submitTaskAdd}
                 initialValues={newTaskInitialValues}
+                categories={categories}
                 today={today}
               />
             </div>
           </div>
         )}
         {isAddTaskOpen && editingTask !== null && (
-          <div className="fixed inset-0 z-50 flex justify-end p-2">
+          <div className="fixed inset-0 z-50 flex justify-end p-2 overflow-hidden">
             <div
               className="w-full max-w-lg p-1 glass-surface"
             >
@@ -258,9 +311,29 @@ function App() {
                   endAt: editingTask.endAt,
                   emoji: editingTask.emoji,
                   completed: editingTask.completed,
-                  color: editingTask.color,
+
+                  categoryId: editingTask.categoryId,
                 }}
+                categories={categories}
                 today={today}
+              />
+            </div>
+          </div>
+        )}
+        {isAddCategoryOpen && (
+          <div className="fixed inset-0 z-50 flex justify-end p-2 overflow-hidden">
+            <div
+              className="w-full max-w-lg p-1 glass-surface"
+            >
+              <CategoryForm
+                onClose={() => {
+                  setIsAddCategoryOpen(false)
+                }}
+                onSubmit={submitCategoryAdd}
+                initialValues={{
+                  name: '',
+                  color: '#D38B5D',
+                }}
               />
             </div>
           </div>

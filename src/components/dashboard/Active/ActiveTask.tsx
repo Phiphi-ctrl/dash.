@@ -2,17 +2,52 @@ import type { Task } from '../../../types/Task.ts'
 import { useEffect, useState } from 'react'
 import ActiveTaskCard from './ActiveTaskCard.tsx'
 import * as React from 'react'
+import { isSameDay } from '../../../utils/Datetime.ts'
+import type { Category } from '../../../types/Category.ts'
+import { getTaskColor } from '../../../utils/Category.ts'
 
 
 type ActiveTaskProps = {
   tasks: Task[]
   today: Date
   onToggle: ( id: string ) => void,
+  categories: Category[],
 }
 
-function ActiveTask ({tasks, today, onToggle}: ActiveTaskProps) {
+function ActiveTask ({tasks, today, onToggle, categories}: ActiveTaskProps) {
 
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [now, setNow] = useState(new Date())
+
+  //filter only tasks that are today
+  const filteredTodayTasks = tasks.filter((task: Task) => isSameDay(today, new Date(task.startAt)))
+
+  //filter for active tasks
+  const activeTasks = filteredTodayTasks.filter((task) => {
+    const start = new Date(task.startAt)
+    const end = new Date(task.endAt)
+
+    return start <= now && now < end && !task.completed;
+  })
+
+  function getTotalTaskDurationMs () {
+    let totalDuration = 0
+
+    for (const task of filteredTodayTasks) {
+      const taskStart = new Date(task.startAt)
+      const taskEnd = new Date(task.endAt)
+      const duration = taskEnd.getTime() - taskStart.getTime()
+      totalDuration += duration
+    }
+
+
+    return totalDuration
+  }
+
+  const duration = getTotalTaskDurationMs()
+
+
+
 
   useEffect(() => {
     const intervalId = setInterval(() => {
@@ -24,14 +59,22 @@ function ActiveTask ({tasks, today, onToggle}: ActiveTaskProps) {
     }
   }, [])
 
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
+  function getDurationPastCompletedTasksToday () {
+    let pastCompletedDuration = 0
 
-  const activeTasks = tasks.filter((task) => {
-    const start = new Date(task.startAt)
-    const end = new Date(task.endAt)
+    for (const task of filteredTodayTasks) {
+      const end = new Date(task.endAt)
+      const start = new Date(task.startAt)
 
-    return start <= now && now < end && !task.completed;
-  })
+      if (end < now && task.completed) {
+        pastCompletedDuration += (end.getTime() - start.getTime())
+      }
+    }
+
+    return pastCompletedDuration
+  }
+
+  const pastCompletedDurationMs = getDurationPastCompletedTasksToday()
 
   const selectedTask =
     activeTasks.find((task) => task.id === selectedTaskId) ?? activeTasks[0]
@@ -44,7 +87,7 @@ function ActiveTask ({tasks, today, onToggle}: ActiveTaskProps) {
         {activeTasks.map((task) => (
           <button
             style={{
-              '--task-color-active': task.color,
+              '--task-color-active': getTaskColor(task, categories),
             } as React.CSSProperties}
             type="button"
             key={task.id}
@@ -56,13 +99,13 @@ function ActiveTask ({tasks, today, onToggle}: ActiveTaskProps) {
             gap-2 
             cursor-pointer 
             border
-            ${task.id === selectedTask?.id ? 'border-[var(--task-color-active)]' : 'border-border'}
+            ${task.id === selectedTask?.id ? 'border-[var(--task-color-active)] bg-[var(--task-color-active)]/10' : 'border-border'}
             rounded-4xl 
             p-4
             `}
           >
             <span>{task.emoji}</span>
-            <span className="font-semibold mr-2">{task.title}</span>
+            <span className="font-semibold mr-2 text-foreground">{task.title}</span>
           </button>
         ))}
       </div>
@@ -71,6 +114,9 @@ function ActiveTask ({tasks, today, onToggle}: ActiveTaskProps) {
         today={today}
         onToggle={onToggle}
         now={now}
+        totalTasksDurationMs={duration}
+        pastCompletedDurationMs={pastCompletedDurationMs}
+        categories={categories}
         key={selectedTask?.id ?? 'no-active-task'}
       />
     </div>

@@ -12,9 +12,11 @@ import {
   useRef,
   useState
 } from 'react'
-import { CheckCheck, ChevronLeft, ChevronRight, ClockFading, Pen, Trash2, X } from 'lucide-react'
+import { CheckCheck, ChevronLeft, ChevronRight, ClockFading, LayoutDashboard, Pen, Trash2, X } from 'lucide-react'
 import type { Task } from '../../../types/Task.ts'
 import * as React from 'react'
+import type { Category } from '../../../types/Category.ts'
+import { getTaskCategory, getTaskColor } from '../../../utils/Category.ts'
 
 type CalendarProps = {
   today: Date
@@ -26,6 +28,7 @@ type CalendarProps = {
   onCreateTaskAt: ( startAt: Date ) => void
   onEdit: (task: Task ) => void,
   onDelete: (id: string) => void,
+  categories: Category[]
 }
 
 type CalendarTaskSegment = {
@@ -117,7 +120,7 @@ function getCalendarMovePreviewAtPoint(
   }
 }
 
-function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, onDelete} : CalendarProps) {
+function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, onDelete, categories} : CalendarProps) {
   const [visibleWeekStart, setVisibleWeekStart] = useState(
     () => getStartOfWeek(today)
   )
@@ -884,7 +887,7 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
   return (
     <div className="flex flex-col w-full gap-8">
       <div className="flex">
-        <div className="text-3xl font-bold">
+        <div className="text-3xl font-bold text-foreground">
           {monthFormatter.format(visibleWeekStart)}
         </div>
         <div className="flex gap-4 text-foreground-secondary ml-auto">
@@ -978,6 +981,7 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
           )}
           {/*Positioned Task Segments*/}
           {positionedTaskSegments.map((segment) => {
+            const color = getTaskColor(segment.task, categories)
             const timeRange = getHourRange(
               segment.task.startAt,
               segment.task.endAt
@@ -1049,13 +1053,13 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
                         : undefined
                     }
                     style={{
-                      '--task-color-calendar': segment.task.color,
+                      '--task-color-calendar': color,
                     } as React.CSSProperties}
                     className="
                       absolute
                       inset-0
                       overflow-hidden
-                      rounded-md
+                      rounded-xl
                       bg-[var(--task-color-calendar)]/50
                       "
                   >
@@ -1135,10 +1139,10 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
                       p-4
                       flex
                       flex-col
-                      gap-5
+                      gap-8
                       `}
                     >
-                      <div className="flex items-center justify-end gap-4">
+                      <div className="flex items-center justify-end gap-4 text-foreground">
                         <div className="flex gap-4">
                           <button
                             onClick={() => {onEdit(segment.task)}}
@@ -1157,7 +1161,7 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
                           <X className="size-4"/>
                         </button>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 text-foreground">
                         <span>{segment.task.emoji}</span>
                         <span>{segment.task.title}</span>
                       </div>
@@ -1165,11 +1169,15 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
                         <div className="flex gap-2 items-center">
                           <span
                             style={{
-                              '--task-color-task': segment.task.color,
+                              '--task-color-task': color,
                             } as React.CSSProperties}
                             className="bg-[var(--task-color-task)] rounded-full size-4"
                           />
                           <span>{getTimeRange(segment.task.startAt, segment.task.endAt, today)}</span>
+                        </div>
+                        <div className="flex gap-2 items-center">
+                          <LayoutDashboard className="size-4"/>
+                          <span>{getTaskCategory(segment.task, categories)}</span>
                         </div>
                         <div className="flex gap-2 items-center">
                           <ClockFading className="size-4"/>

@@ -5,7 +5,7 @@ import {
   Settings,
   ChartPie,
   LineStyle,
-  Notebook, Calendar,
+  Notebook, Calendar, AudioLines,
 } from 'lucide-react'
 import { NavLink } from 'react-router'
 
@@ -37,10 +37,7 @@ function Sidebar() {
       w-24
       shrink-0
       overflow-hidden
-      rounded-3xl
-      border-r
-      border-border
-      bg-canvas
+      glass-sidebar
       transition-[width]
       duration-300
       ease-out
@@ -49,7 +46,7 @@ function Sidebar() {
     >
 
       {/*logo*/}
-      <div className="flex h-16 items-center px-4">
+      <div className="flex h-16 items-center px-4 text-foreground">
         <div className="flex size-8 shrink-0 items-center justify-center">
           <Minus className="size-10" />
         </div>
@@ -197,24 +194,49 @@ function Sidebar() {
             Notes
           </span>
         </NavLink>
+        <NavLink
+          end
+          className="
+          flex
+          h-11
+          w-full
+          items-center
+          rounded-lg
+          px-4
+          text-foreground-secondary
+          transition-colors
+          hover:bg-surface-hover
+          hover:text-foreground
+          "
+        >
+          <div className="flex size-8 shrink-0 items-center justify-center">
+            <AudioLines className="size-5" />
+          </div>
+
+          <span
+            className={spanStyle}
+          >
+            Audio
+          </span>
+        </NavLink>
       </div>
 
       {/*Bottom Navigation*/}
       <div className="mt-auto flex flex-col">
-        <button
-          type="button"
+        <NavLink
+          end
           className="
-        flex
-        h-11
-        w-full
-        items-center
-        rounded-lg
-        px-4
-        text-foreground-secondary
-        transition-colors
-        hover:bg-surface-hover
-        hover:text-foreground
-        "
+          flex
+          h-11
+          w-full
+          items-center
+          rounded-lg
+          px-4
+          text-foreground-secondary
+          transition-colors
+          hover:bg-surface-hover
+          hover:text-foreground
+          "
         >
           <div className="flex size-8 shrink-0 items-center justify-center">
             <UserRound className="size-5" />
@@ -225,22 +247,23 @@ function Sidebar() {
           >
             Profile
           </span>
-        </button>
+        </NavLink>
 
-        <button
-          type="button"
+        <NavLink
+          to="/settings"
+          end
           className="
-        flex
-        h-11
-        w-full
-        items-center
-        rounded-lg
-        px-4
-        text-foreground-secondary
-        transition-colors
-        hover:bg-surface-hover
-        hover:text-foreground
-        "
+          flex
+          h-11
+          w-full
+          items-center
+          rounded-lg
+          px-4
+          text-foreground-secondary
+          transition-colors
+          hover:bg-surface-hover
+          hover:text-foreground
+          "
         >
           <div className="flex size-8 shrink-0 items-center justify-center">
             <Settings className="size-5" />
@@ -251,7 +274,7 @@ function Sidebar() {
           >
             Settings
           </span>
-        </button>
+        </NavLink>
       </div>
     </aside>
   )

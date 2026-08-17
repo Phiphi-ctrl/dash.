@@ -12,7 +12,7 @@ function Checkbox({ checked, onChange, className}: CheckboxProps) {
       className={`
         shrink-0
         p-3
-        rounded-lg
+        rounded-4xl
         cursor-pointer
         ${className}
         transition-colors

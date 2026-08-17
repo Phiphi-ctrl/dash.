@@ -4,6 +4,11 @@ import Button from '../../ui/Button.tsx'
 import { Trash2 } from 'lucide-react'
 import { Clock2 } from 'lucide-react'
 import { getDuration, getTimeRange } from '../../../utils/Datetime.ts'
+import * as React from 'react'
+import { useEffect, useState } from 'react'
+import PulseDot from '../../ui/PulseDot.tsx'
+import type { Category } from '../../../types/Category.ts'
+import { getTaskColor } from '../../../utils/Category.ts'
 
 type TaskItemProps = {
   task: Task,
@@ -11,13 +16,51 @@ type TaskItemProps = {
   onDelete: ( id: string ) => void
   onEdit: (task: Task ) => void,
   today: Date
+  categories: Category[]
 }
 
-function TaskItem ({task, onToggle, onDelete, onEdit, today} : TaskItemProps) {
+function TaskItem ({task, onToggle, onDelete, onEdit, today, categories} : TaskItemProps) {
 
+  const color = getTaskColor(task, categories)
+
+  const [now, setNow] = useState(new Date())
+
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      setNow(new Date())
+    }, 1000)
+
+    return () => {
+      clearInterval(intervalId)
+    }
+  }, [])
+
+  const isActive = (task: Task) => {
+    const start = new Date(task.startAt)
+    const end = new Date(task.endAt)
+
+    return start <= now && now < end && !task.completed;
+  }
+
+  const taskIsActive = isActive(task)
 
   return (
-    <li className={`flex w-full bg-transparent gap-4 items-center border border-border rounded-lg p-4`}>
+    <li
+      style={{
+        '--task-color-task': color,
+      } as React.CSSProperties}
+      className={`
+        relative
+        flex
+        w-full
+        bg-transparent
+        gap-4
+        items-center
+        border-b-2
+        border-border/50
+        p-4
+      `}
+    >
       <div>
         {task.emoji !== null && (
             <span className="text-3xl size-9 pl-2 pr-2 cursor-default">
@@ -32,10 +75,9 @@ function TaskItem ({task, onToggle, onDelete, onEdit, today} : TaskItemProps) {
       onClick={() => {onEdit(task)}}
       >
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <div className="flex gap-2">
-            <span
-              className={`min-w-0 truncate max-w-50 ${task.completed ? 'text-foreground-secondary line-through' : 'text-foreground'}`}
-            >
+          <div className="flex gap-2 items-center">
+            <PulseDot color={color} pulse={taskIsActive}/>
+            <span className={`min-w-0 truncate max-w-50 ${task.completed ? 'text-foreground-secondary line-through' : 'text-foreground'}`}>
               {task.title}
             </span>
           </div>

@@ -12,7 +12,7 @@ function Button ({onClick, Icon, className}: ButtonProps) {
       className={`
         shrink-0
         p-3
-        rounded-lg
+        rounded-4xl
         cursor-pointer
         border
         ${className}

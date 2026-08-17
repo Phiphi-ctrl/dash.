@@ -1,121 +1,180 @@
 @import 'tailwindcss';
 
 
-@theme {
-  /*
-   * Core surfaces
-   */
+@import 'tailwindcss';
 
-  --color-canvas: #1f202c;
-  --color-surface: #21222f;
-  --color-surface-hover: #36374d;
+/* =========================================================
+   RUNTIME CUSTOM PROPERTIES
+   ========================================================= */
 
+@property --progress-start {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
+}
 
-  /*
-   * Text
-   */
+@property --progress-end {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
+}
 
-  --color-foreground: #bdbdbd;
-  --color-foreground-secondary: #858585;
-  --color-muted: #626262;
+@property --task-active-color {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: transparent;
+}
 
+@property --task-color-calendar {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: transparent;
+}
 
-  /*
-   * Structural borders
-   */
-
-  --color-border: #333333;
-
-
-  /*
-   * Primary interaction accent
-   */
-
-  --color-accent: #235ec5;
-  --color-accent-high: rgb(35 94 197 / 30%);
-  --color-accent-medium: rgb(35 94 197 / 20%);
-  --color-accent-soft: rgb(35 94 197 / 15%);
-
-  --color-accent-secondary: #2f3954;
-
-
-  /*
-   * Validation
-   */
-
-  --color-error: #d3403a;
-  --color-error-soft: rgb(211 64 58 / 15%);
+@property --task-color-task {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: transparent;
+}
 
 
-  /*
-   * Destructive actions
-   */
+/* =========================================================
+   TAILWIND DESIGN TOKENS
+   ========================================================= */
 
-  --color-danger: #a12222;
-  --color-danger-soft: rgb(189 75 75 / 15%);
+@theme inline {
+  /* Core surfaces */
+  --color-canvas: var(--theme-canvas);
+  --color-surface: var(--theme-surface);
+  --color-surface-hover: var(--theme-surface-hover);
+
+  /* Text */
+  --color-foreground: var(--theme-foreground);
+  --color-foreground-secondary: var(--theme-foreground-secondary);
+  --color-muted: var(--theme-muted);
+
+  /* Structural borders */
+  --color-border: var(--theme-border);
+
+  /* Primary interaction accent */
+  --color-accent: var(--theme-accent);
+  --color-accent-high: var(--theme-accent-high);
+  --color-accent-medium: var(--theme-accent-medium);
+  --color-accent-soft: var(--theme-accent-soft);
+  --color-accent-secondary: var(--theme-accent-secondary);
+
+  /* Validation */
+  --color-error: var(--theme-error);
+  --color-error-soft: var(--theme-error-soft);
+
+  /* Destructive actions */
+  --color-danger: var(--theme-danger);
+  --color-danger-soft: var(--theme-danger-soft);
+
+  /* Calendar */
+  --color-calendar-today: var(--theme-calendar-today);
+  --color-calendar-today-muted: var(--theme-calendar-today-muted);
+
+  /* Priorities */
+  --color-priority-high: var(--theme-priority-high);
+  --color-priority-medium: var(--theme-priority-medium);
+  --color-priority-low: var(--theme-priority-low);
+}
+
+/* =========================================================
+   THEMES
+   ========================================================= */
 
 
-  /*
-   * Calendar-specific semantic roles
-   */
+/* ---------- Midnight / current dash. theme ---------- */
 
-  --color-calendar-today: #c74040;
-  --color-calendar-today-muted: #c57b7b;
+:root,
+[data-theme='midnight'] {
+  color-scheme: dark;
+  --theme-canvas: #1f202c;
+  --theme-surface: #21222f;
+  --theme-surface-hover: #36374d;
 
+  --theme-foreground: #f1f1f1;
+  --theme-foreground-secondary: #858585;
+  --theme-muted: #626262;
 
-  /*
-   * Task priorities
-   */
-  --color-priority-high: #323646;
-  --color-priority-medium: color-mix(
-    in oklab,
-    var(--color-priority-high) 50%,
-    transparent
-  );
+  --theme-border: #333333;
 
-  --color-priority-low: color-mix(
-          in oklab,
-          var(--color-priority-medium) 50%,
-          transparent
-  );
+  --theme-accent: #235ec5;
+  --theme-accent-high: rgb(35 94 197 / 30%);
+  --theme-accent-medium: rgb(35 94 197 / 20%);
+  --theme-accent-soft: rgb(35 94 197 / 15%);
+  --theme-accent-secondary: #2f3954;
 
+  --theme-error: #d3403a;
+  --theme-error-soft: rgb(211 64 58 / 15%);
 
+  --theme-danger: #a12222;
+  --theme-danger-soft: rgb(189 75 75 / 15%);
 
+  --theme-calendar-today: #c74040;
+  --theme-calendar-today-muted: #c57b7b;
 
+  --theme-priority-high: #323646;
+  --theme-priority-medium:
+          color-mix(
+                  in oklab,
+                  var(--theme-priority-high) 50%,
+                  transparent
+          );
 
+  --theme-priority-low:
+          color-mix(
+                  in oklab,
+                  var(--theme-priority-medium) 50%,
+                  transparent
+          );
+}
 
+/* ---------- Paper ---------- */
 
+[data-theme='paper'] {
+  color-scheme: light;
+  --theme-canvas: #f3f2ee;
+  --theme-surface: rgb(238, 238, 238);
+  --theme-surface-hover: #e7e5df;
 
+  --theme-foreground: #292a2f;
+  --theme-foreground-secondary: #686970;
+  --theme-muted: #99999f;
 
+  --theme-border: #d6d4ce;
 
-  /*
-   * Bin Shake
-   */
+  --theme-accent: #235ec5;
+  --theme-accent-high: rgb(35 94 197 / 24%);
+  --theme-accent-medium: rgb(35 94 197 / 16%);
+  --theme-accent-soft: rgb(35 94 197 / 10%);
+  --theme-accent-secondary: #dce4f3;
 
-  --animate-bin-shake: bin-shake 350ms ease-in-out;
+  --theme-error: #c83d38;
+  --theme-error-soft: rgb(200 61 56 / 10%);
 
-  @keyframes bin-shake {
-    0%,
-    100% {
-      transform: rotate(0deg);
-    }
+  --theme-danger: #a62c2c;
+  --theme-danger-soft: rgb(166 44 44 / 10%);
 
-    20% {
-      transform: rotate(-10deg);
-    }
+  --theme-calendar-today: #c74040;
+  --theme-calendar-today-muted: #d78d8d;
 
-    40% {
-      transform: rotate(10deg);
-    }
+  --theme-priority-high: #d8dbe4;
+  --theme-priority-medium:
+          color-mix(
+                  in oklab,
+                  var(--theme-priority-high) 65%,
+                  transparent
+          );
 
-    60% {
-      transform: rotate(-7deg);
-    }
-
-    80% {
-      transform: rotate(7deg);
-    }
-  }
+  --theme-priority-low:
+          color-mix(
+                  in oklab,
+                  var(--theme-priority-medium) 55%,
+                  transparent
+          );
 }
 
 .glass-panel-bg {
@@ -138,17 +197,27 @@
   border
   border-white/10
   shadow-xl
-  rounded-2xl;
+  rounded-4xl;
 }
 
 .glass-panel {
   @apply
   bg-transparent
-  backdrop-blur-2xl
+  backdrop-blur-xl
   border
   border-white/10
   shadow-2xl
-  rounded-3xl;
+  rounded-4xl;
+}
+
+.glass-sidebar {
+  @apply
+  bg-transparent
+  backdrop-blur-xl
+  border-r
+  border-white/10
+  shadow-xl
+  rounded-4xl;
 }
 
 
@@ -183,10 +252,10 @@
 }
 
 .active-task-progress-circle:hover {
-  stroke: color-mix(in srgb, var(--color-accent-secondary) 68%, rgba(255, 255, 255, 0.52) 32%);
+  stroke: color-mix(in srgb, var(--task-active-color) 68%, rgba(255, 255, 255, 0.52) 32%);
   filter:
-          drop-shadow(0 0 6px color-mix(in srgb, var(--color-accent-secondary) 60%, rgba(255, 255, 255, 0.43) 40%))
-          drop-shadow(0 0 14px color-mix(in srgb, var(--color-accent-secondary) 75%, transparent 25%));
+          drop-shadow(0 0 6px color-mix(in srgb, var(--task-active-color) 60%, rgba(255, 255, 255, 0.43) 40%))
+          drop-shadow(0 0 14px color-mix(in srgb, var(--task-active-color) 75%, transparent 25%));
 }
 
 
@@ -202,7 +271,6 @@
 
   html {
     background-color: var(--color-canvas);
-    color-scheme: dark;
   }
 
   body {
@@ -232,4 +300,35 @@
 .dash-scrollbar::-webkit-scrollbar-thumb {
   background: var(--color-border);
   border-radius: 9999px;
+}
+
+.template-scroll-fade {
+  mask-image: linear-gradient(
+          to bottom,
+          transparent 0,
+          black 1.5rem,
+          black calc(100% - 1.5rem),
+          transparent 100%
+  );
+}
+
+@keyframes task-comet-move {
+  from {
+    left: -50%;
+    transform: translateX(0);
+  }
+
+  to {
+    left: 150%;
+    transform: translateX(-100%);
+  }
+}
+
+.task-comet {
+  animation:
+          task-comet-move
+          8s
+          ease-in-out
+          infinite
+          ;
 }

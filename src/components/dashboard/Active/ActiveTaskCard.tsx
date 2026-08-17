@@ -1,16 +1,20 @@
 import type { Task } from '../../../types/Task.ts'
 import Checkbox from '../../ui/Checkbox.tsx'
 import { ArrowDownUp, Calendar, SlidersHorizontal } from 'lucide-react'
-import PulseDot from '../../ui/PulseDot.tsx'
 import { useRef, useState } from 'react'
 import * as React from 'react'
 import { getTimeRange } from '../../../utils/Datetime.ts'
+import type { Category } from '../../../types/Category.ts'
+import { getTaskColor } from '../../../utils/Category.ts'
 
 type ActiveTaskCardProps = {
   activeTask: Task | undefined
   today: Date
   onToggle: ( id: string ) => void,
   now: Date
+  totalTasksDurationMs: number
+  pastCompletedDurationMs: number
+  categories: Category[]
 }
 
 type ToolTipPosition ={
@@ -18,14 +22,16 @@ type ToolTipPosition ={
   y: number
 }
 
-function ActiveTaskCard({ activeTask, today, onToggle, now } : ActiveTaskCardProps) {
+function ActiveTaskCard({ activeTask, today, onToggle, now, totalTasksDurationMs, pastCompletedDurationMs, categories } : ActiveTaskCardProps) {
 
 
 
-  const [tooltipPosition, setTooltipPosition] = useState<ToolTipPosition | null>(null)
+  const [tooltipTaskPosition, setTooltipTaskPosition] = useState<ToolTipPosition | null>(null)
+  const [tooltipDayPosition, setTooltipDayPosition] = useState<ToolTipPosition | null>(null)
 
-  const progressCircleRef = useRef<HTMLDivElement>(null)
+  const progressCircleContainerRef = useRef<HTMLDivElement>(null)
 
+  const color = getTaskColor(activeTask, categories)
 
   function getTaskProgress (task: Task, currentTime: Date) {
     const start = new Date(task.startAt)
@@ -35,7 +41,15 @@ function ActiveTaskCard({ activeTask, today, onToggle, now } : ActiveTaskCardPro
     return Math.min(Math.max((elapsed / total), 0), 1)
   }
 
-  function formatMinutesToString (m: number, keyword: string): string {
+  function getDayProgress (task: Task | undefined, currentTime: Date) {
+
+    const elapsedTask = task ? task.completed ? (currentTime.getTime() - new Date(task.startAt).getTime()) : 0 : 0
+    const elapsedDay = pastCompletedDurationMs + elapsedTask
+    return Math.min(Math.max((elapsedDay / totalTasksDurationMs), 0), 1)
+
+  }
+
+  function formatMinutesToString (m: number): string {
     const h = Math.floor(m/60)
 
     const minutes = Math.round(m%60)
@@ -43,12 +57,12 @@ function ActiveTaskCard({ activeTask, today, onToggle, now } : ActiveTaskCardPro
     const hours = Math.round(h%24)
 
     if(days === 0 && hours === 0) {
-      return `${minutes}m ${keyword}`
+      return `${minutes}m`
     }
     if(days === 0) {
-      return `${hours}h ${minutes}m ${keyword}`
+      return `${hours}h ${minutes}m`
     }
-    return `${days}d ${hours}h ${minutes}m ${keyword}`
+    return `${days}d ${hours}h ${minutes}m`
   }
 
   function getTimeTillEndString (task: Task, currentTime: Date) {
@@ -60,7 +74,7 @@ function ActiveTaskCard({ activeTask, today, onToggle, now } : ActiveTaskCardPro
 
     const m = (end.getTime() - current.getTime()) / 1000 / 60
 
-    return formatMinutesToString(m, 'left')
+    return formatMinutesToString(m)
   }
 
   function getMinutesSinceStart (task: Task, currentTime: Date) {
@@ -72,32 +86,57 @@ function ActiveTaskCard({ activeTask, today, onToggle, now } : ActiveTaskCardPro
 
     const m = (current.getTime() - start.getTime()) / 1000 / 60
 
-    return formatMinutesToString(m, 'elapsed')
+    return formatMinutesToString(m)
   }
 
   const viewBoxSize = 180
 
-  const radius = viewBoxSize * 0.4
+  const radiusTask = 80
+  const radiusDay = 95
 
-  const circumference = 2 * Math.PI * radius
+  const circumferenceTask = 2 * Math.PI * radiusTask
+  const circumferenceDay = 2 * Math.PI * radiusDay
 
-  const progress = activeTask ? getTaskProgress(activeTask, now) : 0
+  const progressTask = activeTask ? getTaskProgress(activeTask, now) : 0
 
-  const offset = circumference * (1 - progress)
+  const progressDay = getDayProgress(activeTask, now)
 
-  function handleProgressMouseMove (event: React.MouseEvent<SVGCircleElement>) {
-    if (progressCircleRef.current === null) {
+  const offsetTask = circumferenceTask * (1 - progressTask)
+  const offsetDay = circumferenceDay * (1 - progressDay)
+
+  function handleProgressTaskMouseMove (event: React.MouseEvent<SVGCircleElement>) {
+    if (progressCircleContainerRef.current === null) {
       return
     }
-    const rect = progressCircleRef.current.getBoundingClientRect()
+    const rect = progressCircleContainerRef.current.getBoundingClientRect()
 
     const x = event.clientX - rect.left
     const y = event.clientY - rect.top
 
-    setTooltipPosition({
+    setTooltipTaskPosition({
       x,
       y
     })
+  }
+
+  function handleProgressDayMouseMove (event: React.MouseEvent<SVGCircleElement>) {
+    if (progressCircleContainerRef.current === null) {
+      return
+    }
+    const rect = progressCircleContainerRef.current.getBoundingClientRect()
+
+    const x = event.clientX - rect.left
+    const y = event.clientY - rect.top
+
+    setTooltipDayPosition({
+      x,
+      y
+    })
+  }
+
+  function formatProgressDay (progress: number) {
+    const percentProgress = Math.round(progress * 100)
+    return `${percentProgress}%`
   }
 
   return (
@@ -132,64 +171,123 @@ function ActiveTaskCard({ activeTask, today, onToggle, now } : ActiveTaskCardPro
               </div>
             </div>
           </div>
-          {/*Task title*/}
-          <div className="flex flex-col gap-4 p-2">
-            <div className="flex h-9">
-              <div className="flex justify-center items-center gap-2">
-                <span className="text-5xl">{activeTask.emoji}</span>
-                <span className="text-4xl font-bold">{activeTask.title}</span>
-              </div>
-              <div className="relative ml-auto">
-                <PulseDot className="absolute right-3 top-3" color={activeTask.color} />
-              </div>
-            </div>
-          </div>
-          {/*Progress Circle*/}
+          {/*Progress Circles*/}
           <div className="flex justify-center items-center p-6">
             <div
               className={`relative size-[${viewBoxSize}px]`}
-              ref={progressCircleRef}
+              ref={progressCircleContainerRef}
             >
+              <div>
+
+              </div>
               <svg
                 className="overflow-visible"
                 width={viewBoxSize}
                 height={viewBoxSize}
                 viewBox={`0 0 ${viewBoxSize} ${viewBoxSize}`}
               >
-                {/* background track */}
-                <circle
-                  className="text-border stroke-surface"
-                  cx={viewBoxSize / 2}
-                  cy={viewBoxSize / 2}
-                  r={radius}
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="25"
-                />
+                {/*TaskProgress*/}
+                {/* background track Task*/}
+                {progressTask === 0 ? (
+                  <circle
+                    className="text-border stroke-surface"
+                    cx={viewBoxSize / 2}
+                    cy={viewBoxSize / 2}
+                    r={radiusTask}
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="15"
+                    onMouseMove={handleProgressTaskMouseMove}
+                    onMouseLeave={() => setTooltipTaskPosition(null)}
+                  />
+                ) : (
+                  <circle
+                    className="text-border stroke-surface"
+                    cx={viewBoxSize / 2}
+                    cy={viewBoxSize / 2}
+                    r={radiusTask}
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="15"
+                  />
+                )}
 
-                {/* progress */}
+                {/* progressTask */}
                 <circle
                   style={{
-                    '--progress-start': circumference,
-                    '--progress-end': offset,
-                    '--task-active-color': activeTask.color,
+                    '--progress-start': circumferenceTask,
+                    '--progress-end': offsetTask,
+                    '--task-active-color': color,
                   } as React.CSSProperties}
                   cx={viewBoxSize / 2}
                   cy={viewBoxSize / 2}
-                  r={radius}
+                  r={radiusTask}
                   fill="none"
                   stroke="currentColor"
-                  strokeWidth="25"
-                  strokeDasharray={circumference}
-                  strokeDashoffset={offset}
+                  strokeWidth="15"
+                  strokeDasharray={circumferenceTask}
+                  strokeDashoffset={offsetTask}
                   strokeLinecap={'round'}
                   className="
                   active-task-progress-circle
-                  stroke-[var(--task-active-color)]
+                  stroke-[var(--task-active-color)]/80
                   "
 
-                  onMouseMove={handleProgressMouseMove}
-                  onMouseLeave={() => setTooltipPosition(null)}
+                  onMouseMove={handleProgressTaskMouseMove}
+                  onMouseLeave={() => setTooltipTaskPosition(null)}
+                  transform={`rotate(-90 ${viewBoxSize / 2} ${viewBoxSize / 2})`}
+
+                />
+                {/*DayProgress*/}
+                {/*Background track DayProgress*/}
+                {progressDay === 0 ? (
+                  <circle
+                    className="text-border stroke-surface"
+                    cx={viewBoxSize / 2}
+                    cy={viewBoxSize / 2}
+                    r={radiusDay}
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="15"
+                    onMouseMove={handleProgressDayMouseMove}
+                    onMouseLeave={() => setTooltipDayPosition(null)}
+                  />
+                ) : (
+                  <circle
+                    className="text-border stroke-surface"
+                    cx={viewBoxSize / 2}
+                    cy={viewBoxSize / 2}
+                    r={radiusDay}
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="15"
+                  />
+                )}
+
+
+                {/* progressTasksDay */}
+                <circle
+                  style={{
+                    '--progress-start': circumferenceDay,
+                    '--progress-end': offsetDay,
+                    '--task-active-color': color,
+                  } as React.CSSProperties}
+                  cx={viewBoxSize / 2}
+                  cy={viewBoxSize / 2}
+                  r={radiusDay}
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="15"
+                  strokeDasharray={circumferenceDay}
+                  strokeDashoffset={offsetDay}
+                  strokeLinecap={'round'}
+                  className="
+                  active-task-progress-circle
+                  stroke-[var(--task-active-color)]/50
+                  "
+
+                  onMouseMove={handleProgressDayMouseMove}
+                  onMouseLeave={() => setTooltipDayPosition(null)}
                   transform={`rotate(-90 ${viewBoxSize / 2} ${viewBoxSize / 2})`}
 
                 />
@@ -197,23 +295,22 @@ function ActiveTaskCard({ activeTask, today, onToggle, now } : ActiveTaskCardPro
               </svg>
               {/* center content */}
               <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                <span className="font-semibold text-3xl">
-                  {Math.round(progress * 100)}%
+                <span className="font-semibold text-3xl text-foreground">
+                  {Math.round(progressTask * 100)}%
                 </span>
                 <span className="text-xs text-foreground-secondary">
-                  {getTimeTillEndString(activeTask, now)}
+                  {getTimeTillEndString(activeTask, now)} left
                 </span>
               </div>
-              {tooltipPosition && (
+              {tooltipTaskPosition && (
                 <div
                   className="
                   pointer-events-none
                   absolute
-                  rounded-lg
+                  rounded-4xl
                   border border-border
                   bg-surface
-                  px-2
-                  py-1
+                  p-4
                   text-xs
                   text-foreground
                   translate-x-1/3
@@ -221,11 +318,43 @@ function ActiveTaskCard({ activeTask, today, onToggle, now } : ActiveTaskCardPro
                   w-max
                   "
                   style={{
-                    left: tooltipPosition.x - 8,
-                    top: tooltipPosition.y,
+                    left: tooltipTaskPosition.x - 8,
+                    top: tooltipTaskPosition.y,
                   }}
                 >
-                  {getMinutesSinceStart(activeTask, now)}
+                  <div className="flex gap-1">
+                    {getMinutesSinceStart(activeTask, now)}
+                    <span className="text-muted">of active task elapsed</span>
+                  </div>
+
+                </div>
+              )
+              }
+              {tooltipDayPosition && (
+                <div
+                  className="
+                  pointer-events-none
+                  absolute
+                  rounded-4xl
+                  border border-border
+                  bg-surface
+                  p-4
+                  text-xs
+                  text-foreground
+                  translate-x-1/3
+                  -translate-y-1/2
+                  w-max
+                  "
+                  style={{
+                    left: tooltipDayPosition.x - 8,
+                    top: tooltipDayPosition.y,
+                  }}
+                >
+                  <div className="flex gap-1">
+                    {formatProgressDay(progressDay)}
+                    <span className="text-muted">of day tasks completed</span>
+                  </div>
+
                 </div>
               )
               }
@@ -284,7 +413,7 @@ function ActiveTaskCard({ activeTask, today, onToggle, now } : ActiveTaskCardPro
             <div className="flex h-9">
               <div className="flex justify-center items-center gap-2">
                 <span className="text-5xl">{''}</span>
-                <span className="text-muted text-4xl font-bold">{'Nothing here'}</span>
+                <span className="text-muted text-4xl font-bold">Tasks</span>
               </div>
             </div>
           </div>
@@ -292,7 +421,7 @@ function ActiveTaskCard({ activeTask, today, onToggle, now } : ActiveTaskCardPro
           <div className="flex justify-center items-center p-6">
             <div
               className={`relative size-[${viewBoxSize}px]`}
-              ref={progressCircleRef}
+              ref={progressCircleContainerRef}
             >
               <svg
                 className="overflow-visible"
@@ -305,22 +434,87 @@ function ActiveTaskCard({ activeTask, today, onToggle, now } : ActiveTaskCardPro
                   className="text-border stroke-surface"
                   cx={viewBoxSize / 2}
                   cy={viewBoxSize / 2}
-                  r={radius}
+                  r={radiusTask}
                   fill="none"
                   stroke="currentColor"
                   strokeWidth="25"
+                />
+                {/*DayProgress*/}
+                {/*Background track DayProgress*/}
+                <circle
+                  className="text-border stroke-surface"
+                  cx={viewBoxSize / 2}
+                  cy={viewBoxSize / 2}
+                  r={radiusDay}
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="15"
+                />
+
+                {/* progressTasksDay */}
+                <circle
+                  style={{
+                    '--progress-start': circumferenceDay,
+                    '--progress-end': offsetDay,
+                    '--task-active-color': '#CC7E85',
+                  } as React.CSSProperties}
+                  cx={viewBoxSize / 2}
+                  cy={viewBoxSize / 2}
+                  r={radiusDay}
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="15"
+                  strokeDasharray={circumferenceDay}
+                  strokeDashoffset={offsetDay}
+                  strokeLinecap={'round'}
+                  className="
+                  active-task-progress-circle
+                  stroke-[var(--task-active-color)]
+                  "
+
+                  onMouseMove={handleProgressDayMouseMove}
+                  onMouseLeave={() => setTooltipDayPosition(null)}
+                  transform={`rotate(-90 ${viewBoxSize / 2} ${viewBoxSize / 2})`}
+
                 />
 
               </svg>
               {/* center content */}
               <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                <span className="font-semibold text-3xl text-muted">
-                  {Math.round(progress * 100)}%
+                <span className="font-semibold text-3xl text-foreground">
+                  {Math.round(progressDay * 100)}%
                 </span>
                 <span className="text-xs text-foreground-secondary">
-                  {'. . .'}
+                  {'completed'}
                 </span>
               </div>
+              {tooltipDayPosition && (
+                <div
+                  className="
+                  pointer-events-none
+                  absolute
+                  rounded-4xl
+                  border border-border
+                  p-4
+                  text-xs
+                  text-foreground
+                  translate-x-1/3
+                  -translate-y-1/2
+                  w-max
+                  "
+                  style={{
+                    left: tooltipDayPosition.x - 8,
+                    top: tooltipDayPosition.y,
+                  }}
+                >
+                  <div className="flex gap-1">
+                    {formatProgressDay(progressDay)}
+                    <span className="text-muted">of daily tasks completed</span>
+                  </div>
+
+                </div>
+              )
+              }
             </div>
           </div>
 

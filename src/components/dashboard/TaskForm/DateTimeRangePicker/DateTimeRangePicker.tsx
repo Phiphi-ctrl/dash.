@@ -134,7 +134,7 @@ function DateTimeRangePicker ({newStartAt, setNewStartAt, newEndAt, setNewEndAt,
     if(activeField === 'start') {
       return 'border-accent bg-accent-soft'
     }
-    return 'border-border bg-surface'
+    return 'border-transparent'
   }
 
   function getInputFieldEndStyle () {
@@ -144,7 +144,7 @@ function DateTimeRangePicker ({newStartAt, setNewStartAt, newEndAt, setNewEndAt,
     if(activeField === 'end') {
       return 'border-accent bg-accent-soft'
     }
-    return 'border-border bg-surface'
+    return 'border-transparent'
   }
 
   return (

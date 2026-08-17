@@ -5,6 +5,7 @@ import Button from '../components/ui/Button.tsx'
 import { PlusIcon, ListChecks, LoaderCircle, ChevronDown, ChevronUp, LineStyle } from 'lucide-react'
 import LiveDateTime from '../components/dashboard/LiveDateTime.tsx'
 import ActiveTask from '../components/dashboard/Active/ActiveTask.tsx'
+import type { Category } from '../types/Category.ts'
 
 type DashboardProps = {
   today: Date
@@ -14,6 +15,7 @@ type DashboardProps = {
   setEditingTask: (task: Task | null) => void
   setIsAddTaskOpen: (isOpen: boolean) => void
   handleEditTaskItem: (task: Task) => void
+  categories: Category[]
 }
 
 
@@ -24,7 +26,8 @@ function Dashboard({
                      setEditingTask,
                      setIsAddTaskOpen,
                      handleDeleteTaskItem,
-                     handleEditTaskItem }: DashboardProps) {
+                     handleEditTaskItem,
+                     categories }: DashboardProps) {
 
   const [isActiveOpen, setIsActiveOpen] = useState(true)
 
@@ -32,12 +35,12 @@ function Dashboard({
 
 
   return (
-    <main className="flex flex-1 z-0 flex-col p-10 gap-8">
-      <header className="flex flex-col gap-2">
+    <main className="flex flex-1 z-0 flex-col px-10 gap-8">
+      <header className="flex gap-1 items-center justify-between">
         <LiveDateTime />
-        <div className="flex gap-4 items-center">
-          <LineStyle className="size-12 text-muted"/>
-          <h2 className="text-5xl font-bold">board.</h2>
+        <div className="flex gap-1 text-foreground-secondary">
+          <LineStyle />
+          <span>board.</span>
         </div>
       </header>
 
@@ -45,7 +48,7 @@ function Dashboard({
         {/*Active Section*/}
         <div className="flex flex-col gap-1">
           <div className="flex justify-between mb-4 p-2">
-            <div className="flex justify-center items-center p-2 gap-3">
+            <div className="flex justify-center items-center p-2 gap-3 text-foreground">
               <LoaderCircle className="size-5" />
               <h3 className="text-xl font-semibold">active.</h3>
               <button
@@ -62,13 +65,18 @@ function Dashboard({
             </div>
           </div>
           {isActiveOpen && (
-            <ActiveTask tasks={tasks} today={today} onToggle={handleToggleTaskItem} />
+            <ActiveTask
+              tasks={tasks}
+              today={today}
+              onToggle={handleToggleTaskItem}
+              categories={categories}
+            />
           )}
         </div>
         {/*To-do section*/}
         <div className="flex flex-col gap-1">
           <div className="flex justify-between mb-4 p-2">
-            <div className="flex justify-center items-center p-2 gap-3">
+            <div className="flex justify-center items-center p-2 gap-3 text-foreground">
               <ListChecks className="size-5" />
               <h3 className="text-xl font-semibold">To-Do list.</h3>
               <button
@@ -90,13 +98,13 @@ function Dashboard({
               }}
               Icon={PlusIcon}
               className={`
-            bg-app-surface 
-          border-border 
-          text-muted 
-          hover:bg-accent-soft
-          hover:border-accent
-          hover:text-accent
-            `}
+                bg-app-surface 
+                border-border 
+                text-muted 
+                hover:bg-accent-soft
+                hover:border-accent
+                hover:text-accent
+              `}
             />
           </div>
           {isToDoOpen && (
@@ -105,6 +113,7 @@ function Dashboard({
               onToggle={handleToggleTaskItem}
               onDelete={handleDeleteTaskItem}
               onEdit={handleEditTaskItem}
+              categories={categories}
               today={today}
             />
           )}
