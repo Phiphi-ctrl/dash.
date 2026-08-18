@@ -3,12 +3,9 @@ import { Notebook, PlusIcon, Trash2, PanelLeftClose, PanelLeftOpen } from 'lucid
 import type { Note } from '../types/Note.ts'
 import { useState } from 'react'
 import Button from '../components/ui/Button.tsx'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
-import remarkBreaks from 'remark-breaks'
-import remarkMath from 'remark-math'
-import rehypeKatex from 'rehype-katex'
 import 'katex/dist/katex.min.css'
+import BlockNoteEditor from '../components/notes/BlockNoteEditor.tsx'
+import {dateTimeFormatter} from "../utils/Datetime.ts";
 
 type NotesProps = {
   notes: Note[],
@@ -26,9 +23,6 @@ function Notes({notes, onAddNote, onUpdateNote, onDeleteNote}: NotesProps) {
     notes.find(
       (note) => note.id === selectedNoteId
     ) ?? null
-
-  const [isEditing, setIsEditing] =
-    useState(true)
 
   const [isNotesSidebarOpen, setIsNotesSidebarOpen] =
     useState(true)
@@ -72,7 +66,6 @@ function Notes({notes, onAddNote, onUpdateNote, onDeleteNote}: NotesProps) {
               onClick={() => {
                 const id = onAddNote()
                 setSelectedNoteId(id)
-                setIsEditing(true)
               }}
               Icon={PlusIcon}
               className={`
@@ -107,7 +100,6 @@ function Notes({notes, onAddNote, onUpdateNote, onDeleteNote}: NotesProps) {
                   type="button"
                   onClick={() => {
                     setSelectedNoteId(note.id)
-                    setIsEditing(false)
                   }}
                   className={`
                 flex
@@ -141,7 +133,7 @@ function Notes({notes, onAddNote, onUpdateNote, onDeleteNote}: NotesProps) {
             `}
           >
             {selectedNote !== null ? (
-              <div className="relative h-full overflow-hidden p-4">
+              <div className="relative h-full overflow-hidden">
                 <div
                   className="
                     absolute
@@ -156,27 +148,32 @@ function Notes({notes, onAddNote, onUpdateNote, onDeleteNote}: NotesProps) {
 
                     bg-canvas/90
                     backdrop-blur-xs
+                    h-12
 
                   "
                 >
                   {/*Title*/}
-                  <input
-                    type="text"
-                    value={selectedNote.title}
-                    onChange={(event) => {
-                      onUpdateNote(selectedNote.id, {
-                        title: event.target.value,
-                      })
-                    }}
-                    className="
-                    w-full
-                    bg-transparent
-                    text-3xl
-                    font-bold
-                    text-foreground
-                    outline-none
-                  "
-                  />
+                  <div className="flex-col ml-13">
+                      <input
+                          type="text"
+                          value={selectedNote.title}
+                          onChange={(event) => {
+                              onUpdateNote(selectedNote.id, {
+                                  title: event.target.value,
+                              })
+                          }}
+                          className="
+                            w-full
+                            bg-transparent
+                            text-xl
+                            font-bold
+                            text-foreground
+                            outline-none
+                          "
+                      />
+                      <span className=" flex text-xs text-muted">{dateTimeFormatter.format(new Date(selectedNote.createdAt))}</span>
+                  </div>
+
                   <Button
                     onClick={() => {
                       onDeleteNote(selectedNote.id)
@@ -194,61 +191,26 @@ function Notes({notes, onAddNote, onUpdateNote, onDeleteNote}: NotesProps) {
                   />
 
                 </div>
-                {isEditing ? (
-                  <textarea
-                    value={selectedNote.content}
-                    onChange={(event) => {
-                      onUpdateNote(selectedNote.id, {
-                        content: event.target.value,
-                      })
-                    }}
-                    onBlur={() => {
-                      setIsEditing(false)
-                    }}
-                    placeholder=". . ."
-                    className="
-                      h-full
-                      w-full
-
-                      resize-none
-                      overflow-y-auto
-                      scrollbar-none
-
-                      pt-20
-
-                      bg-transparent
-                      text-foreground
-                      outline-none
-                    "
-                  />
-                ) : (
                   <div
-                    onClick={() => {
-                      setIsEditing(true)
-                    }}
-                    className="
-                      markdown-note
-                      h-full
-                      overflow-y-auto
-                      scrollbar-none
-                      pt-20
-                      cursor-text
-                    "
+                      className="
+                        h-full
+                        overflow-y-auto
+                        scrollbar-none
+                        pt-20
+                        pb-10
+                      "
                   >
-                    <ReactMarkdown
-                      remarkPlugins={[
-                        remarkBreaks,
-                        remarkGfm,
-                        remarkMath,
-                      ]}
-                      rehypePlugins={[
-                        rehypeKatex,
-                      ]}
-                    >
-                      {selectedNote.content}
-                    </ReactMarkdown>
+                      <BlockNoteEditor
+                          key={selectedNote.id}
+                          content={selectedNote.content}
+                          onChange={(content) => {
+                              onUpdateNote(selectedNote.id, {
+                                  content,
+                              })
+                          }}
+                      />
                   </div>
-                )}
+
               </div>
             ) : (
               <div className="flex h-full items-center justify-center text-muted">

@@ -12,6 +12,10 @@
     "format:check": "prettier . --check"
   },
   "dependencies": {
+    "@blocknote/ariakit": "^0.54.0",
+    "@blocknote/core": "^0.54.0",
+    "@blocknote/math-block": "^0.54.0",
+    "@blocknote/react": "^0.54.0",
     "@emoji-mart/data": "^1.2.1",
     "@tailwindcss/vite": "^4.3.3",
     "emoji-mart": "^5.6.0",

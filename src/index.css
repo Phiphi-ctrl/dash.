@@ -88,10 +88,10 @@
 :root,
 [data-theme='midnight'] {
   color-scheme: dark;
-  --theme-browser-chrome: #1f202c;
-  --theme-canvas: #1f202c;
-  --theme-surface: #21222f;
-  --theme-surface-hover: #36374d;
+  --theme-browser-chrome: #171717;
+  --theme-canvas: #171717;
+  --theme-surface: #2c2c2c;
+  --theme-surface-hover: #424242;
 
   --theme-foreground: #f1f1f1;
   --theme-foreground-secondary: #858585;
@@ -356,3 +356,4 @@
 .markdown-note code {
   @apply rounded-md bg-surface-hover px-1.5 py-0.5;
 }
+

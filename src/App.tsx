@@ -67,7 +67,7 @@ function App() {
     const note: Note = {
       id: crypto.randomUUID(),
       title: 'Untitled',
-      content: '',
+      content: [],
       categoryId: null,
       createdAt: now,
       updatedAt: now,
