@@ -243,3 +243,13 @@ export function getHourRange(startAt: string, endAt: string) {
   return [dateTimeFormatter.format(start), dateTimeFormatter.format(end)]
 }
 
+export function formatTimeMs (ms: number): string {
+  const m = ms / 1000 / 60
+  const hours = Math.floor(m / 60)
+  const minutes = m % 60
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`
+  }
+  return `${minutes}m`
+}
+

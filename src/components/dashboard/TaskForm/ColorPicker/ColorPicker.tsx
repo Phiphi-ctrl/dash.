@@ -15,6 +15,7 @@ function ColorPicker({onClick}: ColorPickerProps) {
       '#B9BAA3',
       '#CC7E85',
       '#D38B5D',
+      '#B6B8D6'
     ]
     return (
         <div className="p-2 grid grid-cols-4">

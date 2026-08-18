@@ -1,8 +1,5 @@
 @import 'tailwindcss';
 
-
-@import 'tailwindcss';
-
 /* =========================================================
    RUNTIME CUSTOM PROPERTIES
    ========================================================= */
@@ -91,6 +88,7 @@
 :root,
 [data-theme='midnight'] {
   color-scheme: dark;
+  --theme-browser-chrome: #1f202c;
   --theme-canvas: #1f202c;
   --theme-surface: #21222f;
   --theme-surface-hover: #36374d;
@@ -136,6 +134,7 @@
 
 [data-theme='paper'] {
   color-scheme: light;
+  --theme-browser-chrome: #ffffff;
   --theme-canvas: #f3f2ee;
   --theme-surface: rgb(238, 238, 238);
   --theme-surface-hover: #e7e5df;
@@ -270,17 +269,18 @@
   }
 
   html {
-    background-color: var(--color-canvas);
+    background-color: var(--theme-browser-chrome);
   }
 
   body {
     margin: 0;
-    background-color: var(--color-canvas);
+    background-color: transparent;
     color: var(--color-foreground);
   }
 
   #root {
     min-height: 100dvh;
+    background-color: var(--color-canvas);
   }
 }
 
@@ -312,23 +312,47 @@
   );
 }
 
-@keyframes task-comet-move {
-  from {
-    left: -50%;
-    transform: translateX(0);
-  }
 
-  to {
-    left: 150%;
-    transform: translateX(-100%);
-  }
+.markdown-note {
+  @apply text-foreground;
 }
 
-.task-comet {
-  animation:
-          task-comet-move
-          8s
-          ease-in-out
-          infinite
-          ;
+.markdown-note h1 {
+  @apply mt-8 mb-4 text-4xl font-bold;
+}
+
+.markdown-note h2 {
+  @apply mt-7 mb-3 text-3xl font-semibold;
+}
+
+.markdown-note h3 {
+  @apply mt-6 mb-2 text-2xl font-semibold;
+}
+
+.markdown-note h4 {
+  @apply mt-5 mb-2 text-xl font-semibold;
+}
+
+.markdown-note p {
+  @apply mb-4 leading-7;
+}
+
+.markdown-note ul {
+  @apply mb-4 list-disc pl-6;
+}
+
+.markdown-note ol {
+  @apply mb-4 list-decimal pl-6;
+}
+
+.markdown-note li {
+  @apply mb-1;
+}
+
+.markdown-note blockquote {
+  @apply my-4 border-l-4 border-border pl-4 text-foreground-secondary;
+}
+
+.markdown-note code {
+  @apply rounded-md bg-surface-hover px-1.5 py-0.5;
 }

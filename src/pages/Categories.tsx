@@ -3,14 +3,16 @@ import { LayoutDashboard, ListSortDescending, PlusIcon } from 'lucide-react'
 import type { Category } from '../types/Category.ts'
 import CategoryCard from '../components/categories/CategoryCard.tsx'
 import Button from '../components/ui/Button.tsx'
+import type { Task } from '../types/Task.ts'
 
 type CategoriesProps = {
   categories: Category[]
+  tasks: Task[]
   handleDeleteCategory: (id: string) => void
   setIsAddCategoryOpen: (isOpen: boolean) => void
 }
 
-function Categories( { categories, setIsAddCategoryOpen, handleDeleteCategory }: CategoriesProps ) {
+function Categories( { categories, setIsAddCategoryOpen, handleDeleteCategory, tasks }: CategoriesProps ) {
   return (
     <main className="flex flex-1 z-0 flex-col px-10 gap-8">
       <header className="flex gap-1 items-center justify-between">
@@ -41,9 +43,15 @@ function Categories( { categories, setIsAddCategoryOpen, handleDeleteCategory }:
             `}
           />
         </div>
-        <div className="flex flex-wrap gap-6">
+        <div></div>
+        <div className="flex flex-wrap gap-6 h-135 py-4 px-4 overflow-hidden overflow-y-auto dash-scrollbar">
           {categories.map((category) => (
-            <CategoryCard key={category.id} category={category} handleDeleteCategory={handleDeleteCategory} />
+            <CategoryCard
+              key={category.id}
+              category={category}
+              handleDeleteCategory={handleDeleteCategory}
+              tasks={tasks}
+            />
           ))}
         </div>
 

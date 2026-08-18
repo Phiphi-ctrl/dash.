@@ -12,6 +12,7 @@ import TaskForm from './components/dashboard/TaskForm/TaskForm.tsx'
 import Settings from './pages/Settings.tsx'
 import type { NewCategory, Category } from './types/Category.ts'
 import CategoryForm from './components/dashboard/CategoryForm/CategoryForm.tsx'
+import type { Note } from './types/Note.ts'
 
 function createEmptyTaskValues(): NewTask {
   return {
@@ -48,6 +49,65 @@ function App() {
   useEffect(() => {
     localStorage.setItem("dash.tasks", JSON.stringify(tasks))
   }, [tasks])
+
+  const [notes, setNotes] = useState<Note[]>(() => {
+    const storedNotes = localStorage.getItem("dash.notes")
+    if(!storedNotes) return []
+    return JSON.parse(storedNotes)
+  })
+
+  useEffect(() => {
+    localStorage.setItem("dash.notes", JSON.stringify(notes))
+  }, [notes])
+
+  //note handlers
+  function handleAddNote() {
+    const now = new Date().toISOString()
+
+    const note: Note = {
+      id: crypto.randomUUID(),
+      title: 'Untitled',
+      content: '',
+      categoryId: null,
+      createdAt: now,
+      updatedAt: now,
+    }
+
+    setNotes((currentNotes) => [
+      ...currentNotes,
+      note,
+    ])
+
+    return note.id
+  }
+
+  function handleUpdateNote(
+    id: string,
+    changes: Partial<Pick<
+      Note,
+      'title' | 'content' | 'categoryId'
+    >>
+  ) {
+    setNotes((currentNotes) =>
+      currentNotes.map((note) =>
+        note.id === id
+          ? {
+            ...note,
+            ...changes,
+            updatedAt: new Date().toISOString(),
+          }
+          : note
+      )
+    )
+  }
+
+  function handleDeleteNote(id: string) {
+    setNotes((currentNotes) =>
+      currentNotes.filter(
+        (note) => note.id !== id
+      )
+    )
+  }
 
   const sortedTasks = [...tasks].sort((a, b) => Date.parse(a.startAt) - Date.parse(b.startAt))
 
@@ -254,6 +314,7 @@ function App() {
             path="/categories"
             element={<Categories
               categories={categories}
+              tasks={tasks}
               setIsAddCategoryOpen={setIsAddCategoryOpen}
               handleDeleteCategory={handleDeleteCategory}
             />}
@@ -266,7 +327,12 @@ function App() {
 
           <Route
             path="/notes"
-            element={<Notes />}
+            element={<Notes
+              notes={notes}
+              onAddNote={handleAddNote}
+              onUpdateNote={handleUpdateNote}
+              onDeleteNote={handleDeleteNote}
+            />}
           />
 
           <Route
