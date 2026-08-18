@@ -1,5 +1,13 @@
 import LiveDateTime from '../components/dashboard/LiveDateTime.tsx'
-import { Notebook, PlusIcon, Trash2, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import {
+  Maximize2,
+  Minimize2,
+  Notebook,
+  PlusIcon,
+  Trash2,
+  PanelLeftClose,
+  PanelLeftOpen,
+} from 'lucide-react'
 import type { Note } from '../types/Note.ts'
 import { useState } from 'react'
 import Button from '../components/ui/Button.tsx'
@@ -26,6 +34,120 @@ function Notes({notes, onAddNote, onUpdateNote, onDeleteNote}: NotesProps) {
 
   const [isNotesSidebarOpen, setIsNotesSidebarOpen] =
     useState(true)
+
+  const [isNoteFullscreen, setIsNoteFullscreen] =
+    useState(false)
+
+  const isSelectedNoteFullscreen =
+    selectedNote !== null && isNoteFullscreen
+
+  const noteActionButtonClass = `
+    bg-app-surface
+    border-border
+    text-muted
+    hover:bg-accent-soft
+    hover:border-accent
+    hover:text-accent
+  `
+
+  const deleteNoteButtonClass = `
+    bg-app-surface
+    border-border
+    text-muted
+    hover:bg-accent-danger-soft
+    hover:border-danger
+    hover:text-danger
+  `
+
+  function handleDeleteSelectedNote() {
+    if (selectedNote === null) {
+      return
+    }
+
+    onDeleteNote(selectedNote.id)
+    setSelectedNoteId(null)
+    setIsNoteFullscreen(false)
+  }
+
+  function renderSelectedNoteHeader(isFullscreen: boolean) {
+    if (selectedNote === null) {
+      return null
+    }
+
+    return (
+      <div
+        className="
+          absolute
+          inset-x-0
+          top-0
+          z-20
+
+          flex
+          items-center
+          justify-between
+          py-4
+
+          bg-canvas/90
+          backdrop-blur-xs
+          h-12
+        "
+      >
+        <div className="flex-col ml-13">
+          <input
+            type="text"
+            value={selectedNote.title}
+            onChange={(event) => {
+              onUpdateNote(selectedNote.id, {
+                title: event.target.value,
+              })
+            }}
+            className="
+              w-full
+              bg-transparent
+              text-xl
+              font-bold
+              text-foreground
+              outline-none
+            "
+          />
+          <span className="flex text-xs text-muted">
+            {dateTimeFormatter.format(new Date(selectedNote.createdAt))}
+          </span>
+        </div>
+
+        <div className="flex gap-2">
+          <Button
+            onClick={() => setIsNoteFullscreen((current) => !current)}
+            Icon={isFullscreen ? Minimize2 : Maximize2}
+            className={noteActionButtonClass}
+          />
+          <Button
+            onClick={handleDeleteSelectedNote}
+            Icon={Trash2}
+            className={deleteNoteButtonClass}
+          />
+        </div>
+      </div>
+    )
+  }
+
+  function renderSelectedNoteEditor() {
+    if (selectedNote === null) {
+      return null
+    }
+
+    return (
+      <BlockNoteEditor
+        key={selectedNote.id}
+        content={selectedNote.content}
+        onChange={(content) => {
+          onUpdateNote(selectedNote.id, {
+            content,
+          })
+        }}
+      />
+    )
+  }
 
   return (
     <main className="flex flex-1 flex-col px-10 gap-2">
@@ -65,6 +187,7 @@ function Notes({notes, onAddNote, onUpdateNote, onDeleteNote}: NotesProps) {
             <Button
               onClick={() => {
                 const id = onAddNote()
+                setIsNoteFullscreen(false)
                 setSelectedNoteId(id)
               }}
               Icon={PlusIcon}
@@ -99,6 +222,7 @@ function Notes({notes, onAddNote, onUpdateNote, onDeleteNote}: NotesProps) {
                 <button
                   type="button"
                   onClick={() => {
+                    setIsNoteFullscreen(false)
                     setSelectedNoteId(note.id)
                   }}
                   className={`
@@ -134,83 +258,20 @@ function Notes({notes, onAddNote, onUpdateNote, onDeleteNote}: NotesProps) {
           >
             {selectedNote !== null ? (
               <div className="relative h-full overflow-hidden">
-                <div
-                  className="
-                    absolute
-                    inset-x-0
-                    top-0
-                    z-20
-
-                    flex
-                    items-center
-                    justify-between
-                    py-4
-
-                    bg-canvas/90
-                    backdrop-blur-xs
-                    h-12
-
-                  "
-                >
-                  {/*Title*/}
-                  <div className="flex-col ml-13">
-                      <input
-                          type="text"
-                          value={selectedNote.title}
-                          onChange={(event) => {
-                              onUpdateNote(selectedNote.id, {
-                                  title: event.target.value,
-                              })
-                          }}
-                          className="
-                            w-full
-                            bg-transparent
-                            text-xl
-                            font-bold
-                            text-foreground
-                            outline-none
-                          "
-                      />
-                      <span className=" flex text-xs text-muted">{dateTimeFormatter.format(new Date(selectedNote.createdAt))}</span>
-                  </div>
-
-                  <Button
-                    onClick={() => {
-                      onDeleteNote(selectedNote.id)
-                      setSelectedNoteId(null)
-                    }}
-                    Icon={Trash2}
-                    className={`
-                      bg-app-surface 
-                      border-border 
-                      text-muted 
-                      hover:bg-accent-danger-soft
-                      hover:border-danger
-                      hover:text-danger
-                    `}
-                  />
-
-                </div>
+                {renderSelectedNoteHeader(false)}
+                {!isSelectedNoteFullscreen && (
                   <div
-                      className="
-                        h-full
-                        overflow-y-auto
-                        scrollbar-none
-                        pt-20
-                        pb-10
-                      "
+                    className="
+                      h-full
+                      overflow-y-auto
+                      scrollbar-none
+                      pt-20
+                      pb-10
+                    "
                   >
-                      <BlockNoteEditor
-                          key={selectedNote.id}
-                          content={selectedNote.content}
-                          onChange={(content) => {
-                              onUpdateNote(selectedNote.id, {
-                                  content,
-                              })
-                          }}
-                      />
+                    {renderSelectedNoteEditor()}
                   </div>
-
+                )}
               </div>
             ) : (
               <div className="flex h-full items-center justify-center text-muted">
@@ -220,6 +281,24 @@ function Notes({notes, onAddNote, onUpdateNote, onDeleteNote}: NotesProps) {
           </section>
         </div>
       </section>
+      {selectedNote !== null && isSelectedNoteFullscreen && (
+        <div className="fixed inset-0 z-50 bg-canvas px-10">
+          <div className="relative h-full overflow-hidden">
+            {renderSelectedNoteHeader(true)}
+            <div
+              className="
+                h-full
+                overflow-y-auto
+                scrollbar-none
+                pt-20
+                pb-10
+              "
+            >
+              {renderSelectedNoteEditor()}
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   )
 }
