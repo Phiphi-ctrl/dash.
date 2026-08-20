@@ -30,10 +30,19 @@ type BlockNoteEditorProps = {
 function BlockNoteEditor( {content, onChange}: BlockNoteEditorProps) {
   const editor = useCreateBlockNote({
     schema: noteSchema,
+
     initialContent:
       content.length > 0
         ? content
         : undefined,
+
+    domAttributes: {
+      editor: {
+        autocorrect: 'off',
+        autocapitalize: 'none',
+        spellcheck: 'true',
+      },
+    },
   })
 
   return (

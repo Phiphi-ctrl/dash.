@@ -8,7 +8,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
 } from 'lucide-react'
-import type { Note } from '../types/Note.ts'
+import type { Note, NoteFolder } from '../types/Note.ts'
 import { useState } from 'react'
 import Button from '../components/ui/Button.tsx'
 import 'katex/dist/katex.min.css'
@@ -16,10 +16,15 @@ import BlockNoteEditor from '../components/notes/BlockNoteEditor.tsx'
 import {dateTimeFormatter} from "../utils/Datetime.ts";
 
 type NotesProps = {
-  notes: Note[],
-  onAddNote: () => string,
-  onUpdateNote: (id: string, changes: Partial<Pick<Note, 'title' | 'content' | 'categoryId'>>) => void,
-  onDeleteNote: (id: string) => void,
+    notes: Note[],
+    noteFolders: NoteFolder[],
+
+    onAddNote: () => string,
+    onUpdateNote: (
+        id: string,
+        changes: Partial<Pick<Note, 'title' | 'content' | 'folderId'>>
+    ) => void,
+    onDeleteNote: (id: string) => void,
 }
 
 function Notes({notes, onAddNote, onUpdateNote, onDeleteNote}: NotesProps) {
@@ -68,6 +73,8 @@ function Notes({notes, onAddNote, onUpdateNote, onDeleteNote}: NotesProps) {
     setSelectedNoteId(null)
     setIsNoteFullscreen(false)
   }
+
+
 
   function renderSelectedNoteHeader(isFullscreen: boolean) {
     if (selectedNote === null) {
@@ -148,6 +155,8 @@ function Notes({notes, onAddNote, onUpdateNote, onDeleteNote}: NotesProps) {
       />
     )
   }
+
+
 
   return (
     <main className="flex flex-1 flex-col px-10 gap-2">

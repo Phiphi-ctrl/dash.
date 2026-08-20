@@ -88,8 +88,8 @@
 :root,
 [data-theme='midnight'] {
   color-scheme: dark;
-  --theme-browser-chrome: #171717;
-  --theme-canvas: #171717;
+  --theme-browser-chrome: #1a1a1a;
+  --theme-canvas: #1a1a1a;
   --theme-surface: #2c2c2c;
   --theme-surface-hover: #424242;
 
@@ -134,7 +134,7 @@
 
 [data-theme='paper'] {
   color-scheme: light;
-  --theme-browser-chrome: #ffffff;
+  --theme-browser-chrome: #1a1a1a;
   --theme-canvas: #f3f2ee;
   --theme-surface: rgb(238, 238, 238);
   --theme-surface-hover: #e7e5df;

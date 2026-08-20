@@ -68,7 +68,7 @@ function App() {
       id: crypto.randomUUID(),
       title: 'Untitled',
       content: [],
-      categoryId: null,
+      folderId: null,
       createdAt: now,
       updatedAt: now,
     }
@@ -85,7 +85,7 @@ function App() {
     id: string,
     changes: Partial<Pick<
       Note,
-      'title' | 'content' | 'categoryId'
+      'title' | 'content' | 'folderId'
     >>
   ) {
     setNotes((currentNotes) =>
