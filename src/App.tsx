@@ -13,6 +13,7 @@ import Settings from './pages/Settings.tsx'
 import type { NewCategory, Category } from './types/Category.ts'
 import CategoryForm from './components/dashboard/CategoryForm/CategoryForm.tsx'
 import type { Note } from './types/Note.ts'
+import { createEmptyDashDocument } from './types/Block.ts'
 
 function createEmptyTaskValues(): NewTask {
   return {
@@ -67,7 +68,10 @@ function App() {
     const note: Note = {
       id: crypto.randomUUID(),
       title: 'Untitled',
-      content: '',
+
+      document:
+        createEmptyDashDocument(),
+
       categoryId: null,
       createdAt: now,
       updatedAt: now,
@@ -83,10 +87,12 @@ function App() {
 
   function handleUpdateNote(
     id: string,
-    changes: Partial<Pick<
-      Note,
-      'title' | 'content' | 'categoryId'
-    >>
+    changes: Partial<
+      Pick<
+        Note,
+        'title' | 'document' | 'categoryId'
+      >
+    >
   ) {
     setNotes((currentNotes) =>
       currentNotes.map((note) =>

@@ -3,18 +3,25 @@ import { Notebook, PlusIcon, Trash2, PanelLeftClose, PanelLeftOpen } from 'lucid
 import type { Note } from '../types/Note.ts'
 import { useState } from 'react'
 import Button from '../components/ui/Button.tsx'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
-import remarkBreaks from 'remark-breaks'
-import remarkMath from 'remark-math'
-import rehypeKatex from 'rehype-katex'
-import 'katex/dist/katex.min.css'
+import DashBlockEditor from "../components/editor/DashBlockEditor.tsx";
 
 type NotesProps = {
-  notes: Note[],
-  onAddNote: () => string,
-  onUpdateNote: (id: string, changes: Partial<Pick<Note, 'title' | 'content' | 'categoryId'>>) => void,
-  onDeleteNote: (id: string) => void,
+    notes: Note[]
+    onAddNote: () => string
+
+    onUpdateNote: (
+        id: string,
+        changes: Partial<
+            Pick<
+                Note,
+                'title' | 'document' | 'categoryId'
+            >
+        >
+    ) => void
+
+    onDeleteNote: (
+        id: string
+    ) => void
 }
 
 function Notes({notes, onAddNote, onUpdateNote, onDeleteNote}: NotesProps) {
@@ -26,9 +33,6 @@ function Notes({notes, onAddNote, onUpdateNote, onDeleteNote}: NotesProps) {
     notes.find(
       (note) => note.id === selectedNoteId
     ) ?? null
-
-  const [isEditing, setIsEditing] =
-    useState(true)
 
   const [isNotesSidebarOpen, setIsNotesSidebarOpen] =
     useState(true)
@@ -72,7 +76,6 @@ function Notes({notes, onAddNote, onUpdateNote, onDeleteNote}: NotesProps) {
               onClick={() => {
                 const id = onAddNote()
                 setSelectedNoteId(id)
-                setIsEditing(true)
               }}
               Icon={PlusIcon}
               className={`
@@ -107,7 +110,6 @@ function Notes({notes, onAddNote, onUpdateNote, onDeleteNote}: NotesProps) {
                   type="button"
                   onClick={() => {
                     setSelectedNoteId(note.id)
-                    setIsEditing(false)
                   }}
                   className={`
                 flex
@@ -140,121 +142,88 @@ function Notes({notes, onAddNote, onUpdateNote, onDeleteNote}: NotesProps) {
               ${isNotesSidebarOpen ? 'pl-10' : 'pl-0'}
             `}
           >
-            {selectedNote !== null ? (
-              <div className="relative h-full overflow-hidden p-4">
-                <div
-                  className="
-                    absolute
-                    inset-x-0
-                    top-0
-                    z-20
+              {selectedNote !== null ? (
+                  <div className="relative h-full overflow-hidden p-4">
+                      <div
+                          className="
+                            absolute
+                            inset-x-0
+                            top-0
+                            z-20
 
-                    flex
-                    items-center
-                    justify-between
-                    py-4
+                            flex
+                            items-center
+                            justify-between
+                            py-4
 
-                    bg-canvas/90
-                    backdrop-blur-xs
+                            bg-canvas/90
+                            backdrop-blur-xs
+                          "
+                      >
+                          <input
+                              type="text"
+                              value={selectedNote.title}
+                              onChange={(event) => {
+                                  onUpdateNote(selectedNote.id, {
+                                      title: event.target.value,
+                                  })
+                              }}
+                              className="
+                                  w-full
+                                  bg-transparent
+                                  text-3xl
+                                  font-bold
+                                  text-foreground
+                                  outline-none
+                                "
+                          />
 
-                  "
-                >
-                  {/*Title*/}
-                  <input
-                    type="text"
-                    value={selectedNote.title}
-                    onChange={(event) => {
-                      onUpdateNote(selectedNote.id, {
-                        title: event.target.value,
-                      })
-                    }}
-                    className="
-                    w-full
-                    bg-transparent
-                    text-3xl
-                    font-bold
-                    text-foreground
-                    outline-none
-                  "
-                  />
-                  <Button
-                    onClick={() => {
-                      onDeleteNote(selectedNote.id)
-                      setSelectedNoteId(null)
-                    }}
-                    Icon={Trash2}
-                    className={`
-                      bg-app-surface 
-                      border-border 
-                      text-muted 
-                      hover:bg-accent-danger-soft
-                      hover:border-danger
-                      hover:text-danger
-                    `}
-                  />
+                          <Button
+                              onClick={() => {
+                                  onDeleteNote(selectedNote.id)
+                                  setSelectedNoteId(null)
+                              }}
+                              Icon={Trash2}
+                              className={`
+                              bg-app-surface 
+                              border-border 
+                              text-muted 
+                              hover:bg-accent-danger-soft
+                              hover:border-danger
+                              hover:text-danger
+                            `}
+                          />
+                      </div>
 
-                </div>
-                {isEditing ? (
-                  <textarea
-                    value={selectedNote.content}
-                    onChange={(event) => {
-                      onUpdateNote(selectedNote.id, {
-                        content: event.target.value,
-                      })
-                    }}
-                    onBlur={() => {
-                      setIsEditing(false)
-                    }}
-                    placeholder=". . ."
-                    className="
-                      h-full
-                      w-full
+                      <div
+                          className="
+                            h-full
+                            overflow-y-auto
+                            scrollbar-none
+                            pt-20
+                          "
+                      >
+                          <DashBlockEditor
+                              key={selectedNote.id}
 
-                      resize-none
-                      overflow-y-auto
-                      scrollbar-none
+                              value={selectedNote.document}
 
-                      pt-20
-
-                      bg-transparent
-                      text-foreground
-                      outline-none
-                    "
-                  />
-                ) : (
-                  <div
-                    onClick={() => {
-                      setIsEditing(true)
-                    }}
-                    className="
-                      markdown-note
-                      h-full
-                      overflow-y-auto
-                      scrollbar-none
-                      pt-20
-                      cursor-text
-                    "
-                  >
-                    <ReactMarkdown
-                      remarkPlugins={[
-                        remarkBreaks,
-                        remarkGfm,
-                        remarkMath,
-                      ]}
-                      rehypePlugins={[
-                        rehypeKatex,
-                      ]}
-                    >
-                      {selectedNote.content}
-                    </ReactMarkdown>
+                              onChange={(document) => {
+                                  onUpdateNote(
+                                      selectedNote.id,
+                                      {
+                                          document,
+                                      },
+                                  )
+                              }}
+                          />
+                      </div>
                   </div>
-                )}
-              </div>
-            ) : (
-              <div className="flex h-full items-center justify-center text-muted">
-                .  .  .
-              </div>
-            )}
+              ) : (
+                  <div className="flex h-full items-center justify-center text-muted">
+                      .  .  .
+                  </div>
+              )}
           </section>
         </div>
       </section>
