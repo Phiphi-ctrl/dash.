@@ -2,18 +2,47 @@ import {
   EditorContent,
   useEditor,
 } from '@tiptap/react'
-
+import {
+  BackgroundColor,
+  Color,
+  TextStyle,
+} from '@tiptap/extension-text-style'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import UniqueID from '@tiptap/extension-unique-id'
 import DragHandle from '@tiptap/extension-drag-handle-react'
-import { GripVertical } from 'lucide-react'
-import { useState } from 'react'
-import type { Node as ProseMirrorNode } from '@tiptap/pm/model'
-
+import {
+  GripVertical,
+  Plus,
+} from 'lucide-react'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type DragEvent,
+} from 'react'
+import BlockInsertMenu
+  from './BlockInsertMenu.tsx'
+import type {
+  BlockInsertCommand
+} from "./blockDefinitions.ts"
 import type {
   DashDocument,
 } from '../../types/Block.ts'
+import Tooltip from '../ui/Tooltip.tsx'
+import TextSelectionMenu from './TextSelectionMenu.tsx'
+import BlockActionMenu from "./BlockActionMenu.tsx";
+import BlockStyle from './extensions/BlockStyle.ts'
+import SlashCommands
+  from './extensions/SlashCommands.ts'
+import {
+  Mathematics,
+} from '@tiptap/extension-mathematics'
+import MathEditorPopup
+  from './MathEditorPopup.tsx'
+
+import 'katex/dist/katex.min.css'
 
 type DashBlockEditorProps = {
   value: DashDocument
@@ -22,12 +51,177 @@ type DashBlockEditorProps = {
   ) => void
 }
 
-function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
-  const [activeNode, setActiveNode] =
-    useState<ProseMirrorNode | null>(null)
+const dragHandlePositionConfig = {
+  placement: 'left' as const,
+}
 
-  const [activeNodePos, setActiveNodePos] =
-    useState<number | null>(null)
+function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
+  const dropIndicatorRef =
+    useRef<HTMLDivElement | null>(null)
+  const editorShellRef =
+    useRef<HTMLDivElement | null>(null)
+  const activeNodePosRef =
+    useRef<number | null>(null)
+
+  type HandleMenu =
+      | 'insert'
+      | 'actions'
+      | null
+
+  const [openHandleMenu, setOpenHandleMenu] =
+      useState<HandleMenu>(null)
+
+  const isHandleMenuOpen =
+      openHandleMenu !== null
+
+  const isBlockMenuOpen = openHandleMenu === 'insert'
+
+  const insertPositionRef =
+    useRef<number | null>(null)
+
+  const [
+    addButtonElement,
+    setAddButtonElement,
+  ] = useState<HTMLButtonElement | null>(null)
+
+  const targetBlockPosRef =
+      useRef<number | null>(null)
+
+  const [
+    dragButtonElement,
+    setDragButtonElement,
+  ] =
+      useState<HTMLButtonElement | null>(null)
+
+  const handleControlsRef =
+      useRef<HTMLDivElement | null>(null)
+
+  type MathEditorTarget = {
+    kind:
+        | 'block'
+        | 'inline'
+
+    pos: number
+    latex: string
+    isNew: boolean
+
+    anchorElement:
+        HTMLElement
+
+    originalText?: string
+
+    entrySide?:
+        | 'start'
+        | 'end'
+  }
+
+  const [
+    mathEditorTarget,
+    setMathEditorTarget,
+  ] =
+      useState<MathEditorTarget | null>(
+          null,
+      )
+
+  function openBlockMathEditor(
+      pos: number,
+      latex: string,
+      isNew: boolean,
+  ) {
+    if (!editor) {
+      return
+    }
+
+    /*
+     * Give ProseMirror one frame to make
+     * sure a newly inserted math node has
+     * its DOM representation.
+     */
+    requestAnimationFrame(
+        () => {
+          if (
+              editor.isDestroyed
+          ) {
+            return
+          }
+
+          const dom =
+              editor.view.nodeDOM(
+                  pos,
+              )
+
+          if (
+              !(dom instanceof HTMLElement)
+          ) {
+            return
+          }
+
+          setMathEditorTarget({
+            kind:
+                'block',
+
+            pos,
+            latex,
+            isNew,
+
+            anchorElement:
+            dom,
+          })
+        },
+    )
+  }
+
+  function openInlineMathEditor(
+      pos: number,
+      latex: string,
+      isNew: boolean,
+      originalText?: string,
+
+      entrySide?:
+          | 'start'
+          | 'end',
+  ) {
+    if (!editor) {
+      return
+    }
+
+    requestAnimationFrame(
+        () => {
+          if (
+              editor.isDestroyed
+          ) {
+            return
+          }
+
+          const dom =
+              editor.view.nodeDOM(
+                  pos,
+              )
+
+          if (
+              !(dom instanceof HTMLElement)
+          ) {
+            return
+          }
+
+          setMathEditorTarget({
+            kind:
+                'inline',
+
+            pos,
+            latex,
+            isNew,
+
+            anchorElement:
+            dom,
+
+            originalText,
+
+            entrySide,
+          })
+        },
+    )
+  }
 
   const editor = useEditor({
     extensions: [
@@ -35,8 +229,37 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
         heading: {
           levels: [1, 2, 3],
         },
+
         trailingNode: false,
+
+        dropcursor: false,
       }),
+
+      TextStyle,
+      BlockStyle,
+      SlashCommands.configure({
+        onBlockMathInserted: (
+            pos,
+        ) => {
+          openBlockMathEditor(
+              pos,
+              '',
+              true,
+          )
+        },
+
+        onInlineMathInserted: (
+            pos,
+        ) => {
+          openInlineMathEditor(
+              pos,
+              '',
+              true,
+          )
+        },
+      }),
+      BackgroundColor,
+      Color,
 
       Placeholder.configure({
         showOnlyCurrent: false,
@@ -58,10 +281,45 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
         types: [
           'paragraph',
           'heading',
+          'blockMath',
         ],
 
         generateID: () =>
           crypto.randomUUID(),
+      }),
+
+      Mathematics.configure({
+        katexOptions: {
+          throwOnError: false,
+        },
+
+        inlineOptions: {
+          onClick: (
+              node,
+              pos,
+          ) => {
+            openInlineMathEditor(
+                pos,
+                node.attrs.latex ??
+                '',
+                false,
+            )
+          },
+        },
+
+        blockOptions: {
+          onClick: (
+              node,
+              pos,
+          ) => {
+            openBlockMathEditor(
+                pos,
+                node.attrs.latex ??
+                '',
+                false,
+            )
+          },
+        },
       }),
     ],
 
@@ -69,7 +327,129 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
 
     editorProps: {
       attributes: {
-        class: 'dash-editor outline-none text-foreground pl-10',
+        class:
+            'dash-editor outline-none text-foreground pl-15 py-5',
+      },
+
+      handleKeyDown: (
+          view,
+          event,
+      ) => {
+        /*
+         * Plain ← / → only.
+         *
+         * Shift + Arrow should continue
+         * creating text selections normally.
+         */
+        if (
+            (
+                event.key !==
+                'ArrowLeft' &&
+                event.key !==
+                'ArrowRight'
+            ) ||
+            event.shiftKey ||
+            event.metaKey ||
+            event.ctrlKey ||
+            event.altKey
+        ) {
+          return false
+        }
+
+        const {
+          selection,
+        } =
+            view.state
+
+        /*
+         * Only operate on a regular
+         * collapsed text cursor.
+         */
+        if (
+            !selection.empty
+        ) {
+          return false
+        }
+
+        const {
+          $from,
+        } =
+            selection
+
+        if (
+            !$from.parent
+                .isTextblock
+        ) {
+          return false
+        }
+
+        /*
+         * Moving →
+         *
+         * If inlineMath is immediately
+         * after the cursor, enter it from
+         * its left/start side.
+         */
+        if (
+            event.key ===
+            'ArrowRight'
+        ) {
+          const node =
+              $from.nodeAfter
+
+          if (
+              node?.type.name !==
+              'inlineMath'
+          ) {
+            return false
+          }
+
+          const pos =
+              selection.from
+
+          openInlineMathEditor(
+              pos,
+              node.attrs.latex ??
+              '',
+              false,
+              undefined,
+              'start',
+          )
+
+          return true
+        }
+
+        /*
+         * Moving ←
+         *
+         * If inlineMath is immediately
+         * before the cursor, enter it from
+         * its right/end side.
+         */
+        const node =
+            $from.nodeBefore
+
+        if (
+            node?.type.name !==
+            'inlineMath'
+        ) {
+          return false
+        }
+
+        const pos =
+            selection.from -
+            node.nodeSize
+
+        openInlineMathEditor(
+            pos,
+            node.attrs.latex ??
+            '',
+            false,
+            undefined,
+            'end',
+        )
+
+        return true
       },
     },
 
@@ -78,50 +458,1107 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
         editor.getJSON()
       )
     },
-  })
+  },[])
+
+  const closeHandleMenu =
+      useCallback(() => {
+        if (editor) {
+          editor.view.dispatch(
+              editor.state.tr
+                  .setMeta(
+                      'hideDragHandle',
+                      true,
+                  )
+                  .setMeta(
+                      'addToHistory',
+                      false,
+                  ),
+          )
+        }
+
+        activeNodePosRef.current = null
+        insertPositionRef.current = null
+        targetBlockPosRef.current = null
+
+        setOpenHandleMenu(null)
+      }, [editor])
+
+  function hideDropIndicator() {
+    if (!dropIndicatorRef.current) {
+      return
+    }
+
+    dropIndicatorRef.current.style.opacity = '0'
+  }
+
+  function handleDragOver(
+    event: DragEvent<HTMLDivElement>,
+  ) {
+    event.preventDefault()
+
+    const shell =
+      editorShellRef.current
+
+    const indicator =
+      dropIndicatorRef.current
+
+    if (!shell || !indicator) {
+      return
+    }
+
+    const editorElement =
+      shell.querySelector<HTMLElement>(
+        '.dash-editor'
+      )
+
+    if (!editorElement) {
+      return
+    }
+
+    const blocks = Array.from(
+      editorElement.children,
+    ).filter(
+      (element): element is HTMLElement =>
+        element instanceof HTMLElement &&
+        element.hasAttribute('data-id')
+    )
+
+    if (blocks.length === 0) {
+      hideDropIndicator()
+      return
+    }
+
+    const shellRect =
+      shell.getBoundingClientRect()
+
+    const editorRect =
+      editorElement.getBoundingClientRect()
+
+    const blockRects =
+      blocks.map(
+        (block) =>
+          block.getBoundingClientRect()
+      )
+
+    type DropZone = {
+      start: number
+      end: number
+      position: number
+    }
+
+    const dropZones: DropZone[] = []
+
+    const edgeTolerance = 2
+
+    /*
+     * Before first block
+     */
+    const firstRect =
+      blockRects[0]
+
+    dropZones.push({
+      start:
+      editorRect.top,
+
+      end:
+        firstRect.top +
+        edgeTolerance,
+
+      position:
+      firstRect.top,
+    })
+
+    /*
+     * Between blocks
+     */
+    for (
+      let index = 0;
+      index < blockRects.length - 1;
+      index++
+    ) {
+      const currentRect =
+        blockRects[index]
+
+      const nextRect =
+        blockRects[index + 1]
+
+      dropZones.push({
+        start:
+          currentRect.bottom -
+          edgeTolerance,
+
+        end:
+          nextRect.top +
+          edgeTolerance,
+
+        position:
+          (
+            currentRect.bottom +
+            nextRect.top
+          ) / 2,
+      })
+    }
+
+    /*
+     * Below last block
+     */
+    const lastRect =
+      blockRects[
+      blockRects.length - 1
+        ]
+
+    dropZones.push({
+      start:
+        lastRect.bottom -
+        edgeTolerance,
+
+      end:
+      editorRect.bottom,
+
+      position:
+        lastRect.bottom + 12,
+    })
+
+    /*
+     * Only show an indicator when
+     * actually inside a drop zone.
+     */
+    const activeDropZone =
+      dropZones.find(
+        (zone) =>
+          event.clientY >= zone.start &&
+          event.clientY <= zone.end
+      )
+
+    if (!activeDropZone) {
+      hideDropIndicator()
+      return
+    }
+
+    indicator.style.top =
+      `${
+        activeDropZone.position -
+        shellRect.top
+      }px`
+
+    indicator.style.left =
+      `${
+        editorRect.left -
+        shellRect.left
+      }px`
+
+    indicator.style.width =
+      `${editorRect.width}px`
+
+    indicator.style.opacity = '1'
+  }
+
+  function handleToggleBlockMenu() {
+    if (
+        openHandleMenu === 'insert'
+    ) {
+      closeHandleMenu()
+      return
+    }
+
+    const pos =
+        activeNodePosRef.current
+
+    if (
+        pos === null ||
+        !editor
+    ) {
+      return
+    }
+
+    const node =
+        editor.state.doc.nodeAt(pos)
+
+    if (!node) {
+      return
+    }
+
+    insertPositionRef.current =
+        pos + node.nodeSize
+
+    editor.view.dispatch(
+        editor.state.tr
+            .setMeta(
+                'lockDragHandle',
+                true,
+            )
+            .setMeta(
+                'addToHistory',
+                false,
+            ),
+    )
+
+    setOpenHandleMenu('insert')
+  }
+
+  function handleInsertBlock(
+    command: BlockInsertCommand,
+  ) {
+    const insertPos =
+      insertPositionRef.current
+
+    if (
+      insertPos === null ||
+      !editor
+    ) {
+      return
+    }
+
+    if (
+        command.type ===
+        'blockMath'
+    ) {
+      editor
+          .chain()
+          .focus()
+          .insertContentAt(
+              insertPos,
+              {
+                type: 'blockMath',
+                attrs: {
+                  latex: '',
+                },
+              },
+          )
+          .run()
+
+      closeHandleMenu()
+
+      openBlockMathEditor(
+          insertPos,
+          '',
+          true,
+      )
+
+      return
+    }
+
+    const content =
+      command.type === 'heading'
+        ? {
+          type: 'heading',
+          attrs: {
+            level: command.level,
+          },
+        }
+        : {
+          type: 'paragraph',
+        }
+
+    editor
+      .chain()
+      .focus()
+      .insertContentAt(
+        insertPos,
+        content,
+      )
+      .setTextSelection(
+        insertPos + 1,
+      )
+      .run()
+
+    closeHandleMenu()
+  }
+
+  useEffect(() => {
+    if (!isHandleMenuOpen) {
+      return
+    }
+
+    function handlePointerDown(
+        event: PointerEvent,
+    ) {
+      const target =
+          event.target
+
+      /*
+       * Click on + / drag controls.
+       */
+      if (
+          target instanceof Node &&
+          handleControlsRef.current?.contains(
+              target,
+          )
+      ) {
+        return
+      }
+
+      /*
+       * Click inside any portalled
+       * editor popup.
+       */
+      if (
+          target instanceof Element &&
+          (
+              target.closest(
+                  '[data-block-insert-menu]',
+              ) ||
+              target.closest(
+                  '[data-editor-popup]',
+              )
+          )
+      ) {
+        return
+      }
+
+      closeHandleMenu()
+    }
+
+    function handleKeyDown(
+        event: KeyboardEvent,
+    ) {
+      if (event.key === 'Escape') {
+        closeHandleMenu()
+      }
+    }
+
+    document.addEventListener(
+        'pointerdown',
+        handlePointerDown,
+    )
+
+    document.addEventListener(
+        'keydown',
+        handleKeyDown,
+    )
+
+    return () => {
+      document.removeEventListener(
+          'pointerdown',
+          handlePointerDown,
+      )
+
+      document.removeEventListener(
+          'keydown',
+          handleKeyDown,
+      )
+    }
+  }, [
+    isHandleMenuOpen,
+    closeHandleMenu,
+  ])
+
+  function handleInsertInlineMath() {
+    if (!editor) {
+      return
+    }
+
+    const {
+      selection,
+    } =
+        editor.state
+
+    const {
+      from,
+      to,
+      $from,
+      $to,
+    } =
+        selection
+
+    if (
+        from === to
+    ) {
+      return
+    }
+
+    /*
+     * An inline equation cannot replace
+     * a selection spanning multiple blocks.
+     */
+    if (
+        !$from.sameParent(
+            $to,
+        ) ||
+        !$from.parent.isTextblock
+    ) {
+      return
+    }
+
+    const originalText =
+        editor.state.doc.textBetween(
+            from,
+            to,
+            '',
+        )
+
+    const initialLatex =
+        originalText.trim()
+
+    if (
+        !initialLatex
+    ) {
+      return
+    }
+
+    editor
+        .chain()
+        .focus()
+        .insertContentAt(
+            {
+              from,
+              to,
+            },
+            {
+              type:
+                  'inlineMath',
+
+              attrs: {
+                latex:
+                initialLatex,
+              },
+            },
+        )
+        .run()
+
+    openInlineMathEditor(
+        from,
+        initialLatex,
+        true,
+        originalText,
+    )
+  }
+
+  function handleToggleActionMenu() {
+    if (
+        openHandleMenu === 'actions'
+    ) {
+      closeHandleMenu()
+      return
+    }
+
+    const pos =
+        activeNodePosRef.current
+
+    if (
+        pos === null ||
+        !editor
+    ) {
+      return
+    }
+
+    targetBlockPosRef.current =
+        pos
+
+    editor.view.dispatch(
+        editor.state.tr
+            .setMeta(
+                'lockDragHandle',
+                true,
+            )
+            .setMeta(
+                'addToHistory',
+                false,
+            ),
+    )
+
+    setOpenHandleMenu('actions')
+  }
+
+  function handleDeleteBlock() {
+    const pos =
+        targetBlockPosRef.current
+
+    if (
+        pos === null ||
+        !editor
+    ) {
+      return
+    }
+
+    const node =
+        editor.state.doc.nodeAt(
+            pos,
+        )
+
+    if (!node) {
+      return
+    }
+
+    const to =
+        pos + node.nodeSize
+
+    /*
+     * Keep one empty paragraph if this
+     * is the only remaining block.
+     */
+    if (
+        editor.state.doc.childCount === 1
+    ) {
+      editor
+          .chain()
+          .insertContentAt(
+              {
+                from: pos,
+                to,
+              },
+              {
+                type: 'paragraph',
+              },
+          )
+          .setTextSelection(
+              pos + 1,
+          )
+          .run()
+    } else {
+      editor
+          .chain()
+          .deleteRange({
+            from: pos,
+            to,
+          })
+          .run()
+    }
+
+    closeHandleMenu()
+  }
+
+  function updateTargetBlockStyle(
+      attributes: {
+        blockTextColor?: string | null
+        blockBackgroundColor?: string | null
+      },
+  ) {
+    const pos =
+        targetBlockPosRef.current
+
+    if (
+        pos === null ||
+        !editor
+    ) {
+      return
+    }
+
+    const node =
+        editor.state.doc.nodeAt(
+            pos,
+        )
+
+    if (!node) {
+      return
+    }
+
+    const transaction =
+        editor.state.tr.setNodeMarkup(
+            pos,
+            undefined,
+            {
+              ...node.attrs,
+              ...attributes,
+            },
+        )
+
+    editor.view.dispatch(
+        transaction,
+    )
+  }
+
+  function handleBlockTextColor(
+      color: string | null,
+  ) {
+    updateTargetBlockStyle({
+      blockTextColor:
+      color,
+    })
+  }
+
+  function handleBlockBackgroundColor(
+      color: string | null,
+  ) {
+    updateTargetBlockStyle({
+      blockBackgroundColor:
+      color,
+    })
+  }
 
   return (
-    <div className="relative">
+    <div
+      ref={editorShellRef}
+      onDragOver={handleDragOver}
+      onDrop={hideDropIndicator}
+      onDragEnd={hideDropIndicator}
+      className="
+      dash-editor-shell
+      relative
+      items-center
+    "
+    >
+      <div
+        ref={dropIndicatorRef}
+        className="
+          pointer-events-none
+          absolute
+          z-50
+
+          h-[6px]
+          rounded-full
+          bg-accent/30
+
+          -translate-y-1/2
+
+          opacity-0
+
+          transition-[opacity]
+          duration-300
+          ease-out
+        "
+      />
+
       {editor && (
         <DragHandle
           editor={editor}
 
-          computePositionConfig={{
-            placement: 'left-start',
-          }}
+          computePositionConfig={
+            dragHandlePositionConfig
+          }
 
           onNodeChange={({ node, pos }) => {
-            setActiveNode(node)
-            setActiveNodePos(pos)
+            if (
+              node &&
+              pos !== null
+            ) {
+              activeNodePosRef.current = pos
+            }
           }}
         >
-          <button
-            type="button"
+          <div
             className="
-            flex
-            h-7
-            w-7
-            cursor-grab
-            items-center
-            justify-center
-            rounded-md
-
-            text-muted
-
-            transition-colors
-
-            hover:bg-surface-hover
-            hover:text-foreground
-          "
+              flex
+              -translate-x-2
+              items-center
+              gap-0.5
+            "
+            ref={handleControlsRef}
           >
-            <GripVertical size={16} />
-          </button>
+            <div
+              className="
+                relative
+                flex
+              "
+            >
+              <Tooltip
+                content={
+                  <div className="flex items-center gap-1.5">
+                    <Plus size={12} />
+                    <span>
+                      Add a
+                      <span className="font-semibold text-foreground">
+                        {' '}new block
+                      </span>
+                    </span>
+                  </div>
+                }
+                active={!isHandleMenuOpen}
+              >
+                <button
+                  type="button"
+                  ref={setAddButtonElement}
+                  draggable={false}
+
+                  onMouseDown={(event) => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                  }}
+
+                  onDragStart={(event) => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                  }}
+
+                  onClick={
+                    handleToggleBlockMenu
+                  }
+
+                  className={`
+                    flex
+                    h-6
+                    w-6
+                    cursor-pointer
+                    items-center
+                    justify-center
+                    rounded-md
+            
+                    transition-colors
+            
+                    ${
+                    isBlockMenuOpen
+                      ? 'bg-surface-hover text-foreground'
+                      : 'text-muted hover:bg-surface-hover hover:text-foreground'
+                    }
+                    `}
+                >
+                  <Plus size={20} />
+                </button>
+              </Tooltip>
+
+              {isBlockMenuOpen && (
+                <BlockInsertMenu
+                  onSelect={
+                    handleInsertBlock
+                  }
+                  anchorElement={addButtonElement}
+                />
+              )}
+            </div>
+
+            <Tooltip
+              content={
+              <div className="flex items-center gap-1.5">
+                <GripVertical size={12} />
+                  <span>
+                    <span className="font-semibold text-foreground">
+                      Drag{' '}
+                    </span>
+                      to Move
+                  </span>
+              </div>
+              }
+              active={!isHandleMenuOpen}
+            >
+              <button
+                type="button"
+                ref={setDragButtonElement}
+                onClick={handleToggleActionMenu}
+                className="
+                flex
+                h-6
+                w-4
+                cursor-grab
+                items-center
+                justify-center
+                rounded-md
+                text-muted
+                transition-colors
+                hover:bg-surface-hover
+                hover:text-foreground
+              "
+              >
+                <GripVertical size={20} />
+              </button>
+            </Tooltip>
+            {openHandleMenu === 'actions' && (
+                <BlockActionMenu
+                    anchorElement={
+                      dragButtonElement
+                    }
+
+                    onDelete={
+                      handleDeleteBlock
+                    }
+
+                    onTextColor={
+                      handleBlockTextColor
+                    }
+
+                    onBackgroundColor={
+                      handleBlockBackgroundColor
+                    }
+                />
+            )}
+          </div>
         </DragHandle>
+
       )}
 
-      <EditorContent
-        editor={editor}
-      />
+      {editor && (
+          <TextSelectionMenu
+              editor={editor}
+
+              disabled={
+                  isHandleMenuOpen ||
+                  mathEditorTarget !== null
+              }
+
+              onInsertInlineMath={
+                handleInsertInlineMath
+              }
+          />
+      )}
+
+      {mathEditorTarget && (
+          <MathEditorPopup
+              key={
+                `${mathEditorTarget.kind}-${mathEditorTarget.pos}`
+              }
+
+              anchorElement={
+                mathEditorTarget
+                    .anchorElement
+              }
+
+              getPreviewElement={() => {
+                if (!editor) {
+                  return null
+                }
+
+                const dom =
+                    editor.view.nodeDOM(
+                        mathEditorTarget.pos,
+                    )
+
+                if (
+                    !(dom instanceof HTMLElement)
+                ) {
+                  return null
+                }
+
+                if (
+                    mathEditorTarget.kind ===
+                    'inline'
+                ) {
+                  return dom
+                }
+
+                if (
+                    dom.classList.contains(
+                        'block-math-inner',
+                    )
+                ) {
+                  return dom
+                }
+
+                return dom.querySelector<HTMLElement>(
+                    '.block-math-inner',
+                )
+              }}
+
+              initialLatex={
+                mathEditorTarget.latex
+              }
+
+              onSave={(latex) => {
+                if (!editor) {
+                  return
+                }
+
+                if (
+                    mathEditorTarget.kind ===
+                    'block'
+                ) {
+                  editor
+                      .chain()
+                      .focus()
+                      .updateBlockMath({
+                        pos:
+                        mathEditorTarget.pos,
+
+                        latex,
+                      })
+                      .run()
+                } else {
+                  editor
+                      .chain()
+                      .focus()
+                      .updateInlineMath({
+                        pos:
+                        mathEditorTarget.pos,
+
+                        latex,
+                      })
+                      .run()
+                }
+
+                setMathEditorTarget(
+                    null,
+                )
+              }}
+
+              onCancel={() => {
+                /*
+                 * Editing an existing equation:
+                 * just abandon the changes.
+                 */
+                if (
+                    !mathEditorTarget.isNew
+                ) {
+                  setMathEditorTarget(
+                      null,
+                  )
+
+                  return
+                }
+
+                if (
+                    mathEditorTarget.kind ===
+                    'inline'
+                ) {
+                  if (editor) {
+                    const pos =
+                        mathEditorTarget.pos
+
+                    const node =
+                        editor.state.doc.nodeAt(
+                            pos,
+                        )
+
+                    if (
+                        node?.type.name ===
+                        'inlineMath'
+                    ) {
+                      editor
+                          .chain()
+                          .focus()
+                          .insertContentAt(
+                              {
+                                from:
+                                pos,
+
+                                to:
+                                    pos +
+                                    node.nodeSize,
+                              },
+
+                              mathEditorTarget
+                                  .originalText ??
+                              '',
+                          )
+                          .run()
+                    }
+                  }
+
+                  setMathEditorTarget(
+                      null,
+                  )
+
+                  return
+                }
+
+                /*
+                 * New equation cancelled:
+                 * turn it back into an empty
+                 * paragraph rather than leaving
+                 * an invisible blank math node.
+                 */
+                if (editor) {
+                  const pos =
+                      mathEditorTarget.pos
+
+                  const node =
+                      editor.state.doc.nodeAt(
+                          pos,
+                      )
+
+                  if (
+                      node?.type.name ===
+                      'blockMath'
+                  ) {
+                    const transaction =
+                        editor.state.tr
+                            .setNodeMarkup(
+                                pos,
+                                editor.schema
+                                    .nodes
+                                    .paragraph,
+                                {},
+                            )
+
+                    editor.view.dispatch(
+                        transaction,
+                    )
+
+                    editor.commands
+                        .setTextSelection(
+                            pos + 1,
+                        )
+                  }
+                }
+
+                setMathEditorTarget(
+                    null,
+                )
+              }}
+
+              placement={
+                mathEditorTarget.kind ===
+                'inline'
+                    ? 'bottom-start'
+                    : 'bottom-start'
+              }
+
+              offsetDistance={
+                mathEditorTarget.kind ===
+                'inline'
+                    ? 4
+                    : 12
+              }
+
+              initialCursorSide={
+                mathEditorTarget.kind ===
+                  'inline'
+                  ? mathEditorTarget
+                        .entrySide
+                    : undefined
+              }
+
+              onNavigateOut={
+                mathEditorTarget.kind ===
+                'inline'
+                    ? (
+                        direction,
+                        latex,
+                    ) => {
+                      if (!editor) {
+                        return
+                      }
+
+                      const pos =
+                          mathEditorTarget.pos
+
+                      editor
+                          .chain()
+                          .focus()
+                          .updateInlineMath({
+                            pos,
+                            latex,
+                          })
+                          .run()
+
+                      const node =
+                          editor.state.doc.nodeAt(
+                              pos,
+                          )
+
+                      if (
+                          node?.type.name !==
+                          'inlineMath'
+                      ) {
+                        setMathEditorTarget(
+                            null,
+                        )
+
+                        return
+                      }
+
+                      const destination =
+                          direction ===
+                          'forward'
+                              ? pos +
+                              node.nodeSize
+                              : pos
+
+                      setMathEditorTarget(
+                          null,
+                      )
+
+                      editor
+                          .chain()
+                          .focus()
+                          .setTextSelection(
+                              destination,
+                          )
+                          .run()
+                    }
+                    : undefined
+              }
+          />
+      )}
+
+      <EditorContent editor={editor} />
     </div>
   )
 }

@@ -143,7 +143,7 @@ function Notes({notes, onAddNote, onUpdateNote, onDeleteNote}: NotesProps) {
             `}
           >
               {selectedNote !== null ? (
-                  <div className="relative h-full overflow-hidden p-4">
+                  <div className="relative h-full overflow-hidden">
                       <div
                           className="
                             absolute
@@ -154,6 +154,8 @@ function Notes({notes, onAddNote, onUpdateNote, onDeleteNote}: NotesProps) {
                             flex
                             items-center
                             justify-between
+
+                            pl-4
                             py-4
 
                             bg-canvas/90
@@ -169,13 +171,16 @@ function Notes({notes, onAddNote, onUpdateNote, onDeleteNote}: NotesProps) {
                                   })
                               }}
                               className="
-                                  w-full
-                                  bg-transparent
-                                  text-3xl
-                                  font-bold
-                                  text-foreground
-                                  outline-none
-                                "
+                                w-full
+
+                                pl-15
+
+                                bg-transparent
+                                text-3xl
+                                font-bold
+                                text-foreground
+                                outline-none
+                              "
                           />
 
                           <Button
@@ -196,10 +201,13 @@ function Notes({notes, onAddNote, onUpdateNote, onDeleteNote}: NotesProps) {
                       </div>
 
                       <div
+                          data-note-scroll-viewport
                           className="
                             h-full
                             overflow-y-auto
                             scrollbar-none
+                            pl-4
+                            pr-8
                             pt-20
                           "
                       >
