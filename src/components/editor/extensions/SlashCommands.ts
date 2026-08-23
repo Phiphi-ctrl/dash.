@@ -25,6 +25,7 @@ import {
   filterSlashOptions,
   type SlashOption,
 } from '../blockDefinitions.ts'
+import { isPositionInsideColumn } from '../../../utils/editorUtils.ts'
 
 const slashCommandPluginKey =
   new PluginKey(
@@ -150,10 +151,15 @@ const SlashCommands =
                 .trim()
                 .length > 0
 
-            return filterSlashOptions(
+            const items = filterSlashOptions(
               query,
               inlineOnly,
-            )
+              )
+
+            return isPositionInsideColumn(editor.state.doc, $from.pos) ?
+                items.filter((option) => option.label !== 'Columns')
+                :
+                items
           },
 
           command: ({
@@ -161,7 +167,12 @@ const SlashCommands =
                       range,
                       props,
                     }) => {
-
+            //debug
+            console.log(
+              'slash command:',
+              props.command,
+              range,
+            )
             if (
               props.command.type ===
               'inlineMath'
@@ -251,6 +262,77 @@ const SlashCommands =
               return
             }
 
+            if (props.command.type === 'columns') {
+              const $from =
+                editor.state.doc.resolve(
+                  range.from,
+                )
+
+              const blockPos =
+                $from.before(
+                  $from.depth,
+                )
+
+              const blockNode =
+                editor.state.doc.nodeAt(
+                  blockPos,
+                )
+
+              if (!blockNode) {
+                return
+              }
+
+              for (let depth = 0; depth <= $from.depth; depth++) {
+                const loopNode = $from.node(depth)
+
+                if(loopNode.type.name === 'columns') {
+                  return
+                }
+              }
+
+              editor
+                .chain()
+                .focus()
+                .insertContentAt(
+                  {
+                    from:
+                    blockPos,
+
+                    to:
+                      blockPos +
+                      blockNode.nodeSize,
+                  },
+                  {
+                    type: 'columns',
+
+                    content: [
+                      {
+                        type: 'column',
+
+                        content: [
+                          {
+                            type: 'paragraph',
+                          },
+                        ],
+                      },
+
+                      {
+                        type: 'column',
+
+                        content: [
+                          {
+                            type: 'paragraph',
+                          },
+                        ],
+                      },
+                    ],
+                  }
+                )
+                .run()
+
+              return
+            }
+
             const chain =
               editor
                 .chain()
@@ -270,12 +352,17 @@ const SlashCommands =
               return
             }
 
-            chain
-              .setHeading({
-                level:
-                props.command.level,
-              })
-              .run()
+            if (
+              props.command.type ===
+              'heading'
+            ) {
+              chain
+                .setHeading({
+                  level:
+                  props.command.level,
+                })
+                .run()
+            }
           },
 
           render: () => {

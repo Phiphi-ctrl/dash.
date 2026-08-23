@@ -18,9 +18,10 @@ type BlockInsertMenuProps = {
   onSelect: (
     command: BlockInsertCommand
   ) => void
+  excludeColumns: boolean
 }
 
-function BlockInsertMenu({ onSelect, anchorElement }: BlockInsertMenuProps) {
+function BlockInsertMenu({ onSelect, anchorElement, excludeColumns }: BlockInsertMenuProps) {
 
   const [
     floatingElement,
@@ -82,6 +83,7 @@ function BlockInsertMenu({ onSelect, anchorElement }: BlockInsertMenuProps) {
     ],
   })
 
+  const filteredBlockOptions = excludeColumns ? blockOptions.filter((option) => option.label !== 'Columns') : blockOptions
 
   return (
     <FloatingPortal>
@@ -93,6 +95,10 @@ function BlockInsertMenu({ onSelect, anchorElement }: BlockInsertMenuProps) {
         className="
           z-100
           w-64
+          max-h-80
+          overflow-hidden
+          overflow-y-auto
+          scrollbar-none
 
           glass-surface
 
@@ -118,7 +124,7 @@ function BlockInsertMenu({ onSelect, anchorElement }: BlockInsertMenuProps) {
           Basic blocks
         </div>
 
-        {blockOptions.map(
+        {filteredBlockOptions.map(
           ({
              label,
              description,

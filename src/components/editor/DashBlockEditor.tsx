@@ -36,6 +36,8 @@ import BlockActionMenu from "./BlockActionMenu.tsx";
 import BlockStyle from './extensions/BlockStyle.ts'
 import SlashCommands
   from './extensions/SlashCommands.ts'
+import Columns from './extensions/Columns.ts'
+import Column from './extensions/Column.ts'
 import {
   Mathematics,
 } from '@tiptap/extension-mathematics'
@@ -43,6 +45,7 @@ import MathEditorPopup
   from './MathEditorPopup.tsx'
 
 import 'katex/dist/katex.min.css'
+import {isPositionInsideColumn} from "../../utils/editorUtils.ts";
 
 type DashBlockEditorProps = {
   value: DashDocument
@@ -53,6 +56,39 @@ type DashBlockEditorProps = {
 
 const dragHandlePositionConfig = {
   placement: 'left' as const,
+}
+
+const nestedDragHandleConfig = {
+  edgeDetection:
+      'none' as const,
+
+  rules: [
+    {
+      id:
+          'excludeDashLayoutNodes',
+
+      evaluate: ({
+                   node,
+                 }: {
+        node: {
+          type: {
+            name: string
+          }
+        }
+      }) => {
+        if (
+            node.type.name ===
+            'columns' ||
+            node.type.name ===
+            'column'
+        ) {
+          return 1000
+        }
+
+        return 0
+      },
+    },
+  ],
 }
 
 function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
@@ -95,6 +131,14 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
 
   const handleControlsRef =
       useRef<HTMLDivElement | null>(null)
+
+  const lockedHandlePosRef =
+      useRef<number | null>(null)
+
+  const [
+    insertMenuInsideColumn,
+    setInsertMenuInsideColumn,
+  ] = useState(false)
 
   type MathEditorTarget = {
     kind:
@@ -235,6 +279,9 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
         dropcursor: false,
       }),
 
+      Columns,
+      Column,
+
       TextStyle,
       BlockStyle,
       SlashCommands.configure({
@@ -258,13 +305,18 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
           )
         },
       }),
+
       BackgroundColor,
       Color,
 
       Placeholder.configure({
-        showOnlyCurrent: false,
+        showOnlyCurrent: true,
+        includeChildren: true,
 
-        placeholder: ({ node }) => {
+
+        placeholder: (props) => {
+          const node = props.node
+
           if (node.type.name === 'heading') {
             return `Heading ${node.attrs.level}`
           }
@@ -282,6 +334,8 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
           'paragraph',
           'heading',
           'blockMath',
+          'columns',
+          'column',
         ],
 
         generateID: () =>
@@ -335,6 +389,63 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
           view,
           event,
       ) => {
+        if (
+            event.key === 'Backspace'
+        ) {
+          const {
+            selection,
+          } = view.state
+
+          const {
+            $from,
+          } = selection
+
+          if(
+              !selection.empty ||
+              !$from.parent.isTextblock ||
+              $from.parent.content.size !== 0 ||
+              $from.parentOffset !== 0 ||
+              !($from.depth >= 2)
+          ) {
+            return false
+          }
+          const columnDepth = $from.depth - 1
+          const columnsDepth = $from.depth - 2
+          const columnNode =
+              $from.node(columnDepth)
+
+          const columnsNode =
+              $from.node(columnsDepth)
+          if(
+              columnNode.type.name !== 'column' ||
+              columnsNode.type.name !== 'columns' ||
+              columnNode.childCount !== 1
+          ) {
+            return false
+          }
+          const currentColumnIndex =
+              $from.index(columnsDepth)
+
+          const siblingColumnIndex = currentColumnIndex === 0 ? 1 : 0
+          const siblingColumn =
+              columnsNode.child(
+                  siblingColumnIndex
+              )
+          const columnsPos = $from.before(columnsDepth)
+          const to = columnsPos + columnsNode.nodeSize
+          const content = siblingColumn.content
+
+          const transaction =
+              view.state.tr.replaceWith(
+                  columnsPos,
+                  to,
+                  content,
+              )
+
+          event.preventDefault()
+          view.dispatch(transaction)
+          return true
+        }
         /*
          * Plain ← / → only.
          *
@@ -460,6 +571,38 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
     },
   },[])
 
+  const getHandleVirtualElement =
+      useCallback(() => {
+        if (!editor) {
+          return null
+        }
+
+        const pos =
+            lockedHandlePosRef.current
+
+        if (pos === null) {
+          return null
+        }
+
+        return {
+          getBoundingClientRect: () => {
+            const dom =
+                editor.view.nodeDOM(
+                    pos,
+                )
+
+            if (
+                !(dom instanceof HTMLElement)
+            ) {
+              return new DOMRect()
+            }
+
+            return dom
+                .getBoundingClientRect()
+          },
+        }
+      }, [editor])
+
   const closeHandleMenu =
       useCallback(() => {
         if (editor) {
@@ -479,6 +622,7 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
         activeNodePosRef.current = null
         insertPositionRef.current = null
         targetBlockPosRef.current = null
+        lockedHandlePosRef.current = null
 
         setOpenHandleMenu(null)
       }, [editor])
@@ -506,17 +650,24 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
       return
     }
 
-    const editorElement =
-      shell.querySelector<HTMLElement>(
-        '.dash-editor'
-      )
+    const elementUnderPointer =
+        document.elementFromPoint(
+            event.clientX,
+            event.clientY,
+        )
 
-    if (!editorElement) {
+    const activeContainer =
+        elementUnderPointer?.closest<HTMLElement>(
+            '.dash-column, .dash-editor'
+        )
+
+    if (!activeContainer) {
+      hideDropIndicator()
       return
     }
 
     const blocks = Array.from(
-      editorElement.children,
+      activeContainer.children,
     ).filter(
       (element): element is HTMLElement =>
         element instanceof HTMLElement &&
@@ -532,7 +683,7 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
       shell.getBoundingClientRect()
 
     const editorRect =
-      editorElement.getBoundingClientRect()
+      activeContainer.getBoundingClientRect()
 
     const blockRects =
       blocks.map(
@@ -551,7 +702,7 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
     const edgeTolerance = 2
 
     /*
-     * Before first block
+     * Before the first block
      */
     const firstRect =
       blockRects[0]
@@ -664,6 +815,8 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
     const pos =
         activeNodePosRef.current
 
+    lockedHandlePosRef.current = pos
+
     if (
         pos === null ||
         !editor
@@ -677,6 +830,8 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
     if (!node) {
       return
     }
+
+    setInsertMenuInsideColumn(isPositionInsideColumn(editor.state.doc, pos))
 
     insertPositionRef.current =
         pos + node.nodeSize
@@ -703,9 +858,54 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
       insertPositionRef.current
 
     if (
-      insertPos === null ||
-      !editor
+        insertPos === null ||
+        !editor
     ) {
+      return
+    }
+
+    const isInsideColumn = isPositionInsideColumn(editor.state.doc, insertPos)
+
+    if (
+        command.type ===
+        'columns'
+    ) {
+      if(isInsideColumn) {
+        return
+      }
+      editor
+          .chain()
+          .focus()
+          .insertContentAt(
+              insertPos,
+              {
+                type: 'columns',
+
+                content: [
+                  {
+                    type: 'column',
+
+                    content: [
+                      {
+                        type: 'paragraph',
+                      },
+                    ],
+                  },
+
+                  {
+                    type: 'column',
+
+                    content: [
+                      {
+                        type: 'paragraph',
+                      },
+                    ],
+                  },
+                ],
+              },
+          )
+          .run()
+      closeHandleMenu()
       return
     }
 
@@ -935,6 +1135,8 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
     const pos =
         activeNodePosRef.current
 
+    lockedHandlePosRef.current = pos
+
     if (
         pos === null ||
         !editor
@@ -1110,22 +1312,28 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
       />
 
       {editor && (
-        <DragHandle
-          editor={editor}
+          <DragHandle
+              editor={editor}
 
-          computePositionConfig={
-            dragHandlePositionConfig
-          }
+              getReferencedVirtualElement={getHandleVirtualElement}
 
-          onNodeChange={({ node, pos }) => {
-            if (
-              node &&
-              pos !== null
-            ) {
-              activeNodePosRef.current = pos
-            }
-          }}
-        >
+              nested={nestedDragHandleConfig}
+
+              computePositionConfig={
+                dragHandlePositionConfig
+              }
+
+              onNodeChange={({ node, pos }) => {
+
+                if (
+                    node &&
+                    pos !== null
+                ) {
+                  activeNodePosRef.current =
+                      pos
+                }
+              }}
+          >
           <div
             className="
               flex
@@ -1202,6 +1410,7 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
                     handleInsertBlock
                   }
                   anchorElement={addButtonElement}
+                  excludeColumns={insertMenuInsideColumn}
                 />
               )}
             </div>
@@ -1483,7 +1692,7 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
               offsetDistance={
                 mathEditorTarget.kind ===
                 'inline'
-                    ? 4
+                    ? 12
                     : 12
               }
 

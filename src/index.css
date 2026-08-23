@@ -321,6 +321,10 @@
   margin-bottom: 1.25rem;
 }
 
+.dash-column > * {
+  margin-bottom: 1.25rem;
+}
+
 .dash-editor h1 {
   font-size: 3.75rem;
   line-height: 1;
@@ -362,4 +366,14 @@
 .dash-editor-shell.is-dragging .dash-dropcursor {
   opacity: 1;
   visibility: visible;
+}
+
+.dash-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4rem;
+}
+
+.dash-column {
+  min-width: 0;
 }

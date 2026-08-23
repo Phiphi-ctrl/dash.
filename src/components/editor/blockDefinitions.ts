@@ -1,10 +1,10 @@
 import {
-    Heading1,
-    Heading2,
-    Heading3,
-    Pilcrow,
-    Sigma,
-    type LucideIcon,
+  Heading1,
+  Heading2,
+  Heading3,
+  Pilcrow,
+  Sigma,
+  type LucideIcon, Columns2,
 } from 'lucide-react'
 
 export type BlockInsertCommand =
@@ -17,6 +17,9 @@ export type BlockInsertCommand =
 }
     | {
     type: 'blockMath'
+}
+    | {
+    type: 'columns'
 }
 
 export type SlashInsertCommand =
@@ -131,6 +134,21 @@ export const blockOptions: BlockOption[] = [
         command: {
             type: 'blockMath',
         },
+    },
+
+    {
+        label: 'Columns',
+        description: 'Add a column layout',
+        Icon: Columns2,
+
+        keywords: [
+            'columns',
+            'pillars',
+            'cols',
+        ],
+        command: {
+          type: 'columns',
+        }
     },
 ]
 

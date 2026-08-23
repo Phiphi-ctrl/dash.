@@ -21,7 +21,7 @@ const timeFormatter = new Intl.DateTimeFormat(undefined, {
   minute: '2-digit',
 })
 
-const dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
+export const dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
   day: 'numeric',
   month: 'short',
   hour: '2-digit',

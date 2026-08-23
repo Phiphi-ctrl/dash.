@@ -16,6 +16,7 @@ import {
 } from '@floating-ui/react'
 
 import katex from 'katex'
+import { CornerDownLeft, X } from 'lucide-react'
 
 type MathCursorSide =
   | 'start'
@@ -240,6 +241,7 @@ function MathEditorPopup({
                 p-4
 
                 shadow-lg
+                -translate-x-1/8
               "
           >
               <div
@@ -445,10 +447,10 @@ function MathEditorPopup({
                         text-sm
                         text-foreground-secondary
 
-                        hover:bg-surface-hover
+                        cursor-pointer
                       "
                   >
-                      Cancel
+                      <X size={16} />
                   </button>
 
                   <button
@@ -472,9 +474,10 @@ function MathEditorPopup({
                         text-accent
 
                         disabled:opacity-40
+                        cursor-pointer
                       "
                   >
-                      Save
+                      <CornerDownLeft size={16} />
                   </button>
               </div>
           </div>

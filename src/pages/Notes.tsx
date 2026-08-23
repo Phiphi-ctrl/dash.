@@ -4,6 +4,7 @@ import type { Note } from '../types/Note.ts'
 import { useState } from 'react'
 import Button from '../components/ui/Button.tsx'
 import DashBlockEditor from "../components/editor/DashBlockEditor.tsx";
+import {dateTimeFormatter} from "../utils/Datetime.ts";
 
 type NotesProps = {
     notes: Note[]
@@ -162,26 +163,30 @@ function Notes({notes, onAddNote, onUpdateNote, onDeleteNote}: NotesProps) {
                             backdrop-blur-xs
                           "
                       >
-                          <input
-                              type="text"
-                              value={selectedNote.title}
-                              onChange={(event) => {
-                                  onUpdateNote(selectedNote.id, {
-                                      title: event.target.value,
-                                  })
-                              }}
-                              className="
+                          <div className="flex flex-col">
+                              <input
+                                  type="text"
+                                  value={selectedNote.title}
+                                  onChange={(event) => {
+                                      onUpdateNote(selectedNote.id, {
+                                          title: event.target.value,
+                                      })
+                                  }}
+                                  className="
                                 w-full
 
                                 pl-15
 
                                 bg-transparent
-                                text-3xl
+                                text-2xl
                                 font-bold
                                 text-foreground
                                 outline-none
                               "
-                          />
+                              />
+                              <span className="text-muted text-xs pl-15">{dateTimeFormatter.format(Date.parse(selectedNote.createdAt))}</span>
+                          </div>
+
 
                           <Button
                               onClick={() => {
