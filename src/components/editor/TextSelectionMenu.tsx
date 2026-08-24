@@ -430,6 +430,10 @@ function TextSelectionMenu({
       <BubbleMenu
         editor={editor}
 
+        className="
+          z-110
+        "
+
         appendTo={() =>
           document.body
         }

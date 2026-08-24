@@ -95,7 +95,7 @@ function BlockInsertMenu({ onSelect, anchorElement, excludeColumns }: BlockInser
         className="
           z-100
           w-64
-          max-h-80
+          max-h-60
           overflow-hidden
           overflow-y-auto
           scrollbar-none

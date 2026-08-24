@@ -45,7 +45,7 @@ import MathEditorPopup
   from './MathEditorPopup.tsx'
 
 import 'katex/dist/katex.min.css'
-import {isPositionInsideColumn} from "../../utils/editorUtils.ts";
+import {findNodePosById, isPositionInsideColumn} from "../../utils/editorUtils.ts";
 
 type DashBlockEditorProps = {
   value: DashDocument
@@ -134,6 +134,19 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
 
   const lockedHandlePosRef =
       useRef<number | null>(null)
+
+  const draggedBlockPosRef =
+      useRef<number | null>(null)
+
+  type SideDropTarget = {
+    blockId: string
+    side: 'left' | 'right'
+  }
+
+  const sideDropTargetRef =
+      useRef<SideDropTarget | null>(
+          null,
+      )
 
   const [
     insertMenuInsideColumn,
@@ -562,6 +575,174 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
 
         return true
       },
+      handleDrop: (
+          view,
+          event,
+      ) => {
+        const sourcePos =
+            draggedBlockPosRef.current
+
+        const target =
+            sideDropTargetRef.current
+
+        if (
+            sourcePos === null ||
+            target === null
+        ) {
+          return false
+        }
+
+        const targetPos =
+            findNodePosById(
+                view.state.doc,
+                target.blockId,
+            )
+
+        if (targetPos === null) {
+          return false
+        }
+
+        const $source =
+            view.state.doc.resolve(
+                sourcePos,
+            )
+
+        const $target =
+            view.state.doc.resolve(
+                targetPos,
+            )
+
+        const sourceNode =
+            view.state.doc.nodeAt(
+                sourcePos,
+            )
+
+        const targetNode =
+            view.state.doc.nodeAt(
+                targetPos,
+            )
+
+        if (
+            !sourceNode ||
+            !targetNode
+        ) {
+          return true
+        }
+
+        if (
+            $target.parent.type.name !==
+            'doc'
+        ) {
+          return true
+        }
+
+        const sourceParentType =
+            $source.parent.type.name
+
+        if (
+            sourceParentType !== 'doc' &&
+            sourceParentType !== 'column'
+        ) {
+          return true
+        }
+
+        const {
+          schema,
+        } = view.state
+
+        const columnsType =
+            schema.nodes.columns
+
+        const columnType =
+            schema.nodes.column
+
+        const leftNode =
+            target.side === 'left'
+                ? sourceNode
+                : targetNode
+
+        const rightNode =
+            target.side === 'left'
+                ? targetNode
+                : sourceNode
+
+        const leftColumn =
+            columnType.create(
+                null,
+                leftNode,
+            )
+
+        const rightColumn =
+            columnType.create(
+                null,
+                rightNode,
+            )
+
+        const columnsNode =
+            columnsType.create(
+                null,
+                [
+                  leftColumn,
+                  rightColumn,
+                ],
+            )
+
+        let transaction =
+            view.state.tr
+
+        const sourceIsOnlyColumnChild =
+            sourceParentType === 'column' &&
+            $source.parent.childCount === 1
+
+        if (
+            sourceIsOnlyColumnChild
+        ) {
+          const emptyParagraph =
+              schema.nodes.paragraph.create()
+
+          transaction =
+              transaction.replaceWith(
+                  sourcePos,
+                  sourcePos +
+                  sourceNode.nodeSize,
+                  emptyParagraph,
+              )
+        } else {
+          transaction =
+              transaction.delete(
+                  sourcePos,
+                  sourcePos +
+                  sourceNode.nodeSize,
+              )
+        }
+
+        const mappedTargetPos =
+            transaction.mapping.map(
+                targetPos,
+            )
+
+        transaction =
+            transaction.replaceWith(
+                mappedTargetPos,
+                mappedTargetPos +
+                targetNode.nodeSize,
+                columnsNode,
+            )
+
+        event.preventDefault()
+
+        view.dispatch(
+            transaction,
+        )
+
+        sideDropTargetRef.current =
+            null
+
+        draggedBlockPosRef.current =
+            null
+
+        return true
+      },
     },
 
     onUpdate: ({ editor }) => {
@@ -635,6 +816,21 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
     dropIndicatorRef.current.style.opacity = '0'
   }
 
+  function handleDragStart() {
+    const pos =
+        activeNodePosRef.current
+
+    draggedBlockPosRef.current =
+        pos
+
+    if (
+        pos === null ||
+        !editor
+    ) {
+      return
+    }
+  }
+
   function handleDragOver(
     event: DragEvent<HTMLDivElement>,
   ) {
@@ -666,6 +862,11 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
       return
     }
 
+    const isRootContainer =
+        activeContainer?.classList.contains(
+            'dash-editor'
+        )
+
     const blocks = Array.from(
       activeContainer.children,
     ).filter(
@@ -690,6 +891,123 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
         (block) =>
           block.getBoundingClientRect()
       )
+
+    const hoveredBlockIndex =
+        blockRects.findIndex(
+            (rect) =>
+                event.clientY >= rect.top &&
+                event.clientY <= rect.bottom,
+        )
+
+    if (
+        isRootContainer &&
+        hoveredBlockIndex !== -1
+    ) {
+      const hoveredBlock =
+          blocks[hoveredBlockIndex]
+
+      const hoveredRect =
+          blockRects[hoveredBlockIndex]
+
+      const draggedPos =
+          draggedBlockPosRef.current
+
+      const draggedNode =
+          draggedPos !== null && editor
+              ? editor.state.doc.nodeAt(
+                  draggedPos,
+              )
+              : null
+
+      const canSideDrop =
+          draggedNode?.attrs.id !==
+          hoveredBlock.dataset.id &&
+          hoveredBlock.dataset.type !==
+          'columns'
+
+      if (canSideDrop) {
+        const sideZoneWidth =
+            hoveredRect.width * 0.2
+
+        const leftBoundary =
+            hoveredRect.left +
+            sideZoneWidth
+
+        const rightBoundary =
+            hoveredRect.right -
+            sideZoneWidth
+
+        let side:
+            | 'left'
+            | 'right'
+            | null = null
+
+        if (
+            event.clientX <= leftBoundary
+        ) {
+          side = 'left'
+        } else if (
+            event.clientX >= rightBoundary
+        ) {
+          side = 'right'
+        }
+
+        const blockId =
+            hoveredBlock.dataset.id
+
+        if (
+            side !== null &&
+            blockId
+        ) {
+          sideDropTargetRef.current = {
+            blockId,
+            side,
+          }
+
+          const indicatorX =
+              side === 'left'
+                  ? hoveredRect.left
+                  : hoveredRect.right
+
+          indicator.style.left =
+              `${
+                  indicatorX -
+                  shellRect.left -
+                  3
+              }px`
+
+          indicator.style.top =
+              `${
+                  hoveredRect.top -
+                  shellRect.top
+              }px`
+
+          indicator.style.width =
+              '6px'
+
+          indicator.style.height =
+              `${hoveredRect.height}px`
+
+          indicator.style.transform =
+              'none'
+
+          indicator.style.opacity = '1'
+
+          return
+        }
+      }
+    }
+
+
+
+    sideDropTargetRef.current = null
+
+    //reset the indicator
+    indicator.style.height =
+        '6px'
+
+    indicator.style.transform =
+        'translateY(-50%)'
 
     type DropZone = {
       start: number
@@ -1281,6 +1599,9 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
   return (
     <div
       ref={editorShellRef}
+      onDragStartCapture={
+        handleDragStart
+      }
       onDragOver={handleDragOver}
       onDrop={hideDropIndicator}
       onDragEnd={hideDropIndicator}
@@ -1297,11 +1618,8 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
           absolute
           z-50
 
-          h-[6px]
           rounded-full
           bg-accent/30
-
-          -translate-y-1/2
 
           opacity-0
 

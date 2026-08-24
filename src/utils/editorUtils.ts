@@ -24,3 +24,22 @@ export function isPositionInsideColumn(
 
     return false
 }
+
+export function findNodePosById(
+  doc: ProseMirrorNode,
+  id: string,
+): number | null {
+  let foundPos:
+    number | null = null
+
+  doc.descendants(
+    (node, pos) => {
+      if(node.attrs.id === id) {
+        foundPos = pos
+        return false
+      }
+    },
+  )
+
+  return foundPos
+}
