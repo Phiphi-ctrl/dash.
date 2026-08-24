@@ -43,9 +43,12 @@ import {
 } from '@tiptap/extension-mathematics'
 import MathEditorPopup
   from './MathEditorPopup.tsx'
-
 import 'katex/dist/katex.min.css'
 import {findNodePosById, isPositionInsideColumn} from "../../utils/editorUtils.ts";
+import {removeSourceForMove} from "../../utils/blockMovement.ts";
+import type {
+  NestedOptions,
+} from '@tiptap/extension-drag-handle'
 
 type DashBlockEditorProps = {
   value: DashDocument
@@ -58,9 +61,9 @@ const dragHandlePositionConfig = {
   placement: 'left' as const,
 }
 
-const nestedDragHandleConfig = {
-  edgeDetection:
-      'none' as const,
+const nestedDragHandleConfig:
+    NestedOptions = {
+  edgeDetection: 'none',
 
   rules: [
     {
@@ -69,13 +72,7 @@ const nestedDragHandleConfig = {
 
       evaluate: ({
                    node,
-                 }: {
-        node: {
-          type: {
-            name: string
-          }
-        }
-      }) => {
+                 }) => {
         if (
             node.type.name ===
             'columns' ||
@@ -138,13 +135,42 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
   const draggedBlockPosRef =
       useRef<number | null>(null)
 
-  type SideDropTarget = {
+  const draggedBlockIdRef =
+      useRef<string | null>(null)
+
+  const columnResizeRef =
+      useRef<{
+        columnsId: string
+        pointerId: number
+
+        left: number
+        gap: number
+        usableWidth: number
+
+        ratio: number
+      } | null>(null)
+
+  type BlockDropTarget =
+      | {
+    kind: 'side'
     blockId: string
     side: 'left' | 'right'
   }
+      | {
+    kind: 'vertical'
 
-  const sideDropTargetRef =
-      useRef<SideDropTarget | null>(
+    previousBlockId:
+        string | null
+
+    nextBlockId:
+        string | null
+
+    containerId:
+        string | null
+  }
+
+  const blockDropTargetRef =
+      useRef<BlockDropTarget | null>(
           null,
       )
 
@@ -172,6 +198,29 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
         | 'end'
   }
 
+  //DEBUG VISUAL
+  type DebugDropZone = {
+    id: string
+
+    top: number
+    left: number
+    width: number
+    height: number
+
+    label: string
+
+    kind:
+        | 'vertical'
+        | 'side'
+  }
+
+  const DEBUG_DROP_ZONES = true
+
+  const [
+    debugDropZones,
+    setDebugDropZones,
+  ] = useState<DebugDropZone[]>([])
+
   const [
     mathEditorTarget,
     setMathEditorTarget,
@@ -179,6 +228,270 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
       useState<MathEditorTarget | null>(
           null,
       )
+
+  function getColumnResizeTarget(
+      clientX: number,
+      clientY: number,
+  ) {
+    const element =
+        document.elementFromPoint(
+            clientX,
+            clientY,
+        )
+
+    const columns =
+        element?.closest<HTMLElement>(
+            '.dash-columns',
+        )
+
+    if (!columns) {
+      return null
+    }
+
+    const columnElements =
+        Array.from(
+            columns.children,
+        ).filter(
+            (element): element is HTMLElement =>
+                element instanceof HTMLElement &&
+                element.classList.contains(
+                    'dash-column',
+                ),
+        )
+
+    if (
+        columnElements.length !== 2
+    ) {
+      return null
+    }
+
+    const leftRect =
+        columnElements[0]
+            .getBoundingClientRect()
+
+    const rightRect =
+        columnElements[1]
+            .getBoundingClientRect()
+
+    const dividerX =
+        (
+            leftRect.right +
+            rightRect.left
+        ) / 2
+
+    const hitWidth = 8
+
+    if (
+        Math.abs(
+            clientX - dividerX,
+        ) > hitWidth
+    ) {
+      return null
+    }
+
+    return columns
+  }
+
+  function handleColumnResizeStart(
+      event: PointerEvent<HTMLDivElement>,
+  ) {
+    if (!editor) {
+      return
+    }
+
+    const columns =
+        getColumnResizeTarget(
+            event.clientX,
+            event.clientY,
+        )
+
+    if (!columns) {
+      return
+    }
+
+    const columnsId =
+        columns.dataset.id
+
+    if (!columnsId) {
+      return
+    }
+
+    event.preventDefault()
+    event.stopPropagation()
+
+    event.currentTarget
+        .setPointerCapture(
+            event.pointerId,
+        )
+
+    const ratio =
+        Number(
+            columns.dataset
+                .columnRatio ?? 0.5,
+        )
+
+    const rect =
+        columns.getBoundingClientRect()
+
+    const computedStyle =
+        window.getComputedStyle(
+            columns,
+        )
+
+    const gap =
+        Number.parseFloat(
+            computedStyle.columnGap,
+        ) || 0
+
+    const usableWidth =
+        rect.width - gap
+
+    columnResizeRef.current = {
+      columnsId,
+      pointerId:
+      event.pointerId,
+
+      left:
+      rect.left,
+
+      gap,
+
+      usableWidth,
+
+      ratio,
+    }
+
+    document.body.style.setProperty(
+        'user-select',
+        'none',
+    )
+
+    document.body.style.setProperty(
+        'cursor',
+        'col-resize',
+    )
+  }
+
+  function handleColumnResizeMove(
+      event: PointerEvent<HTMLDivElement>,
+  ) {
+    const resize =
+        columnResizeRef.current
+
+    if (!resize) {
+      const target =
+          getColumnResizeTarget(
+              event.clientX,
+              event.clientY,
+          )
+
+      event.currentTarget.style.cursor =
+          target
+              ? 'col-resize'
+              : ''
+
+      return
+    }
+
+    console.log(
+        resize.element.isConnected,
+    )
+
+    const pointerX =
+        event.clientX -
+        resize.left -
+        resize.gap / 2
+
+    const rawRatio =
+        pointerX /
+        resize.usableWidth
+
+    const ratio =
+        Math.min(
+            0.8,
+            Math.max(
+                0.2,
+                rawRatio,
+            ),
+        )
+
+    resize.ratio =
+        ratio
+
+    const pos =
+        findNodePosById(
+            editor.state.doc,
+            resize.columnsId,
+        )
+
+    if (pos === null) {
+      return
+    }
+
+    const node =
+        editor.state.doc.nodeAt(
+            pos,
+        )
+
+    if (
+        node?.type.name !==
+        'columns'
+    ) {
+      return
+    }
+
+    editor.view.dispatch(
+        editor.state.tr
+            .setNodeMarkup(
+                pos,
+                undefined,
+                {
+                  ...node.attrs,
+
+                  columnRatio:
+                  ratio,
+                },
+            )
+            .setMeta(
+                'addToHistory',
+                false,
+            ),
+    )
+  }
+
+  function handleColumnResizeEnd(
+      event: PointerEvent<HTMLDivElement>,
+  ) {
+    const resize =
+        columnResizeRef.current
+
+    if (!resize) {
+      return
+    }
+
+    if (
+        event.currentTarget
+            .hasPointerCapture(
+                resize.pointerId,
+            )
+    ) {
+      event.currentTarget
+          .releasePointerCapture(
+              resize.pointerId,
+          )
+    }
+
+    columnResizeRef.current =
+        null
+
+    document.body.style.removeProperty(
+        'user-select',
+    )
+
+    document.body.style.removeProperty(
+        'cursor',
+    )
+  }
 
   function openBlockMathEditor(
       pos: number,
@@ -575,6 +888,7 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
 
         return true
       },
+
       handleDrop: (
           view,
           event,
@@ -582,152 +896,236 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
         const sourcePos =
             draggedBlockPosRef.current
 
+        if (sourcePos === null) {
+          return false
+        }
+
         const target =
-            sideDropTargetRef.current
+            blockDropTargetRef.current
 
-        if (
-            sourcePos === null ||
-            target === null
-        ) {
-          return false
-        }
-
-        const targetPos =
-            findNodePosById(
-                view.state.doc,
-                target.blockId,
-            )
-
-        if (targetPos === null) {
-          return false
-        }
-
-        const $source =
-            view.state.doc.resolve(
-                sourcePos,
-            )
-
-        const $target =
-            view.state.doc.resolve(
-                targetPos,
-            )
-
-        const sourceNode =
-            view.state.doc.nodeAt(
-                sourcePos,
-            )
-
-        const targetNode =
-            view.state.doc.nodeAt(
-                targetPos,
-            )
-
-        if (
-            !sourceNode ||
-            !targetNode
-        ) {
+        if (target === null) {
           return true
         }
-
-        if (
-            $target.parent.type.name !==
-            'doc'
-        ) {
-          return true
-        }
-
-        const sourceParentType =
-            $source.parent.type.name
-
-        if (
-            sourceParentType !== 'doc' &&
-            sourceParentType !== 'column'
-        ) {
-          return true
-        }
-
-        const {
-          schema,
-        } = view.state
-
-        const columnsType =
-            schema.nodes.columns
-
-        const columnType =
-            schema.nodes.column
-
-        const leftNode =
-            target.side === 'left'
-                ? sourceNode
-                : targetNode
-
-        const rightNode =
-            target.side === 'left'
-                ? targetNode
-                : sourceNode
-
-        const leftColumn =
-            columnType.create(
-                null,
-                leftNode,
-            )
-
-        const rightColumn =
-            columnType.create(
-                null,
-                rightNode,
-            )
-
-        const columnsNode =
-            columnsType.create(
-                null,
-                [
-                  leftColumn,
-                  rightColumn,
-                ],
-            )
 
         let transaction =
             view.state.tr
 
-        const sourceIsOnlyColumnChild =
-            sourceParentType === 'column' &&
-            $source.parent.childCount === 1
-
-        if (
-            sourceIsOnlyColumnChild
-        ) {
-          const emptyParagraph =
-              schema.nodes.paragraph.create()
-
-          transaction =
-              transaction.replaceWith(
-                  sourcePos,
-                  sourcePos +
-                  sourceNode.nodeSize,
-                  emptyParagraph,
-              )
-        } else {
-          transaction =
-              transaction.delete(
-                  sourcePos,
-                  sourcePos +
-                  sourceNode.nodeSize,
-              )
-        }
-
-        const mappedTargetPos =
-            transaction.mapping.map(
-                targetPos,
+        const removalResult =
+            removeSourceForMove(
+                transaction,
+                sourcePos,
             )
 
+        if (!removalResult) {
+          return true
+        }
+
         transaction =
+            removalResult.transaction
+
+        const sourceNode =
+            removalResult.sourceNode
+
+        const movedNode =
+            sourceNode.type.create(
+                sourceNode.attrs,
+                sourceNode.content,
+                sourceNode.marks,
+            )
+
+        switch (target.kind) {
+          case 'vertical': {
+
+            let insertPos: number | null = null
+
+            if (
+                target.nextBlockId !== null
+            ) {
+              const nextPos =
+                  findNodePosById(
+                      transaction.doc,
+                      target.nextBlockId,
+                  )
+
+              if (nextPos !== null) {
+                insertPos =
+                    nextPos
+              }
+            }
+
+            if (
+                insertPos === null &&
+                target.previousBlockId !== null
+            ) {
+              const previousPos =
+                  findNodePosById(
+                      transaction.doc,
+                      target.previousBlockId,
+                  )
+
+              if (
+                  previousPos !== null
+              ) {
+                const previousNode =
+                    transaction.doc.nodeAt(
+                        previousPos,
+                    )
+
+                if (previousNode) {
+                  insertPos =
+                      previousPos +
+                      previousNode.nodeSize
+                }
+              }
+            }
+
+            if (
+                insertPos === null &&
+                target.containerId === null
+            ) {
+              if (
+                  target.previousBlockId === null
+              ) {
+                insertPos = 0
+              } else if (
+                  target.nextBlockId === null
+              ) {
+                insertPos =
+                    transaction.doc.content.size
+              }
+            }
+
+            if(insertPos === null && target.containerId !== null) {
+              const containerPos = findNodePosById(transaction.doc, target.containerId)
+              if (
+                  containerPos !== null
+              ) {
+                const containerNode =
+                    transaction.doc.nodeAt(
+                        containerPos,
+                    )
+
+                if (
+                    containerNode?.type.name ===
+                    'column'
+                ) {
+                  if (
+                      target.previousBlockId ===
+                      null
+                  ) {
+                    insertPos =
+                        containerPos + 1
+                  } else if (
+                      target.nextBlockId ===
+                      null
+                  ) {
+                    insertPos =
+                        containerPos +
+                        containerNode.nodeSize -
+                        1
+                  }
+                }
+              }
+            }
+
+            if (
+                insertPos === null
+            ) {
+              return true
+            }
+
+            transaction.insert(
+                insertPos,
+                movedNode,
+            )
+
+            break
+          }
+
+          case 'side': {
+            const targetPos =
+                findNodePosById(
+                    transaction.doc,
+                    target.blockId,
+                )
+
+            if (
+                targetPos === null
+            ) {
+              return true
+            }
+
+            const targetNode =
+                transaction.doc.nodeAt(
+                    targetPos,
+                )
+
+            if (!targetNode) {
+              return true
+            }
+            const $target =
+                transaction.doc.resolve(
+                    targetPos,
+                )
+
+            if (
+                $target.parent.type.name !==
+                'doc'
+            ) {
+              return true
+            }
+
+            const {
+              schema,
+            } = view.state
+
+            const columnsType =
+                schema.nodes.columns
+
+            const columnType =
+                schema.nodes.column
+
+            const leftNode =
+                target.side === 'left'
+                    ? movedNode
+                    : targetNode
+
+            const rightNode =
+                target.side === 'left'
+                    ? targetNode
+                    : movedNode
+
+            const leftColumn =
+                columnType.create(
+                    null,
+                    leftNode,
+                )
+
+            const rightColumn =
+                columnType.create(
+                    null,
+                    rightNode,
+                )
+
+            const columnsNode =
+                columnsType.create(
+                    null,
+                    [
+                      leftColumn,
+                      rightColumn,
+                    ],
+                )
+
             transaction.replaceWith(
-                mappedTargetPos,
-                mappedTargetPos +
+                targetPos,
+                targetPos +
                 targetNode.nodeSize,
                 columnsNode,
             )
+
+            break
+          }
+        }
 
         event.preventDefault()
 
@@ -735,13 +1133,19 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
             transaction,
         )
 
-        sideDropTargetRef.current =
+        blockDropTargetRef.current =
             null
 
         draggedBlockPosRef.current =
             null
 
+        draggedBlockIdRef.current =
+            null
+
         return true
+
+        // ---------new changes above work out the rest below
+
       },
     },
 
@@ -816,6 +1220,71 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
     dropIndicatorRef.current.style.opacity = '0'
   }
 
+  function clearDropTarget() {
+    blockDropTargetRef.current =
+        null
+
+    hideDropIndicator()
+
+    if (DEBUG_DROP_ZONES) {
+      setDebugDropZones([])
+    }
+  }
+
+  function handleDragEnd() {
+    hideDropIndicator()
+
+    const draggedBlockId =
+        draggedBlockIdRef.current
+
+    if (
+        editor &&
+        draggedBlockId !== null
+    ) {
+      const currentPos =
+          findNodePosById(
+              editor.state.doc,
+              draggedBlockId,
+          )
+
+      if (currentPos !== null) {
+        const currentNode =
+            editor.state.doc.nodeAt(
+                currentPos,
+            )
+
+        if (currentNode) {
+          editor.view.dispatch(
+              editor.state.tr
+                  .setNodeMarkup(
+                      currentPos,
+                      currentNode.type,
+                      currentNode.attrs,
+                      currentNode.marks,
+                  )
+                  .setMeta(
+                      'addToHistory',
+                      false,
+                  ),
+          )
+        }
+      }
+    }
+
+    draggedBlockPosRef.current =
+        null
+
+    draggedBlockIdRef.current =
+        null
+
+    blockDropTargetRef.current =
+        null
+
+    if (DEBUG_DROP_ZONES) {
+      setDebugDropZones([])
+    }
+  }
+
   function handleDragStart() {
     const pos =
         activeNodePosRef.current
@@ -829,6 +1298,56 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
     ) {
       return
     }
+
+    const node =
+        editor.state.doc.nodeAt(pos)
+
+    draggedBlockIdRef.current =
+        typeof node?.attrs.id === 'string'
+            ? node.attrs.id
+            : null
+  }
+
+  function handleDragImageStart() {
+    const pos =
+        activeNodePosRef.current
+
+    if (
+        pos === null ||
+        !editor
+    ) {
+      return
+    }
+
+    const dom =
+        editor.view.nodeDOM(pos)
+
+    if (
+        !(dom instanceof HTMLElement)
+    ) {
+      return
+    }
+
+    const previousOpacity =
+        dom.style.opacity
+
+    /*
+     * Tiptap's drag handler runs
+     * immediately after this callback
+     * and builds its ghost from the
+     * node's current computed styles.
+     */
+    dom.style.opacity = '0.3'
+
+    /*
+     * Restore before the browser
+     * gets a chance to paint the
+     * stationary editor block.
+     */
+    queueMicrotask(() => {
+      dom.style.opacity =
+          previousOpacity
+    })
   }
 
   function handleDragOver(
@@ -858,7 +1377,7 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
         )
 
     if (!activeContainer) {
-      hideDropIndicator()
+      clearDropTarget()
       return
     }
 
@@ -866,6 +1385,12 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
         activeContainer?.classList.contains(
             'dash-editor'
         )
+
+    const verticalContainerId =
+        isRootContainer
+            ? null
+            : activeContainer.dataset.id ??
+            null
 
     const blocks = Array.from(
       activeContainer.children,
@@ -876,7 +1401,7 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
     )
 
     if (blocks.length === 0) {
-      hideDropIndicator()
+      clearDropTarget()
       return
     }
 
@@ -929,6 +1454,61 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
         const sideZoneWidth =
             hoveredRect.width * 0.2
 
+        if (DEBUG_DROP_ZONES) {
+          setDebugDropZones([
+            {
+              id:
+                  'side-left',
+
+              top:
+                  hoveredRect.top -
+                  shellRect.top,
+
+              left:
+                  hoveredRect.left -
+                  shellRect.left,
+
+              width:
+              sideZoneWidth,
+
+              height:
+              hoveredRect.height,
+
+              label:
+                  'LEFT',
+
+              kind:
+                  'side',
+            },
+
+            {
+              id:
+                  'side-right',
+
+              top:
+                  hoveredRect.top -
+                  shellRect.top,
+
+              left:
+                  hoveredRect.right -
+                  sideZoneWidth -
+                  shellRect.left,
+
+              width:
+              sideZoneWidth,
+
+              height:
+              hoveredRect.height,
+
+              label:
+                  'RIGHT',
+
+              kind:
+                  'side',
+            },
+          ])
+        }
+
         const leftBoundary =
             hoveredRect.left +
             sideZoneWidth
@@ -959,7 +1539,8 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
             side !== null &&
             blockId
         ) {
-          sideDropTargetRef.current = {
+          blockDropTargetRef.current = {
+            kind: 'side',
             blockId,
             side,
           }
@@ -1000,7 +1581,7 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
 
 
 
-    sideDropTargetRef.current = null
+    blockDropTargetRef.current = null
 
     //reset the indicator
     indicator.style.height =
@@ -1013,17 +1594,38 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
       start: number
       end: number
       position: number
+
+      target: {
+        previousBlockId:
+            string | null
+
+        nextBlockId:
+            string | null
+
+        containerId:
+            string | null
+      }
     }
 
     const dropZones: DropZone[] = []
 
-    const edgeTolerance = 2
+    const edgeTolerance = 12
 
     /*
      * Before the first block
      */
     const firstRect =
       blockRects[0]
+
+    const firstBlock =
+        blocks[0]
+
+    const firstBlockId =
+        firstBlock.dataset.id
+
+    if(firstBlockId === undefined) {
+      return
+    }
 
     dropZones.push({
       start:
@@ -1035,6 +1637,12 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
 
       position:
       firstRect.top,
+
+      target: {
+        previousBlockId: null,
+        nextBlockId: firstBlockId,
+        containerId: verticalContainerId,
+      }
     })
 
     /*
@@ -1051,6 +1659,12 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
       const nextRect =
         blockRects[index + 1]
 
+      const currentBlock =
+          blocks[index]
+
+      const nextBlock =
+          blocks[index + 1]
+
       dropZones.push({
         start:
           currentRect.bottom -
@@ -1065,6 +1679,12 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
             currentRect.bottom +
             nextRect.top
           ) / 2,
+
+        target: {
+          previousBlockId: currentBlock.dataset.id!,
+          nextBlockId: nextBlock.dataset.id!,
+          containerId: verticalContainerId,
+        }
       })
     }
 
@@ -1076,6 +1696,9 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
       blockRects.length - 1
         ]
 
+    const lastBlock =
+        blocks[blocks.length - 1]
+
     dropZones.push({
       start:
         lastRect.bottom -
@@ -1086,7 +1709,51 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
 
       position:
         lastRect.bottom + 12,
+
+      target: {
+        previousBlockId: lastBlock.dataset.id!,
+        nextBlockId: null,
+        containerId: verticalContainerId,
+      }
     })
+
+    if (DEBUG_DROP_ZONES) {
+      const verticalDebugZones =
+          dropZones.map(
+              (zone, index) => ({
+                id: `vertical-${index}`,
+
+                top:
+                    zone.start -
+                    shellRect.top,
+
+                left:
+                    editorRect.left -
+                    shellRect.left,
+
+                width:
+                editorRect.width,
+
+                height:
+                    zone.end -
+                    zone.start,
+
+                label:
+                    zone.target.previousBlockId === null
+                        ? `before ${zone.target.nextBlockId?.slice(0, 5)}`
+                        : zone.target.nextBlockId === null
+                            ? `after ${zone.target.previousBlockId.slice(0, 5)}`
+                            : `${zone.target.previousBlockId.slice(0, 5)} | ${zone.target.nextBlockId.slice(0, 5)}`,
+
+                kind:
+                    'vertical' as const,
+              }),
+          )
+
+      setDebugDropZones(
+          verticalDebugZones,
+      )
+    }
 
     /*
      * Only show an indicator when
@@ -1100,8 +1767,13 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
       )
 
     if (!activeDropZone) {
-      hideDropIndicator()
+      clearDropTarget()
       return
+    }
+
+    blockDropTargetRef.current = {
+      kind: 'vertical',
+      ...activeDropZone.target,
     }
 
     indicator.style.top =
@@ -1599,12 +2271,32 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
   return (
     <div
       ref={editorShellRef}
+
       onDragStartCapture={
         handleDragStart
       }
       onDragOver={handleDragOver}
-      onDrop={hideDropIndicator}
-      onDragEnd={hideDropIndicator}
+
+      onDrop={clearDropTarget}
+
+      onDragEnd={handleDragEnd}
+
+      onPointerDownCapture={
+        handleColumnResizeStart
+      }
+
+      onPointerMove={
+        handleColumnResizeMove
+      }
+
+      onPointerUp={
+        handleColumnResizeEnd
+      }
+
+      onPointerCancel={
+        handleColumnResizeEnd
+      }
+
       className="
       dash-editor-shell
       relative
@@ -1629,9 +2321,62 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
         "
       />
 
+      {DEBUG_DROP_ZONES &&
+          debugDropZones.map(
+              (zone) => (
+                  <div
+                      key={zone.id}
+
+                      className={`
+                        pointer-events-none
+                        absolute
+                        z-40
+                        box-border
+                        border
+              
+                        ${
+                          zone.kind === 'vertical'
+                              ? 'border-blue-400/60 bg-blue-400/10'
+                              : 'border-purple-400/60 bg-purple-400/10'
+                        }
+                      `}
+
+                      style={{
+                        top:
+                        zone.top,
+
+                        left:
+                        zone.left,
+
+                        width:
+                        zone.width,
+
+                        height:
+                        zone.height,
+                      }}
+                  >
+                    <span
+                        className="
+                        absolute
+                        left-1
+                        top-0.5
+                        whitespace-nowrap
+                        text-[9px]
+                        font-medium
+                        text-foreground/60
+                      "
+                    >
+                      {zone.label}
+                    </span>
+                  </div>
+              ),
+          )}
+
       {editor && (
           <DragHandle
               editor={editor}
+
+              onElementDragStart={handleDragImageStart}
 
               getReferencedVirtualElement={getHandleVirtualElement}
 

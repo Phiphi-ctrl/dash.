@@ -1,4 +1,5 @@
 import {
+  mergeAttributes,
   Node,
 } from '@tiptap/core'
 
@@ -16,18 +17,21 @@ const Column =
       ]
     },
 
-    renderHTML() {
+    renderHTML({
+                 HTMLAttributes,
+               }) {
       return [
         'div',
-        {
-          'data-type':
-            'column',
-          class:
-            'dash-column',
-        },
+        mergeAttributes(
+          HTMLAttributes,
+          {
+            'data-type': 'column',
+            class: 'dash-column',
+          },
+        ),
         0,
       ]
-    },
+    }
   })
 
 export default Column

@@ -1,4 +1,5 @@
 import {
+  mergeAttributes,
   Node,
 } from '@tiptap/core'
 
@@ -18,17 +19,45 @@ const Columns =
       ]
     },
 
-    renderHTML() {
+    renderHTML({
+                 HTMLAttributes,
+               }) {
       return [
         'div',
-        {
-          'data-type':
-            'columns',
-          class:
-          'dash-columns',
-        },
+        mergeAttributes(
+          HTMLAttributes,
+          {
+            'data-type': 'columns',
+            class: 'dash-columns',
+          },
+        ),
         0,
       ]
+    },
+
+    addAttributes() {
+      return {
+        columnRatio: {
+          default: 0.5,
+
+          parseHTML: (element) =>
+            Number(
+              element.getAttribute(
+                'data-column-ratio',
+              ) ?? 0.5,
+            ),
+
+          renderHTML: (attributes) => ({
+            'data-column-ratio':
+            attributes.columnRatio,
+
+            style:
+              `grid-template-columns: ` +
+              `minmax(0, ${attributes.columnRatio}fr) ` +
+              `minmax(0, ${1 - attributes.columnRatio}fr)`,
+          }),
+        },
+      }
     },
   })
 
