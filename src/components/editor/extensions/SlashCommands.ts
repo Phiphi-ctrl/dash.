@@ -354,6 +354,17 @@ const SlashCommands =
 
             if (
               props.command.type ===
+              'codeBlock'
+            ) {
+              chain
+                .setCodeBlock()
+                .run()
+
+              return
+            }
+
+            if (
+              props.command.type ===
               'heading'
             ) {
               chain

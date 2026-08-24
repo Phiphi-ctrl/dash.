@@ -4,6 +4,7 @@ import {
   Heading3,
   Pilcrow,
   Sigma,
+  Code2,
   type LucideIcon, Columns2,
 } from 'lucide-react'
 
@@ -20,6 +21,9 @@ export type BlockInsertCommand =
 }
     | {
     type: 'columns'
+}
+    | {
+    type: 'codeBlock'
 }
 
 export type SlashInsertCommand =
@@ -149,6 +153,29 @@ export const blockOptions: BlockOption[] = [
         command: {
           type: 'columns',
         }
+    },
+
+    {
+      label:
+        'Code',
+
+      description:
+        'Add a code block',
+
+      Icon:
+      Code2,
+
+      keywords: [
+        'code',
+        'programming',
+        'snippet',
+        'script',
+      ],
+
+      command: {
+        type:
+          'codeBlock',
+      },
     },
 ]
 

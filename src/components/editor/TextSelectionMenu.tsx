@@ -39,10 +39,6 @@ import {
 } from './editorColors.ts'
 import * as React from 'react'
 
-import {
-  TextSelection,
-} from '@tiptap/pm/state'
-
 type TextSelectionMenuProps = {
   editor: Editor
   disabled?: boolean
@@ -469,15 +465,46 @@ function TextSelectionMenu({
         }}
 
         shouldShow={({ state }) => {
-          const {
-            selection,
-          } = state
+          if (
+            disabled ||
+            state.selection.empty
+          ) {
+            return false
+          }
 
-          return (
-            !disabled &&
-            selection instanceof TextSelection &&
-            !selection.empty
-          )
+          const {
+            $from,
+            $to,
+          } = state.selection
+
+          const isInsideCodeBlock = (
+            $pos: typeof $from,
+          ) => {
+            for (
+              let depth = 0;
+              depth <= $pos.depth;
+              depth++
+            ) {
+              if (
+                $pos.node(depth)
+                  .type.name ===
+                'codeBlock'
+              ) {
+                return true
+              }
+            }
+
+            return false
+          }
+
+          if (
+            isInsideCodeBlock($from) ||
+            isInsideCodeBlock($to)
+          ) {
+            return false
+          }
+
+          return true
         }}
       >
         <div

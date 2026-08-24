@@ -21,6 +21,7 @@ import {
   useRef,
   useState,
   type DragEvent,
+  type PointerEvent as ReactPointerEvent,
 } from 'react'
 import BlockInsertMenu
   from './BlockInsertMenu.tsx'
@@ -38,6 +39,7 @@ import SlashCommands
   from './extensions/SlashCommands.ts'
 import Columns from './extensions/Columns.ts'
 import Column from './extensions/Column.ts'
+import CodeBlock from './extensions/CodeBlock.ts'
 import {
   Mathematics,
 } from '@tiptap/extension-mathematics'
@@ -57,8 +59,14 @@ type DashBlockEditorProps = {
   ) => void
 }
 
+const MIN_COLUMN_RATIO = 0.2
+const MAX_COLUMN_RATIO = 0.8
+const COLUMN_RESIZE_HIT_WIDTH = 24
+
+const DEBUG_DROP_ZONES = true
+
 const dragHandlePositionConfig = {
-  placement: 'left' as const,
+  placement: 'left-start' as const,
 }
 
 const nestedDragHandleConfig:
@@ -146,9 +154,35 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
         left: number
         gap: number
         usableWidth: number
+        pointerOffsetFromDivider: number
 
         ratio: number
       } | null>(null)
+
+  type ColumnResizeTarget = {
+    columnsElement: HTMLElement
+    columnsId: string
+    rect: DOMRect
+    dividerX: number
+    gap: number
+    usableWidth: number
+  }
+
+  type ColumnResizeHandle = {
+    columnsId: string
+    top: number
+    left: number
+    height: number
+    isActive: boolean
+  }
+
+  const [
+    columnResizeHandle,
+    setColumnResizeHandle,
+  ] =
+      useState<ColumnResizeHandle | null>(
+          null,
+      )
 
   type BlockDropTarget =
       | {
@@ -214,8 +248,6 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
         | 'side'
   }
 
-  const DEBUG_DROP_ZONES = true
-
   const [
     debugDropZones,
     setDebugDropZones,
@@ -229,28 +261,69 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
           null,
       )
 
-  function getColumnResizeTarget(
-      clientX: number,
-      clientY: number,
+  function clampColumnRatio(
+      ratio: number,
   ) {
-    const element =
-        document.elementFromPoint(
-            clientX,
-            clientY,
+    return Math.min(
+        MAX_COLUMN_RATIO,
+        Math.max(
+            MIN_COLUMN_RATIO,
+            ratio,
+        ),
+    )
+  }
+
+  function readColumnRatio(
+      columnsElement: HTMLElement,
+  ) {
+    const parsedRatio =
+        Number(
+            columnsElement.dataset
+                .columnRatio,
         )
 
-    const columns =
-        element?.closest<HTMLElement>(
-            '.dash-columns',
+    if (
+        !Number.isFinite(
+            parsedRatio,
         )
+    ) {
+      return 0.5
+    }
 
-    if (!columns) {
+    return clampColumnRatio(
+        parsedRatio,
+    )
+  }
+
+  function getColumnsElementById(
+      columnsId: string,
+  ) {
+    const shell =
+        editorShellRef.current
+
+    if (!shell) {
       return null
     }
 
+    return Array
+        .from(
+            shell.querySelectorAll<HTMLElement>(
+                '.dash-columns',
+            ),
+        )
+        .find(
+            (element) =>
+                element.dataset.id ===
+                columnsId,
+        ) ?? null
+  }
+
+  function getColumnResizeTargetFromElement(
+      columnsElement: HTMLElement,
+  ): ColumnResizeTarget | null {
     const columnElements =
         Array.from(
-            columns.children,
+            columnsElement.children,
         ).filter(
             (element): element is HTMLElement =>
                 element instanceof HTMLElement &&
@@ -273,27 +346,180 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
         columnElements[1]
             .getBoundingClientRect()
 
+    const rect =
+        columnsElement
+            .getBoundingClientRect()
+
+    const computedStyle =
+        window.getComputedStyle(
+            columnsElement,
+        )
+
+    const parsedGap =
+        Number.parseFloat(
+            computedStyle.columnGap,
+        )
+
+    const actualGap =
+        Math.max(
+            0,
+            rightRect.left -
+            leftRect.right,
+        )
+
+    const gap =
+        Number.isFinite(
+            parsedGap,
+        )
+            ? parsedGap
+            : actualGap
+
+    const usableWidth =
+        Math.max(
+            1,
+            rect.width -
+            gap,
+        )
+
     const dividerX =
         (
             leftRect.right +
             rightRect.left
         ) / 2
 
-    const hitWidth = 8
+    const columnsId =
+        columnsElement.dataset.id
+
+    if (!columnsId) {
+      return null
+    }
+
+    return {
+      columnsElement,
+      columnsId,
+      rect,
+      dividerX,
+      gap,
+      usableWidth,
+    }
+  }
+
+  function getColumnResizeTarget(
+      clientX: number,
+      clientY: number,
+  ): ColumnResizeTarget | null {
+    const element =
+        document.elementFromPoint(
+            clientX,
+            clientY,
+        )
+
+    const columnsElement =
+        element?.closest<HTMLElement>(
+            '.dash-columns',
+        )
+
+    const shell =
+        editorShellRef.current
 
     if (
-        Math.abs(
-            clientX - dividerX,
-        ) > hitWidth
+        !columnsElement ||
+        !shell?.contains(
+            columnsElement,
+        )
     ) {
       return null
     }
 
-    return columns
+    const target =
+        getColumnResizeTargetFromElement(
+            columnsElement,
+        )
+
+    if (!target) {
+      return null
+    }
+
+    const gapHitWidth =
+        Math.max(
+            COLUMN_RESIZE_HIT_WIDTH,
+            target.gap,
+        )
+
+    if (
+        Math.abs(
+            clientX -
+            target.dividerX,
+        ) > gapHitWidth / 2
+    ) {
+      return null
+    }
+
+    return target
+  }
+
+  function syncColumnResizeHandle(
+      target: ColumnResizeTarget,
+      isActive: boolean,
+  ) {
+    const shell =
+        editorShellRef.current
+
+    if (!shell) {
+      return
+    }
+
+    const shellRect =
+        shell.getBoundingClientRect()
+
+    const nextHandle: ColumnResizeHandle = {
+      columnsId:
+      target.columnsId,
+
+      top:
+        target.rect.top -
+        shellRect.top,
+
+      left:
+        target.dividerX -
+        shellRect.left,
+
+      height:
+      target.rect.height,
+
+      isActive,
+    }
+
+    setColumnResizeHandle(
+        (current) => {
+          if (
+              current?.columnsId ===
+              nextHandle.columnsId &&
+              current.isActive ===
+              nextHandle.isActive &&
+              Math.abs(
+                  current.top -
+                  nextHandle.top,
+              ) < 0.5 &&
+              Math.abs(
+                  current.left -
+                  nextHandle.left,
+              ) < 0.5 &&
+              Math.abs(
+                  current.height -
+                  nextHandle.height,
+              ) < 0.5
+          ) {
+            return current
+          }
+
+          return nextHandle
+        },
+    )
   }
 
   function handleColumnResizeStart(
-      event: PointerEvent<HTMLDivElement>,
+      event: ReactPointerEvent<HTMLDivElement>,
   ) {
     if (!editor) {
       return
@@ -305,14 +531,10 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
             event.clientY,
         )
 
-    if (!columns) {
-      return
-    }
-
-    const columnsId =
-        columns.dataset.id
-
-    if (!columnsId) {
+    if (
+        !columns ||
+        event.button !== 0
+    ) {
       return
     }
 
@@ -325,41 +547,37 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
         )
 
     const ratio =
-        Number(
-            columns.dataset
-                .columnRatio ?? 0.5,
+        readColumnRatio(
+            columns.columnsElement,
         )
-
-    const rect =
-        columns.getBoundingClientRect()
-
-    const computedStyle =
-        window.getComputedStyle(
-            columns,
-        )
-
-    const gap =
-        Number.parseFloat(
-            computedStyle.columnGap,
-        ) || 0
-
-    const usableWidth =
-        rect.width - gap
 
     columnResizeRef.current = {
-      columnsId,
+      columnsId:
+      columns.columnsId,
+
       pointerId:
       event.pointerId,
 
       left:
-      rect.left,
+      columns.rect.left,
 
-      gap,
+      gap:
+      columns.gap,
 
-      usableWidth,
+      usableWidth:
+      columns.usableWidth,
+
+      pointerOffsetFromDivider:
+        event.clientX -
+        columns.dividerX,
 
       ratio,
     }
+
+    syncColumnResizeHandle(
+        columns,
+        true,
+    )
 
     document.body.style.setProperty(
         'user-select',
@@ -373,7 +591,7 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
   }
 
   function handleColumnResizeMove(
-      event: PointerEvent<HTMLDivElement>,
+      event: ReactPointerEvent<HTMLDivElement>,
   ) {
     const resize =
         columnResizeRef.current
@@ -390,15 +608,33 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
               ? 'col-resize'
               : ''
 
+      if (target) {
+        syncColumnResizeHandle(
+            target,
+            false,
+        )
+      } else {
+        setColumnResizeHandle(
+            null,
+        )
+      }
+
       return
     }
 
-    console.log(
-        resize.element.isConnected,
-    )
+    if (!editor) {
+      return
+    }
+
+    event.preventDefault()
+    event.stopPropagation()
+
+    const dividerX =
+        event.clientX -
+        resize.pointerOffsetFromDivider
 
     const pointerX =
-        event.clientX -
+        dividerX -
         resize.left -
         resize.gap / 2
 
@@ -407,12 +643,8 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
         resize.usableWidth
 
     const ratio =
-        Math.min(
-            0.8,
-            Math.max(
-                0.2,
-                rawRatio,
-            ),
+        clampColumnRatio(
+            rawRatio,
         )
 
     resize.ratio =
@@ -457,10 +689,31 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
                 false,
             ),
     )
+
+    const columnsElement =
+        getColumnsElementById(
+            resize.columnsId,
+        )
+
+    if (!columnsElement) {
+      return
+    }
+
+    const target =
+        getColumnResizeTargetFromElement(
+            columnsElement,
+        )
+
+    if (target) {
+      syncColumnResizeHandle(
+          target,
+          true,
+      )
+    }
   }
 
   function handleColumnResizeEnd(
-      event: PointerEvent<HTMLDivElement>,
+      event: ReactPointerEvent<HTMLDivElement>,
   ) {
     const resize =
         columnResizeRef.current
@@ -491,6 +744,42 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
     document.body.style.removeProperty(
         'cursor',
     )
+
+    const target =
+        getColumnResizeTarget(
+            event.clientX,
+            event.clientY,
+        )
+
+    if (target) {
+      syncColumnResizeHandle(
+          target,
+          false,
+      )
+      event.currentTarget.style.cursor =
+          'col-resize'
+    } else {
+      setColumnResizeHandle(
+          null,
+      )
+      event.currentTarget.style.cursor =
+          ''
+    }
+  }
+
+  function handleColumnResizeLeave(
+      event: ReactPointerEvent<HTMLDivElement>,
+  ) {
+    if (columnResizeRef.current) {
+      return
+    }
+
+    setColumnResizeHandle(
+        null,
+    )
+
+    event.currentTarget.style.cursor =
+        ''
   }
 
   function openBlockMathEditor(
@@ -603,10 +892,13 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
         trailingNode: false,
 
         dropcursor: false,
+
+        codeBlock: false,
       }),
 
       Columns,
       Column,
+      CodeBlock,
 
       TextStyle,
       BlockStyle,
@@ -662,6 +954,7 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
           'blockMath',
           'columns',
           'column',
+          'codeBlock',
         ],
 
         generateID: () =>
@@ -1210,7 +1503,10 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
         lockedHandlePosRef.current = null
 
         setOpenHandleMenu(null)
-      }, [editor])
+      }, [
+        editor,
+        setOpenHandleMenu,
+      ])
 
   function hideDropIndicator() {
     if (!dropIndicatorRef.current) {
@@ -1854,12 +2150,35 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
       return
     }
 
-    const isInsideColumn = isPositionInsideColumn(editor.state.doc, insertPos)
+    if (
+        command.type ===
+        'codeBlock'
+    ) {
+      editor
+          .chain()
+          .focus()
+          .insertContentAt(
+              insertPos,
+              {
+                type:
+                    'codeBlock',
+              },
+          )
+          .setTextSelection(
+              insertPos + 1,
+          )
+          .run()
+
+      closeHandleMenu()
+
+      return
+    }
 
     if (
         command.type ===
         'columns'
     ) {
+      const isInsideColumn = isPositionInsideColumn(editor.state.doc, insertPos)
       if(isInsideColumn) {
         return
       }
@@ -2297,12 +2616,59 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
         handleColumnResizeEnd
       }
 
+      onPointerLeave={
+        handleColumnResizeLeave
+      }
+
       className="
       dash-editor-shell
       relative
       items-center
     "
     >
+      {columnResizeHandle && (
+          <div
+              data-column-resize-handle
+              className="
+                pointer-events-none
+                absolute
+                z-40
+                flex
+                w-6
+                -translate-x-1/2
+                items-center
+                justify-center
+                rounded-full
+                transition-opacity
+                duration-150
+              "
+              style={{
+                top:
+                columnResizeHandle.top,
+
+                left:
+                columnResizeHandle.left,
+
+                height:
+                columnResizeHandle.height,
+              }}
+          >
+            <div
+                className={`
+                  h-full
+                  w-1
+                  rounded-full
+                  transition-colors
+                  ${
+                    columnResizeHandle.isActive
+                        ? 'bg-surface-hover shadow-lg'
+                        : 'bg-surface'
+                  }
+                `}
+            />
+          </div>
+      )}
+
       <div
         ref={dropIndicatorRef}
         className="
@@ -2481,7 +2847,7 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
             <Tooltip
               content={
               <div className="flex items-center gap-1.5">
-                <GripVertical size={12} />
+                <GripVertical size={20} />
                   <span>
                     <span className="font-semibold text-foreground">
                       Drag{' '}
