@@ -7,7 +7,7 @@ import {
   AudioLines,
   Mic,
   Pause,
-  Play,
+  Play, Square,
   Trash2,
 } from 'lucide-react'
 import {
@@ -16,6 +16,9 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
 } from 'react'
 import {
   deleteAudio,
@@ -32,19 +35,287 @@ const WAVEFORM_BAR_WIDTH =
 const WAVEFORM_BAR_GAP =
   2
 
-const PLAYBACK_WAVEFORM_INTERVAL =
-  100
-
-const PLAYBACK_PIXELS_PER_SECOND =
-  40
-
 const WAVEFORM_STEP =
   WAVEFORM_BAR_WIDTH +
   WAVEFORM_BAR_GAP
 
+const WAVEFORM_MAX_BAR_HEIGHT =
+  52
+
+const PLAYBACK_WAVEFORM_INTERVAL =
+  WAVEFORM_SAMPLE_INTERVAL
+
+const PLAYBACK_PIXELS_PER_SECOND =
+  WAVEFORM_STEP /
+  (WAVEFORM_SAMPLE_INTERVAL / 1000)
+
+const PLAYBACK_PLAYHEAD_RATIO =
+  0.3
+
+const PLAYBACK_DRAG_THRESHOLD =
+  4
+
 type RecorderState =
   | 'idle'
   | 'recording'
+
+type PlaybackWaveformData = {
+  duration: number
+  waveform: number[]
+}
+
+function getWaveformSampleTime(
+  index: number,
+  sampleCount: number,
+  duration: number,
+  fallbackIntervalSeconds: number,
+) {
+  if (
+    duration > 0 &&
+    sampleCount > 1
+  ) {
+    return (
+      index /
+      (sampleCount - 1)
+    ) * duration
+  }
+
+  return (
+    index *
+    fallbackIntervalSeconds
+  )
+}
+
+function snapCanvasCoordinate(
+  value: number,
+  dpr: number,
+) {
+  return (
+    Math.round(
+      value *
+      dpr,
+    ) / dpr
+  )
+}
+
+function isNativeKeyboardTarget(
+  target: EventTarget | null,
+) {
+  return (
+    target instanceof HTMLElement &&
+    target.closest(
+      'button, input, textarea, select',
+    ) !==
+    null
+  )
+}
+
+function fillRoundedCanvasBar(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+) {
+  const radius =
+    Math.min(
+      width / 2,
+      height / 2,
+    )
+
+  const right =
+    x +
+    width
+
+  const bottom =
+    y +
+    height
+
+  context.beginPath()
+  context.moveTo(
+    x + radius,
+    y,
+  )
+  context.lineTo(
+    right - radius,
+    y,
+  )
+  context.quadraticCurveTo(
+    right,
+    y,
+    right,
+    y + radius,
+  )
+  context.lineTo(
+    right,
+    bottom - radius,
+  )
+  context.quadraticCurveTo(
+    right,
+    bottom,
+    right - radius,
+    bottom,
+  )
+  context.lineTo(
+    x + radius,
+    bottom,
+  )
+  context.quadraticCurveTo(
+    x,
+    bottom,
+    x,
+    bottom - radius,
+  )
+  context.lineTo(
+    x,
+    y + radius,
+  )
+  context.quadraticCurveTo(
+    x,
+    y,
+    x + radius,
+    y,
+  )
+  context.fill()
+}
+
+async function createPlaybackWaveformFromBlob(
+  blob: Blob,
+  interval: number,
+): Promise<PlaybackWaveformData | null> {
+  let audioContext:
+    AudioContext | null =
+    null
+
+  try {
+    audioContext =
+      new AudioContext()
+
+    const arrayBuffer =
+      await blob.arrayBuffer()
+
+    const audioBuffer =
+      await audioContext
+        .decodeAudioData(
+          arrayBuffer,
+        )
+
+    const samplesPerFrame =
+      Math.max(
+        1,
+        Math.round(
+          audioBuffer.sampleRate *
+          (interval / 1000),
+        ),
+      )
+
+    const frameCount =
+      Math.max(
+        1,
+        Math.ceil(
+          audioBuffer.length /
+          samplesPerFrame,
+        ),
+      )
+
+    const channels =
+      Array.from(
+        {
+          length:
+          audioBuffer.numberOfChannels,
+        },
+        (
+          _,
+          index,
+        ) =>
+          audioBuffer
+            .getChannelData(
+              index,
+            ),
+      )
+
+    const waveform:
+      number[] =
+      []
+
+    for (
+      let frameIndex = 0;
+      frameIndex < frameCount;
+      frameIndex++
+    ) {
+      const start =
+        frameIndex *
+        samplesPerFrame
+
+      const end =
+        Math.min(
+          start +
+          samplesPerFrame,
+          audioBuffer.length,
+        )
+
+      let sum =
+        0
+
+      let sampleCount =
+        0
+
+      for (
+        const channel
+        of channels
+      ) {
+        for (
+          let sampleIndex = start;
+          sampleIndex < end;
+          sampleIndex++
+        ) {
+          const value =
+            channel[
+              sampleIndex
+            ] ?? 0
+
+          sum +=
+            value *
+            value
+
+          sampleCount++
+        }
+      }
+
+      const rms =
+        sampleCount > 0
+          ? Math.sqrt(
+            sum /
+            sampleCount,
+          )
+          : 0
+
+      waveform.push(
+        Math.min(
+          1,
+          rms * 5,
+        ),
+      )
+    }
+
+    return {
+      duration:
+        audioBuffer.duration,
+
+      waveform,
+    }
+  } catch (error) {
+    console.warn(
+      'Unable to decode recorded audio waveform:',
+      error,
+    )
+
+    return null
+  } finally {
+    void audioContext
+      ?.close()
+  }
+}
 
 function formatDuration(
   seconds: number,
@@ -94,6 +365,18 @@ function AudioBlockView({
     setPlaybackSeconds,
   ] =
     useState(0)
+
+  const [
+    playbackWaveformVersion,
+    setPlaybackWaveformVersion,
+  ] =
+    useState(0)
+
+  const [
+    isStatePanelVisible,
+    setIsStatePanelVisible,
+  ] =
+    useState(true)
 
   const recordingDuration =
     typeof node.attrs.duration ===
@@ -191,6 +474,11 @@ function AudioBlockView({
       null,
     )
 
+  const audioBlockRef =
+    useRef<HTMLDivElement | null>(
+      null,
+    )
+
   const playbackWaveformRef =
     useRef<number[]>([])
 
@@ -198,6 +486,19 @@ function AudioBlockView({
     useRef(
       PLAYBACK_WAVEFORM_INTERVAL,
     )
+
+  const playbackDurationSecondsRef =
+    useRef(0)
+
+  const playbackSeekDragRef =
+    useRef<{
+      pointerId: number
+      startClientX: number
+      startClientY: number
+      startPlaybackTime: number
+      clickedTime: number
+      hasDragged: boolean
+    } | null>(null)
 
   const waveformCapacityRef =
     useRef(120)
@@ -207,6 +508,9 @@ function AudioBlockView({
 
   const lastRecordedWaveformSampleRef =
     useRef(0)
+
+  const hasMountedStatePanelRef =
+    useRef(false)
 
   useEffect(() => {
     if (
@@ -223,10 +527,13 @@ function AudioBlockView({
       return
     }
 
+    const viewportElement =
+      viewport
+
     function updateCapacity() {
       waveformCapacityRef.current =
         Math.ceil(
-          viewport.clientWidth /
+          viewportElement.clientWidth /
           WAVEFORM_STEP,
         ) + 2
     }
@@ -239,7 +546,7 @@ function AudioBlockView({
       )
 
     observer.observe(
-      viewport,
+      viewportElement,
     )
 
     return () => {
@@ -337,13 +644,27 @@ function AudioBlockView({
           const audioId =
             crypto.randomUUID()
 
+          const decodedWaveform =
+            await createPlaybackWaveformFromBlob(
+              blob,
+              PLAYBACK_WAVEFORM_INTERVAL,
+            )
+
+          const savedWaveform =
+            decodedWaveform?.waveform
+              .length
+              ? decodedWaveform.waveform
+              : recordedWaveformRef.current
+
           const duration =
-            elapsedSecondsRef.current
+            decodedWaveform?.duration
+              ? decodedWaveform.duration
+              : elapsedSecondsRef.current
 
           await saveAudio(
             audioId,
             blob,
-            recordedWaveformRef.current,
+            savedWaveform,
             PLAYBACK_WAVEFORM_INTERVAL,
           )
 
@@ -631,7 +952,104 @@ function AudioBlockView({
   const hasRecording =
     audioId !== null
 
+  const statePanelMode =
+    recorderState ===
+    'recording'
+      ? 'recording'
+      : hasRecording
+        ? 'playback'
+        : 'empty'
+
+  const statePanelStyle:
+    CSSProperties = {
+      opacity:
+        isStatePanelVisible
+          ? 1
+          : 0,
+
+      transform:
+        isStatePanelVisible
+          ? 'translate3d(0, 0, 0)'
+          : 'translate3d(0, 4px, 0)',
+
+      transition:
+        'opacity 180ms ease, transform 180ms ease',
+    }
+
+  useLayoutEffect(() => {
+    if (!hasMountedStatePanelRef.current) {
+      hasMountedStatePanelRef.current =
+        true
+
+      return
+    }
+
+    setIsStatePanelVisible(
+      false,
+    )
+
+    const frame =
+      requestAnimationFrame(
+        () => {
+          setIsStatePanelVisible(
+            true,
+          )
+        },
+      )
+
+    return () => {
+      cancelAnimationFrame(
+        frame,
+      )
+    }
+  }, [
+    statePanelMode,
+  ])
+
+  const getPlaybackTimeline =
+    useCallback(() => {
+      const waveform =
+        playbackWaveformRef.current
+
+      const fallbackIntervalSeconds =
+        playbackWaveformIntervalRef.current /
+        1000
+
+      const waveformDuration =
+        waveform.length > 1
+          ? (
+            waveform.length - 1
+          ) * fallbackIntervalSeconds
+          : 0
+
+      const duration =
+        playbackDurationSecondsRef.current > 0
+          ? playbackDurationSecondsRef.current
+          : recordingDuration > 0
+            ? recordingDuration
+            : waveformDuration
+
+      const pixelsPerSecond =
+        duration > 0 &&
+        waveform.length > 1
+          ? (
+            (waveform.length - 1) *
+            WAVEFORM_STEP
+          ) / duration
+          : PLAYBACK_PIXELS_PER_SECOND
+
+      return {
+        duration,
+        pixelsPerSecond,
+      }
+    }, [
+      recordingDuration,
+    ])
+
   useEffect(() => {
+    playbackDurationSecondsRef.current =
+      0
+
     if (!audioId) {
       return
     }
@@ -646,18 +1064,25 @@ function AudioBlockView({
     void loadAudio(
       audioId,
     ).then(
-      (stored) => {
+      async (stored) => {
         if (
           !stored ||
           cancelled
         ) {
           return
         }
+
         playbackWaveformRef.current =
           stored.waveform
 
         playbackWaveformIntervalRef.current =
           stored.waveformInterval
+
+        setPlaybackWaveformVersion(
+          (version) =>
+            version + 1,
+        )
+
         objectUrl =
           URL.createObjectURL(
             stored.blob
@@ -665,6 +1090,41 @@ function AudioBlockView({
 
         setAudioUrl(
           objectUrl,
+        )
+
+        const decodedWaveform =
+          await createPlaybackWaveformFromBlob(
+            stored.blob,
+            PLAYBACK_WAVEFORM_INTERVAL,
+          )
+
+        if (
+          cancelled ||
+          !decodedWaveform?.waveform
+            .length
+        ) {
+          return
+        }
+
+        playbackWaveformRef.current =
+          decodedWaveform.waveform
+
+        playbackWaveformIntervalRef.current =
+          PLAYBACK_WAVEFORM_INTERVAL
+
+        if (
+          Number.isFinite(
+            decodedWaveform.duration,
+          ) &&
+          decodedWaveform.duration > 0
+        ) {
+          playbackDurationSecondsRef.current =
+            decodedWaveform.duration
+        }
+
+        setPlaybackWaveformVersion(
+          (version) =>
+            version + 1,
         )
       },
     )
@@ -696,21 +1156,276 @@ function AudioBlockView({
     }
   }
 
+  function focusAudioBlock() {
+    audioBlockRef.current
+      ?.focus({
+        preventScroll:
+          true,
+      })
+  }
+
+  function handleAudioBlockKeyDown(
+    event: ReactKeyboardEvent<HTMLDivElement>,
+  ) {
+    if (
+      (
+        event.key !== ' ' &&
+        event.code !== 'Space'
+      ) ||
+      event.repeat ||
+      isNativeKeyboardTarget(
+        event.target,
+      ) ||
+      recorderState === 'recording' ||
+      !hasRecording ||
+      !audioUrl
+    ) {
+      return
+    }
+
+    event.preventDefault()
+    event.stopPropagation()
+
+    void handleTogglePlayback()
+  }
+
   function handlePlaybackSeek(
     value: number,
   ) {
     const audio =
       audioElementRef.current
 
-    if (!audio) {
+    const {
+      duration,
+    } =
+      getPlaybackTimeline()
+
+    const nextValue =
+      Math.min(
+        Math.max(
+          value,
+          0,
+        ),
+        duration,
+      )
+
+    if (audio) {
+      audio.currentTime =
+        nextValue
+    }
+
+    setPlaybackSeconds(
+      nextValue,
+    )
+
+    drawPlaybackWaveform(
+      nextValue,
+    )
+  }
+
+  function getPlaybackTimeAtPointer(
+    clientX: number,
+    baseTime: number,
+  ) {
+    const canvas =
+      playbackCanvasRef.current
+
+    if (!canvas) {
+      return baseTime
+    }
+
+    const rect =
+      canvas.getBoundingClientRect()
+
+    const {
+      pixelsPerSecond,
+    } =
+      getPlaybackTimeline()
+
+    const playheadX =
+      rect.width *
+      PLAYBACK_PLAYHEAD_RATIO
+
+    const pointerX =
+      clientX -
+      rect.left
+
+    return (
+      baseTime +
+      (
+        pointerX -
+        playheadX
+      ) /
+      pixelsPerSecond
+    )
+  }
+
+  function handlePlaybackSeekStart(
+    event: ReactPointerEvent<HTMLDivElement>,
+  ) {
+    if (!audioUrl) {
       return
     }
 
-    audio.currentTime =
-      value
+    focusAudioBlock()
 
-    setPlaybackSeconds(
-      value,
+    event.preventDefault()
+    event.stopPropagation()
+
+    event.currentTarget
+      .setPointerCapture(
+        event.pointerId,
+      )
+
+    const audio =
+      audioElementRef.current
+
+    const currentTime =
+      audio?.currentTime ??
+      playbackSeconds
+
+    const clickedTime =
+      getPlaybackTimeAtPointer(
+        event.clientX,
+        currentTime,
+      )
+
+    playbackSeekDragRef.current = {
+      pointerId:
+        event.pointerId,
+
+      startClientX:
+        event.clientX,
+
+      startClientY:
+        event.clientY,
+
+      startPlaybackTime:
+        currentTime,
+
+      clickedTime,
+
+      hasDragged:
+        false,
+    }
+  }
+
+  function handlePlaybackSeekMove(
+    event: ReactPointerEvent<HTMLDivElement>,
+  ) {
+    const drag =
+      playbackSeekDragRef.current
+
+    if (
+      !drag ||
+      drag.pointerId !==
+      event.pointerId
+    ) {
+      return
+    }
+
+    event.preventDefault()
+    event.stopPropagation()
+
+    const deltaX =
+      event.clientX -
+      drag.startClientX
+
+    const deltaY =
+      event.clientY -
+      drag.startClientY
+
+    if (!drag.hasDragged) {
+      const movement =
+        Math.hypot(
+          deltaX,
+          deltaY,
+        )
+
+      if (
+        movement <
+        PLAYBACK_DRAG_THRESHOLD
+      ) {
+        return
+      }
+
+      drag.hasDragged =
+        true
+    }
+
+    const {
+      pixelsPerSecond,
+    } =
+      getPlaybackTimeline()
+
+    handlePlaybackSeek(
+      drag.startPlaybackTime -
+      deltaX /
+      pixelsPerSecond,
+    )
+  }
+
+  function finishPlaybackSeekInteraction(
+    event: ReactPointerEvent<HTMLDivElement>,
+    shouldCommitClick: boolean,
+  ) {
+    const drag =
+      playbackSeekDragRef.current
+
+    if (
+      !drag ||
+      drag.pointerId !==
+      event.pointerId
+    ) {
+      return
+    }
+
+    event.preventDefault()
+    event.stopPropagation()
+
+    const shouldSeek =
+      shouldCommitClick &&
+      !drag.hasDragged
+
+    if (
+      event.currentTarget
+        .hasPointerCapture(
+          drag.pointerId,
+        )
+    ) {
+      event.currentTarget
+        .releasePointerCapture(
+          drag.pointerId,
+        )
+    }
+
+    playbackSeekDragRef.current =
+      null
+
+    if (!shouldSeek) {
+      return
+    }
+
+    handlePlaybackSeek(
+      drag.clickedTime,
+    )
+  }
+
+  function handlePlaybackSeekEnd(
+    event: ReactPointerEvent<HTMLDivElement>,
+  ) {
+    finishPlaybackSeekInteraction(
+      event,
+      true,
+    )
+  }
+
+  function handlePlaybackSeekCancel(
+    event: ReactPointerEvent<HTMLDivElement>,
+  ) {
+    finishPlaybackSeekInteraction(
+      event,
+      false,
     )
   }
 
@@ -736,6 +1451,20 @@ function AudioBlockView({
 
     setPlaybackSeconds(
       0,
+    )
+
+    playbackDurationSecondsRef.current =
+      0
+
+    playbackWaveformRef.current =
+      []
+
+    playbackWaveformIntervalRef.current =
+      PLAYBACK_WAVEFORM_INTERVAL
+
+    setPlaybackWaveformVersion(
+      (version) =>
+        version + 1,
     )
 
     updateAttributes({
@@ -825,101 +1554,108 @@ function AudioBlockView({
         const waveform =
           playbackWaveformRef.current
 
-        const intervalSeconds =
-          playbackWaveformIntervalRef
-            .current / 1000
+        const playheadX =
+          width *
+          PLAYBACK_PLAYHEAD_RATIO
 
-        const centerX =
-          width / 2
+        const {
+          duration:
+          playbackDuration,
+
+          pixelsPerSecond,
+        } =
+          getPlaybackTimeline()
 
         const computedStyle =
           window.getComputedStyle(
             canvas,
           )
 
-        context.strokeStyle =
+        context.fillStyle =
           computedStyle.color
 
         context.globalAlpha =
           0.5
 
-        context.lineWidth =
-          WAVEFORM_BAR_WIDTH
+        const intervalSeconds =
+          playbackWaveformIntervalRef
+            .current / 1000
 
-        context.lineCap =
-          'round'
+        waveform.forEach(
+          (
+            amplitude,
+            index,
+          ) => {
+            const sampleTime =
+              getWaveformSampleTime(
+                index,
+                waveform.length,
+                playbackDuration,
+                intervalSeconds,
+              )
 
-        for (
-          let x = 0;
-          x < width;
-          x += WAVEFORM_STEP
-        ) {
-          const secondsFromCenter =
-            (
-              x -
-              centerX
-            ) /
-            PLAYBACK_PIXELS_PER_SECOND
+            const x =
+              playheadX +
+              (
+                sampleTime -
+                currentTime
+              ) *
+              pixelsPerSecond
 
-          const time =
-            currentTime +
-            secondsFromCenter
+            const snappedX =
+              snapCanvasCoordinate(
+                x,
+                dpr,
+              )
 
-          if (
-            time < 0 ||
-            time >
-            recordingDuration
-          ) {
-            continue
-          }
+            if (
+              snappedX <
+              -WAVEFORM_STEP ||
+              snappedX >
+              width + WAVEFORM_STEP
+            ) {
+              return
+            }
 
-          const sampleIndex =
-            Math.round(
-              time /
-              intervalSeconds,
+            const barHeight =
+              snapCanvasCoordinate(
+                Math.max(
+                  4,
+                  amplitude *
+                  WAVEFORM_MAX_BAR_HEIGHT,
+                ),
+                dpr,
+              )
+
+            const barX =
+              snapCanvasCoordinate(
+                snappedX -
+                WAVEFORM_BAR_WIDTH / 2,
+                dpr,
+              )
+
+            const barY =
+              snapCanvasCoordinate(
+                height / 2 -
+                barHeight / 2,
+                dpr,
+              )
+
+            fillRoundedCanvasBar(
+              context,
+              barX,
+              barY,
+              WAVEFORM_BAR_WIDTH,
+              barHeight,
             )
-
-          const amplitude =
-            waveform[
-              sampleIndex
-              ]
-
-          if (
-            amplitude ===
-            undefined
-          ) {
-            continue
-          }
-
-          const barHeight =
-            Math.max(
-              4,
-              amplitude *
-              (height - 8),
-            )
-
-          context.beginPath()
-
-          context.moveTo(
-            x,
-            height / 2 -
-            barHeight / 2,
-          )
-
-          context.lineTo(
-            x,
-            height / 2 +
-            barHeight / 2,
-          )
-
-          context.stroke()
-        }
+          },
+        )
 
         context.globalAlpha =
           1
       },
       [
-        recordingDuration,
+        getPlaybackTimeline,
       ],
     )
 
@@ -983,8 +1719,13 @@ function AudioBlockView({
     const frame =
       requestAnimationFrame(
         () => {
+          const currentTime =
+            audioElementRef.current
+              ?.currentTime ??
+            0
+
           drawPlaybackWaveform(
-            0,
+            currentTime,
           )
         },
       )
@@ -997,7 +1738,17 @@ function AudioBlockView({
   }, [
     audioUrl,
     drawPlaybackWaveform,
+    playbackWaveformVersion,
   ])
+
+  useEffect(() => {
+    const audio =
+      audioElementRef.current
+
+    return () => {
+      audio?.pause()
+    }
+  }, [audioUrl])
 
   useEffect(() => {
     return () => {
@@ -1047,21 +1798,37 @@ function AudioBlockView({
 
       void audioContextRef.current
         ?.close()
-
-      audioElementRef.current
-        ?.pause()
     }
   }, [])
 
   return (
     <NodeViewWrapper
+      ref={audioBlockRef}
+
+      tabIndex={
+        hasRecording &&
+        recorderState !==
+        'recording'
+          ? 0
+          : -1
+      }
+
+      onMouseDownCapture={
+        focusAudioBlock
+      }
+
+      onKeyDown={
+        handleAudioBlockKeyDown
+      }
+
       className="
         dash-audio-block
         relative
 
         my-3
         overflow-hidden
-        p-4
+        outline-none
+        px-4
 
         glass-surface
       "
@@ -1084,6 +1851,10 @@ function AudioBlockView({
         {!hasRecording &&
           recorderState === 'idle' && (
             <div
+              style={
+                statePanelStyle
+              }
+
               className="
               flex
               min-h-40
@@ -1197,6 +1968,10 @@ function AudioBlockView({
         {recorderState ===
           'recording' && (
             <div
+              style={
+                statePanelStyle
+              }
+
               className="
                 flex
                 min-h-40
@@ -1248,6 +2023,7 @@ function AudioBlockView({
                     font-mono
                     text-xs
                     text-muted
+                    h-8
                   "
                 >
                   {formatDuration(
@@ -1257,76 +2033,12 @@ function AudioBlockView({
               </div>
 
               <div
-                ref={waveformViewportRef}
                 className="
-                  relative
-                  flex
-                  h-16
-                  items-center
-                  overflow-hidden
-                "
-              >
-                <div
-                  ref={waveformTrackRef}
-                  className="
-                    flex
-                    h-full
-                    w-full
-                    items-center
-                    justify-end
-                    gap-[2px]
-                    will-change-transform
-                  "
-                >
-                  {waveform.map(
-                    ({
-                       id,
-                       amplitude}) =>
-                      (
-                      <div
-                        key={id}
-
-                        className="
-                          w-[2px]
-                          shrink-0
-                          rounded-full
-
-                          bg-foreground/50
-                        "
-
-                        style={{
-                          height:
-                            `${Math.max(
-                              4,
-                              amplitude *
-                              52,
-                            )}px`,
-                        }}
-                      />
-                    ),
-                  )}
-                </div>
-
-                <div
-                  className="
-                    absolute
-                    right-0
-                    top-1/2
-
-                    h-14
-                    w-px
-
-                    -translate-y-1/2
-
-                    bg-red-500
-                  "
-                />
-              </div>
-
-              <div
-                className="
-                  flex
-                  justify-center
+                flex
+                w-full
+                min-w-0
+                items-center
+                gap-4
                 "
               >
                 <button
@@ -1344,12 +2056,15 @@ function AudioBlockView({
                   }
 
                   className="
+                    flex
+                    h-11
+                    w-11
+                    shrink-0
                     cursor-pointer
+                    items-center
+                    justify-center
                     rounded-full
                     bg-red-500/10
-
-                    px-5
-                    py-2
 
                     text-xs
                     font-medium
@@ -1360,8 +2075,78 @@ function AudioBlockView({
                     hover:bg-red-500/15
                   "
                 >
-                  Stop recording
+                  <Square size={18}/>
                 </button>
+
+                <div
+                  ref={waveformViewportRef}
+                  className="
+                  relative
+                  flex
+                  h-16
+                  min-w-0
+                  flex-1
+                  items-center
+                  overflow-hidden
+                "
+                >
+                  <div
+                    ref={waveformTrackRef}
+                    className="
+                    absolute
+                    inset-y-0
+                    right-0
+                    flex
+                    items-center
+                    justify-end
+                    gap-[2px]
+                    will-change-transform
+                  "
+                  >
+                    {waveform.map(
+                      ({
+                         id,
+                         amplitude}) =>
+                        (
+                          <div
+                            key={id}
+
+                            className="
+                          w-[2px]
+                          shrink-0
+                          rounded-full
+
+                          bg-foreground/50
+                        "
+
+                            style={{
+                              height:
+                                `${Math.max(
+                                  4,
+                                  amplitude *
+                                  WAVEFORM_MAX_BAR_HEIGHT,
+                                )}px`,
+                            }}
+                          />
+                        ),
+                    )}
+                  </div>
+
+                  <div
+                    className="
+                    absolute
+                    right-0
+                    top-1/2
+
+                    h-14
+                    w-px
+
+                    -translate-y-1/2
+
+                    bg-red-500
+                  "
+                  />
+                </div>
               </div>
             </div>
           )}
@@ -1370,12 +2155,17 @@ function AudioBlockView({
           recorderState !==
           'recording' && (
             <div
+              style={
+                statePanelStyle
+              }
+
               className="
                 flex
                 min-h-40
                 flex-col
                 justify-center
                 gap-5
+                w-full
 
                 px-5
                 py-4
@@ -1409,7 +2199,7 @@ function AudioBlockView({
                       text-foreground
                     "
                   >
-                    Audio recording
+                    Playback
                   </span>
                 </div>
 
@@ -1438,7 +2228,6 @@ function AudioBlockView({
                     text-muted
                     transition-colors
 
-                    hover:bg-red-500/10
                     hover:text-red-500
                   "
                 >
@@ -1522,17 +2311,35 @@ function AudioBlockView({
                   <div
                     className="
                       relative
-                      h-8
+                      h-16
                       w-full
                     "
                   >
                     <div
+                      onPointerDown={
+                        handlePlaybackSeekStart
+                      }
+
+                      onPointerMove={
+                        handlePlaybackSeekMove
+                      }
+
+                      onPointerUp={
+                        handlePlaybackSeekEnd
+                      }
+
+                      onPointerCancel={
+                        handlePlaybackSeekCancel
+                      }
+
                       className="
                         relative
-                        h-16
+                        h-full
                         min-w-0
                         flex-1
+                        cursor-ew-resize
                         overflow-hidden
+                        touch-none
                       "
                     >
                       <canvas
@@ -1549,7 +2356,6 @@ function AudioBlockView({
                           pointer-events-none
                           absolute
                           bottom-1
-                          left-1/2
                           top-1
 
                           w-px
@@ -1557,66 +2363,15 @@ function AudioBlockView({
 
                           bg-red-500
                         "
+                        style={{
+                          left:
+                            `${
+                              PLAYBACK_PLAYHEAD_RATIO *
+                              100
+                            }%`,
+                        }}
                       />
                     </div>
-
-                    <input
-                      type="range"
-                      min={0}
-                      max={
-                        recordingDuration
-                      }
-                      step={0.01}
-
-                      value={
-                        Math.min(
-                          playbackSeconds,
-                          recordingDuration,
-                        )
-                      }
-
-                      onChange={(event) => {
-                        handlePlaybackSeek(
-                          Number(
-                            event.target.value,
-                          ),
-                        )
-                      }}
-
-                      className="
-                        absolute
-                        inset-0
-
-                        h-full
-                        w-full
-
-                        cursor-pointer
-                        opacity-0
-                      "
-                    />
-                  </div>
-
-                  <div
-                    className="
-                      flex
-                      justify-between
-
-                      font-mono
-                      text-[11px]
-                      text-muted
-                    "
-                  >
-                    <span>
-                      {formatDuration(
-                        playbackSeconds,
-                      )}
-                    </span>
-
-                    <span>
-                      {formatDuration(
-                        recordingDuration,
-                      )}
-                    </span>
                   </div>
                 </div>
               </div>
@@ -1653,10 +2408,36 @@ function AudioBlockView({
                   }}
 
                   onTimeUpdate={(event) => {
+                    drawPlaybackWaveform(
+                      event.currentTarget
+                        .currentTime,
+                    )
+
                     setPlaybackSeconds(
                       event.currentTarget
                         .currentTime,
                     )
+                  }}
+
+                  onLoadedMetadata={(event) => {
+                    const duration =
+                      event.currentTarget
+                        .duration
+
+                    if (
+                      Number.isFinite(
+                        duration,
+                      ) &&
+                      duration > 0
+                    ) {
+                      playbackDurationSecondsRef.current =
+                        duration
+
+                      drawPlaybackWaveform(
+                        event.currentTarget
+                          .currentTime,
+                      )
+                    }
                   }}
 
                   onEnded={() => {
