@@ -56,10 +56,18 @@ function openDatabase():
     )
 }
 
+export type StoredAudioTimestamp = {
+  id: string
+  name: string
+  time: number
+  color: string
+}
+
 type StoredAudio = {
   blob: Blob
   waveform: number[]
   waveformInterval: number
+  timestamps?: StoredAudioTimestamp[]
 }
 
 export async function saveAudio(
@@ -67,6 +75,7 @@ export async function saveAudio(
     blob: Blob,
     waveform: number[],
     waveformInterval: number,
+    timestamps: StoredAudioTimestamp[] = [],
 ) {
     const database =
         await openDatabase()
@@ -92,6 +101,7 @@ export async function saveAudio(
                 blob,
                 waveform,
                 waveformInterval,
+                timestamps,
               },
               id,
             )
