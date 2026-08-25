@@ -5,7 +5,7 @@ import {
   Pilcrow,
   Sigma,
   Code2,
-  type LucideIcon, Columns2,
+  type LucideIcon, Columns2, AudioLines,
 } from 'lucide-react'
 
 export type BlockInsertCommand =
@@ -24,6 +24,9 @@ export type BlockInsertCommand =
 }
     | {
     type: 'codeBlock'
+}
+    | {
+    type: 'audioBlock'
 }
 
 export type SlashInsertCommand =
@@ -177,6 +180,29 @@ export const blockOptions: BlockOption[] = [
           'codeBlock',
       },
     },
+
+  {
+    label:
+      'Audio',
+
+    description:
+      'Add an audio block',
+
+    Icon:
+    AudioLines,
+
+    keywords: [
+      'audio',
+      'recording',
+      'microphone',
+      'mic',
+    ],
+
+    command: {
+      type:
+        'audioBlock',
+    },
+  },
 ]
 
 const slashOnlyOptions: SlashOption[] = [

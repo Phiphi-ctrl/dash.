@@ -19,7 +19,7 @@ import {
 import CodeLanguageMenu
   from './CodeLanguageMenu.tsx'
 import { CODE_LANGUAGES } from './codeLanguages.ts'
-import Tooltip from '../ui/Tooltip.tsx'
+import Tooltip from '../../ui/Tooltip.tsx'
 
 function CodeBlockView({
                          node,

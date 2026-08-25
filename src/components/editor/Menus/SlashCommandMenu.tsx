@@ -1,6 +1,6 @@
 import type {
   BlockOption,
-} from './blockDefinitions.ts'
+} from '../utils/blockDefinitions.ts'
 
 type SlashCommandMenuProps = {
   items: BlockOption[]

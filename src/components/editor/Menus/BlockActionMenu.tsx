@@ -21,7 +21,7 @@ import {
   useState,
 } from 'react'
 
-import { editorColors } from './editorColors.ts'
+import { editorColors } from '../utils/editorColors.ts'
 import * as React from 'react'
 
 type BlockActionMenuProps = {

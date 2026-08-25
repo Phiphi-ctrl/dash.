@@ -10,7 +10,7 @@ import { useState } from 'react'
 import {
   blockOptions,
   type BlockInsertCommand,
-} from './blockDefinitions.ts'
+} from '../utils/blockDefinitions.ts'
 
 type BlockInsertMenuProps = {
   anchorElement: HTMLElement | null

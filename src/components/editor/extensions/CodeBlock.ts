@@ -12,7 +12,7 @@ import {
 } from 'lowlight'
 
 import CodeBlockView
-  from '../CodeBlockView.tsx'
+  from '../CodeBlock/CodeBlockView.tsx'
 
 const lowlight =
   createLowlight(all)

@@ -7,7 +7,7 @@ import {
   BubbleMenu,
 } from '@tiptap/react/menus'
 
-import Tooltip from '../ui/Tooltip.tsx'
+import Tooltip from '../../ui/Tooltip.tsx'
 
 import {
   useEffect,
@@ -36,8 +36,12 @@ import {
 
 import {
   editorColors,
-} from './editorColors.ts'
+} from '../utils/editorColors.ts'
 import * as React from 'react'
+
+import {
+  TextSelection,
+} from '@tiptap/pm/state'
 
 type TextSelectionMenuProps = {
   editor: Editor
@@ -465,9 +469,14 @@ function TextSelectionMenu({
         }}
 
         shouldShow={({ state }) => {
+          const {
+            selection,
+          } = state
+
           if (
             disabled ||
-            state.selection.empty
+            selection.empty ||
+            !(selection instanceof TextSelection)
           ) {
             return false
           }
@@ -475,9 +484,9 @@ function TextSelectionMenu({
           const {
             $from,
             $to,
-          } = state.selection
+          } = selection
 
-          const isInsideCodeBlock = (
+          const isInsideExcludedBlock = (
             $pos: typeof $from,
           ) => {
             for (
@@ -498,8 +507,8 @@ function TextSelectionMenu({
           }
 
           if (
-            isInsideCodeBlock($from) ||
-            isInsideCodeBlock($to)
+            isInsideExcludedBlock($from) ||
+            isInsideExcludedBlock($to)
           ) {
             return false
           }

@@ -24,27 +24,28 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from 'react'
 import BlockInsertMenu
-  from './BlockInsertMenu.tsx'
+  from './Menus/BlockInsertMenu.tsx'
 import type {
   BlockInsertCommand
-} from "./blockDefinitions.ts"
+} from "./utils/blockDefinitions.ts"
 import type {
   DashDocument,
 } from '../../types/Block.ts'
 import Tooltip from '../ui/Tooltip.tsx'
-import TextSelectionMenu from './TextSelectionMenu.tsx'
-import BlockActionMenu from "./BlockActionMenu.tsx";
+import TextSelectionMenu from './Menus/TextSelectionMenu.tsx'
+import BlockActionMenu from "./Menus/BlockActionMenu.tsx";
 import BlockStyle from './extensions/BlockStyle.ts'
 import SlashCommands
   from './extensions/SlashCommands.ts'
 import Columns from './extensions/Columns.ts'
 import Column from './extensions/Column.ts'
 import CodeBlock from './extensions/CodeBlock.ts'
+import AudioBlock from "./extensions/AudioBlock.ts";
 import {
   Mathematics,
 } from '@tiptap/extension-mathematics'
 import MathEditorPopup
-  from './MathEditorPopup.tsx'
+  from './Menus/MathEditorPopup.tsx'
 import 'katex/dist/katex.min.css'
 import {findNodePosById, isPositionInsideColumn} from "../../utils/editorUtils.ts";
 import {removeSourceForMove} from "../../utils/blockMovement.ts";
@@ -899,6 +900,7 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
       Columns,
       Column,
       CodeBlock,
+      AudioBlock,
 
       TextStyle,
       BlockStyle,
@@ -955,6 +957,7 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
           'columns',
           'column',
           'codeBlock',
+          'audioBlock',
         ],
 
         generateID: () =>
@@ -1448,6 +1451,152 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
       )
     },
   },[])
+
+  function handleInsertBlock(
+      command: BlockInsertCommand,
+  ) {
+    const insertPos =
+        insertPositionRef.current
+
+    if (
+        insertPos === null ||
+        !editor
+    ) {
+      return
+    }
+
+    if (command.type === 'codeBlock') {
+      editor
+          .chain()
+          .focus()
+          .insertContentAt(
+              insertPos,
+              {
+                type:
+                    'codeBlock',
+              },
+          )
+          .setTextSelection(
+              insertPos + 1,
+          )
+          .run()
+
+      closeHandleMenu()
+
+      return
+    }
+
+    if (command.type === 'audioBlock') {
+      editor
+          .chain()
+          .focus()
+          .insertContentAt(
+              insertPos,
+              {
+                type:
+                    'audioBlock',
+              },
+          )
+          .run()
+
+      closeHandleMenu()
+
+      return
+    }
+
+    if (command.type === 'columns') {
+      const isInsideColumn = isPositionInsideColumn(editor.state.doc, insertPos)
+      if(isInsideColumn) {
+        return
+      }
+      editor
+          .chain()
+          .focus()
+          .insertContentAt(
+              insertPos,
+              {
+                type: 'columns',
+
+                content: [
+                  {
+                    type: 'column',
+
+                    content: [
+                      {
+                        type: 'paragraph',
+                      },
+                    ],
+                  },
+
+                  {
+                    type: 'column',
+
+                    content: [
+                      {
+                        type: 'paragraph',
+                      },
+                    ],
+                  },
+                ],
+              },
+          )
+          .run()
+      closeHandleMenu()
+      return
+    }
+
+    if (command.type === 'blockMath') {
+      editor
+          .chain()
+          .focus()
+          .insertContentAt(
+              insertPos,
+              {
+                type: 'blockMath',
+                attrs: {
+                  latex: '',
+                },
+              },
+          )
+          .run()
+
+      closeHandleMenu()
+
+      openBlockMathEditor(
+          insertPos,
+          '',
+          true,
+      )
+
+      return
+    }
+
+    const content =
+        command.type === 'heading'
+            ? {
+              type: 'heading',
+              attrs: {
+                level: command.level,
+              },
+            }
+            : {
+              type: 'paragraph',
+            }
+
+    editor
+        .chain()
+        .focus()
+        .insertContentAt(
+            insertPos,
+            content,
+        )
+        .setTextSelection(
+            insertPos + 1,
+        )
+        .run()
+
+    closeHandleMenu()
+  }
 
   const getHandleVirtualElement =
       useCallback(() => {
@@ -2135,143 +2284,6 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
     )
 
     setOpenHandleMenu('insert')
-  }
-
-  function handleInsertBlock(
-    command: BlockInsertCommand,
-  ) {
-    const insertPos =
-      insertPositionRef.current
-
-    if (
-        insertPos === null ||
-        !editor
-    ) {
-      return
-    }
-
-    if (
-        command.type ===
-        'codeBlock'
-    ) {
-      editor
-          .chain()
-          .focus()
-          .insertContentAt(
-              insertPos,
-              {
-                type:
-                    'codeBlock',
-              },
-          )
-          .setTextSelection(
-              insertPos + 1,
-          )
-          .run()
-
-      closeHandleMenu()
-
-      return
-    }
-
-    if (
-        command.type ===
-        'columns'
-    ) {
-      const isInsideColumn = isPositionInsideColumn(editor.state.doc, insertPos)
-      if(isInsideColumn) {
-        return
-      }
-      editor
-          .chain()
-          .focus()
-          .insertContentAt(
-              insertPos,
-              {
-                type: 'columns',
-
-                content: [
-                  {
-                    type: 'column',
-
-                    content: [
-                      {
-                        type: 'paragraph',
-                      },
-                    ],
-                  },
-
-                  {
-                    type: 'column',
-
-                    content: [
-                      {
-                        type: 'paragraph',
-                      },
-                    ],
-                  },
-                ],
-              },
-          )
-          .run()
-      closeHandleMenu()
-      return
-    }
-
-    if (
-        command.type ===
-        'blockMath'
-    ) {
-      editor
-          .chain()
-          .focus()
-          .insertContentAt(
-              insertPos,
-              {
-                type: 'blockMath',
-                attrs: {
-                  latex: '',
-                },
-              },
-          )
-          .run()
-
-      closeHandleMenu()
-
-      openBlockMathEditor(
-          insertPos,
-          '',
-          true,
-      )
-
-      return
-    }
-
-    const content =
-      command.type === 'heading'
-        ? {
-          type: 'heading',
-          attrs: {
-            level: command.level,
-          },
-        }
-        : {
-          type: 'paragraph',
-        }
-
-    editor
-      .chain()
-      .focus()
-      .insertContentAt(
-        insertPos,
-        content,
-      )
-      .setTextSelection(
-        insertPos + 1,
-      )
-      .run()
-
-    closeHandleMenu()
   }
 
   useEffect(() => {

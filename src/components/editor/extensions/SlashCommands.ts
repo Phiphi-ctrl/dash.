@@ -19,12 +19,12 @@ import {
 } from '@floating-ui/react'
 
 import SlashCommandMenu
-  from '../SlashCommandMenu.tsx'
+  from '../Menus/SlashCommandMenu.tsx'
 
 import {
   filterSlashOptions,
   type SlashOption,
-} from '../blockDefinitions.ts'
+} from '../utils/blockDefinitions.ts'
 import { isPositionInsideColumn } from '../../../utils/editorUtils.ts'
 
 const slashCommandPluginKey =
@@ -173,10 +173,7 @@ const SlashCommands =
               props.command,
               range,
             )
-            if (
-              props.command.type ===
-              'inlineMath'
-            ) {
+            if (props.command.type === 'inlineMath') {
               const inlinePos =
                 range.from
 
@@ -209,10 +206,7 @@ const SlashCommands =
               return
             }
 
-            if (
-              props.command.type ===
-              'blockMath'
-            ) {
+            if (props.command.type === 'blockMath') {
               const $from =
                 editor.state.doc.resolve(
                   range.from,
@@ -258,6 +252,48 @@ const SlashCommands =
               onBlockMathInserted?.(
                 blockPos,
               )
+
+              return
+            }
+
+            if (props.command.type === 'audioBlock') {
+              const $from =
+                editor.state.doc.resolve(
+                  range.from,
+                )
+
+              const blockPos =
+                $from.before(
+                  $from.depth,
+                )
+
+              const blockNode =
+                editor.state.doc.nodeAt(
+                  blockPos,
+                )
+
+              if (!blockNode) {
+                return
+              }
+
+              editor
+                .chain()
+                .focus()
+                .insertContentAt(
+                  {
+                    from:
+                    blockPos,
+
+                    to:
+                      blockPos +
+                      blockNode.nodeSize,
+                  },
+                  {
+                    type:
+                      'audioBlock',
+                  },
+                )
+                .run()
 
               return
             }
@@ -341,10 +377,7 @@ const SlashCommands =
                   range,
                 )
 
-            if (
-              props.command.type ===
-              'paragraph'
-            ) {
+            if (props.command.type === 'paragraph') {
               chain
                 .setParagraph()
                 .run()
@@ -352,10 +385,7 @@ const SlashCommands =
               return
             }
 
-            if (
-              props.command.type ===
-              'codeBlock'
-            ) {
+            if (props.command.type === 'codeBlock') {
               chain
                 .setCodeBlock()
                 .run()
@@ -363,10 +393,7 @@ const SlashCommands =
               return
             }
 
-            if (
-              props.command.type ===
-              'heading'
-            ) {
+            if (props.command.type === 'heading') {
               chain
                 .setHeading({
                   level:
