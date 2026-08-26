@@ -1312,7 +1312,7 @@ function AudioBlockView({
       )
 
       setMicrophoneError(
-        'Microphone access was not available.',
+        'Microphone access is not available.',
       )
     }
   }
@@ -3468,41 +3468,41 @@ function AudioBlockView({
                         />
                       </button>
 
-	                      {currentPlaybackTimestamp && (
-	                        <button
-	                          ref={
-	                            setTimestampListAnchorElement
-	                          }
+                      <button
+                        ref={
+                          setTimestampListAnchorElement
+                        }
 
-	                          type="button"
+                        type="button"
 
-	                          aria-expanded={
-	                            isTimestampListOpen
-	                          }
+                        aria-expanded={
+                          isTimestampListOpen
+                        }
 
-	                          onMouseDown={(event) => {
-	                            event.preventDefault()
-	                            event.stopPropagation()
-	                          }}
+                        onMouseDown={(event) => {
+                          event.preventDefault()
+                          event.stopPropagation()
+                        }}
 
-	                          onClick={
-	                            handleTimestampListToggle
-	                          }
+                        onClick={
+                          handleTimestampListToggle
+                        }
 
-	                          className="
-	                            flex
-	                            max-w-36
-	                            min-w-0
-	                            items-center
-	                            gap-1.5
-	                            rounded-full
-	                            px-1.5
-	                            py-0.5
-	                            transition-colors
+                        className="
+                          flex
+                          max-w-36
+                          min-w-0
+                          items-center
+                          gap-1.5
+                          rounded-full
+                          px-1.5
+                          py-0.5
+                          transition-colors
 
-	                            hover:bg-surface-hover
-	                          "
-	                        >
+                          hover:bg-surface-hover
+                        "
+                      >
+                        {currentPlaybackTimestamp && (
                           <span
                             className="
                               h-2
@@ -3517,19 +3517,20 @@ function AudioBlockView({
                                   .color,
                             }}
                           />
+                        )}
 
-	                          <span
-	                            className="
-	                              truncate
-	                              text-xs
-	                              text-foreground
-                            "
-                          >
-	                            {currentPlaybackTimestamp
-	                              .name}
-	                          </span>
-	                        </button>
-	                      )}
+                        <span
+                          className="
+                            truncate
+                            text-xs
+                            text-foreground
+                          "
+                        >
+                          {currentPlaybackTimestamp
+                            ?.name ??
+                            'None'}
+                        </span>
+                      </button>
 
                       <button
                         type="button"
