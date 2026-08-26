@@ -144,6 +144,10 @@ function isNativeKeyboardTarget(
   )
 }
 
+function getRecordingClockNow() {
+  return performance.now()
+}
+
 function getTimestampColor() {
   const index =
     Math.floor(
@@ -278,20 +282,51 @@ function getAdjacentAudioTimestamp(
 
 function toStoredAudioTimestamps(
   timestamps: AudioTimestamp[],
+  recordingDuration: number,
+  recordingClockDuration: number,
 ): StoredAudioTimestamp[] {
-  return timestamps.map(
-    ({
-       id,
-       name,
-       time,
-       color,
-     }) => ({
-      id,
-      name,
-      time,
-      color,
-    }),
-  )
+  const recordingOffset =
+    Math.max(
+      0,
+      recordingClockDuration -
+      recordingDuration,
+    )
+
+  return timestamps
+    .filter(
+      (timestamp) =>
+        timestamp.name
+          .trim()
+          .length > 0,
+    )
+    .map(
+      (timestamp) => ({
+        id:
+        timestamp.id,
+
+        name:
+          timestamp.name.trim(),
+
+        time:
+          recordingDuration > 0
+            ? Math.min(
+              Math.max(
+                timestamp.time -
+                recordingOffset,
+                0,
+              ),
+              recordingDuration,
+            )
+            : Math.max(
+              timestamp.time -
+              recordingOffset,
+              0,
+            ),
+
+        color:
+        timestamp.color,
+      }),
+    )
 }
 
 function getRecordingTimestampSampleIndex(
@@ -625,6 +660,28 @@ function AudioBlockView({
       null,
     )
 
+  const [
+    isTimestampListOpen,
+    setIsTimestampListOpen,
+  ] =
+    useState(false)
+
+  const [
+    timestampListAnchorElement,
+    setTimestampListAnchorElement,
+  ] =
+    useState<HTMLButtonElement | null>(
+      null,
+    )
+
+  const [
+    timestampListFloatingElement,
+    setTimestampListFloatingElement,
+  ] =
+    useState<HTMLDivElement | null>(
+      null,
+    )
+
   const recordingDuration =
     typeof node.attrs.duration ===
     'number'
@@ -690,11 +747,6 @@ function AudioBlockView({
   const chunksRef =
     useRef<Blob[]>([])
 
-  const lastElapsedTimestampRef =
-    useRef<number | null>(
-      null,
-    )
-
   const lastWaveformSampleRef =
     useRef(0)
 
@@ -705,6 +757,19 @@ function AudioBlockView({
 
   const elapsedSecondsRef =
     useRef(0)
+
+  const recordingClockStartedAtRef =
+    useRef<number | null>(
+      null,
+    )
+
+  const recordingPausedDurationRef =
+    useRef(0)
+
+  const recordingPauseStartedAtRef =
+    useRef<number | null>(
+      null,
+    )
 
   const waveformTrackRef =
     useRef<HTMLDivElement | null>(
@@ -731,8 +796,11 @@ function AudioBlockView({
       null,
     )
 
-  const timestampDraftSampleIndexRef =
-    useRef(0)
+  const timestampSubmitMomentRef =
+    useRef<{
+      time: number
+      recordingSampleIndex: number
+    } | null>(null)
 
   const playbackWaveformRef =
     useRef<number[]>([])
@@ -770,14 +838,16 @@ function AudioBlockView({
   const isRecordingPausedForTimestampRef =
     useRef(false)
 
-  const lastRecordedWaveformSampleRef =
-    useRef(0)
-
   const hasMountedStatePanelRef =
     useRef(false)
 
   const timestampCollisionBoundary =
     timestampAnchorElement?.closest(
+      '[data-note-scroll-viewport]',
+    ) as HTMLElement | null
+
+  const timestampListCollisionBoundary =
+    timestampListAnchorElement?.closest(
       '[data-note-scroll-viewport]',
     ) as HTMLElement | null
 
@@ -835,6 +905,61 @@ function AudioBlockView({
       shift({
         boundary:
           timestampCollisionBoundary ??
+          'clippingAncestors',
+
+        padding:
+          timestampCollisionPadding,
+      }),
+    ],
+  })
+
+  const {
+    floatingStyles:
+      timestampListFloatingStyles,
+    isPositioned:
+      isTimestampListPositioned,
+  } = useFloating({
+    open:
+      isTimestampListOpen,
+
+    elements: {
+      reference:
+        timestampListAnchorElement,
+
+      floating:
+        timestampListFloatingElement,
+    },
+
+    placement:
+      'bottom',
+
+    strategy:
+      'fixed',
+
+    whileElementsMounted:
+      autoUpdate,
+
+    middleware: [
+      offset(8),
+
+      flip({
+        boundary:
+          timestampListCollisionBoundary ??
+          'clippingAncestors',
+
+        padding:
+          timestampCollisionPadding,
+
+        fallbackPlacements: [
+          'top',
+          'bottom-start',
+          'top-start',
+        ],
+      }),
+
+      shift({
+        boundary:
+          timestampListCollisionBoundary ??
           'clippingAncestors',
 
         padding:
@@ -904,6 +1029,82 @@ function AudioBlockView({
     latestWaveformSampleId,
   ])
 
+  function getCurrentRecordingClockTime(
+    now = getRecordingClockNow(),
+  ) {
+    const startedAt =
+      recordingClockStartedAtRef.current
+
+    if (
+      startedAt ===
+      null
+    ) {
+      return 0
+    }
+
+    const pauseStartedAt =
+      recordingPauseStartedAtRef.current
+
+    const activePauseDuration =
+      pauseStartedAt === null
+        ? 0
+        : now - pauseStartedAt
+
+    return Math.max(
+      0,
+      (
+        now -
+        startedAt -
+        recordingPausedDurationRef.current -
+        activePauseDuration
+      ) / 1000,
+    )
+  }
+
+  function setSortedRecordingTimestamps(
+    timestamps: AudioTimestamp[],
+  ) {
+    const nextTimestamps =
+      sortAudioTimestamps(
+        timestamps,
+      )
+
+    recordingTimestampsRef.current =
+      nextTimestamps
+
+    setRecordingTimestamps(
+      nextTimestamps,
+    )
+
+    return nextTimestamps
+  }
+
+  function captureTimestampSubmitMoment() {
+    const time =
+      getCurrentRecordingClockTime()
+
+    const recordingSampleIndex =
+      time /
+      (
+        PLAYBACK_WAVEFORM_INTERVAL /
+        1000
+      )
+
+    const moment = {
+      time,
+      recordingSampleIndex,
+    }
+
+    timestampSubmitMomentRef.current =
+      moment
+
+    setTimestampDraftTime(
+      time,
+    )
+
+    return moment
+  }
+
   async function handleStartRecording() {
     try {
       setMicrophoneError(
@@ -912,6 +1113,15 @@ function AudioBlockView({
 
       recordedWaveformRef.current =
         []
+
+      recordingClockStartedAtRef.current =
+        null
+
+      recordingPausedDurationRef.current =
+        0
+
+      recordingPauseStartedAtRef.current =
+        null
 
       recordingSampleCountRef.current =
         0
@@ -922,14 +1132,11 @@ function AudioBlockView({
       isRecordingPausedForTimestampRef.current =
         false
 
-      lastRecordedWaveformSampleRef.current =
-        0
-
       waveformSampleIdRef.current =
         0
 
-      timestampDraftSampleIndexRef.current =
-        0
+      timestampSubmitMomentRef.current =
+        null
 
       lastWaveformSampleRef.current =
         0
@@ -1004,14 +1211,63 @@ function AudioBlockView({
               ? decodedWaveform.duration
               : elapsedSecondsRef.current
 
+          const savedTimestamps =
+            toStoredAudioTimestamps(
+              recordingTimestampsRef.current,
+              duration,
+              elapsedSecondsRef.current,
+            )
+
+          console.table(
+            recordingTimestampsRef.current.map(
+              (timestamp) => ({
+                name:
+                timestamp.name,
+
+                recordingTime:
+                timestamp.time,
+
+                sampleIndex:
+                timestamp.recordingSampleIndex,
+
+                convertedTime:
+                  duration > 0 &&
+                  elapsedSecondsRef.current > 0
+                    ? (
+                      timestamp.time /
+                      elapsedSecondsRef.current
+                    ) *
+                    duration
+                    : timestamp.time,
+              }),
+            ),
+          )
+
+          console.log({
+            recordingClockDuration:
+            elapsedSecondsRef.current,
+
+            decodedAudioDuration:
+            duration,
+
+            difference:
+              elapsedSecondsRef.current -
+              duration,
+          })
+
           await saveAudio(
             audioId,
             blob,
             savedWaveform,
             PLAYBACK_WAVEFORM_INTERVAL,
-            toStoredAudioTimestamps(
-              recordingTimestampsRef.current,
-            ),
+            savedTimestamps,
+          )
+
+          recordingTimestampsRef.current =
+            savedTimestamps
+
+          setRecordingTimestamps(
+            savedTimestamps,
           )
 
           updateAttributes({
@@ -1027,8 +1283,8 @@ function AudioBlockView({
 
       recorder.start()
 
-      lastElapsedTimestampRef.current =
-        null
+      recordingClockStartedAtRef.current =
+        getRecordingClockNow()
 
       elapsedSecondsRef.current =
         0
@@ -1038,6 +1294,7 @@ function AudioBlockView({
       setRecordingSampleCount(0)
       setRecordingTimestamps([])
       setIsTimestampEditorOpen(false)
+      setIsTimestampListOpen(false)
       setTimestampDraftName('')
       setTimestampDraftTime(0)
 
@@ -1074,9 +1331,24 @@ function AudioBlockView({
 
     setIsTimestampEditorOpen(false)
     setTimestampDraftName('')
+    timestampSubmitMomentRef.current =
+      null
+
+    const stoppedAtTime =
+      getCurrentRecordingClockTime()
+
+    elapsedSecondsRef.current =
+      stoppedAtTime
+
+    setElapsedSeconds(
+      stoppedAtTime,
+    )
 
     isRecordingPausedForTimestampRef.current =
       false
+
+    recordingPauseStartedAtRef.current =
+      null
 
     recorder.stop()
 
@@ -1092,16 +1364,14 @@ function AudioBlockView({
       !recorder ||
       recorder.state !==
       'recording' ||
-      isTimestampEditorOpen
+      isTimestampEditorOpen ||
+      isRecordingPausedForTimestampRef.current
     ) {
       return
     }
 
     const timestampTime =
-      elapsedSecondsRef.current
-
-    timestampDraftSampleIndexRef.current =
-      recordingSampleCountRef.current
+      getCurrentRecordingClockTime()
 
     try {
       recorder.pause()
@@ -1117,6 +1387,16 @@ function AudioBlockView({
     isRecordingPausedForTimestampRef.current =
       true
 
+    recordingPauseStartedAtRef.current =
+      getRecordingClockNow()
+
+    elapsedSecondsRef.current =
+      timestampTime
+
+    setElapsedSeconds(
+      timestampTime,
+    )
+
     const track =
       waveformTrackRef.current
 
@@ -1129,13 +1409,19 @@ function AudioBlockView({
       timestampTime,
     )
 
+    timestampSubmitMomentRef.current =
+      null
+
     setTimestampDraftName('')
     setIsTimestampEditorOpen(true)
   }
 
-  function resumeRecordingFromTimestampEditor() {
+  function closeTimestampEditor() {
     const recorder =
       mediaRecorderRef.current
+
+    const pauseStartedAt =
+      recordingPauseStartedAtRef.current
 
     if (
       isRecordingPausedForTimestampRef.current &&
@@ -1152,14 +1438,23 @@ function AudioBlockView({
       }
     }
 
+    if (
+      pauseStartedAt !==
+      null
+    ) {
+      recordingPausedDurationRef.current +=
+        getRecordingClockNow() -
+        pauseStartedAt
+    }
+
+    recordingPauseStartedAtRef.current =
+      null
+
     isRecordingPausedForTimestampRef.current =
       false
 
     lastWaveformSampleRef.current =
       0
-
-    lastElapsedTimestampRef.current =
-      null
 
     setIsTimestampEditorOpen(false)
     setTimestampDraftName('')
@@ -1170,46 +1465,71 @@ function AudioBlockView({
       timestampDraftName.trim()
 
     if (!name) {
+      timestampSubmitMomentRef.current =
+        null
+
       timestampNameInputRef.current
         ?.focus()
 
       return
     }
 
-    const timestamp: AudioTimestamp = {
-      id:
-        crypto.randomUUID(),
+    const submitMoment =
+      timestampSubmitMomentRef.current ??
+      captureTimestampSubmitMoment()
 
-      name,
+    setSortedRecordingTimestamps([
+      ...recordingTimestampsRef.current,
+      {
+        id:
+          crypto.randomUUID(),
 
-      time:
-        timestampDraftTime,
+        name,
 
-      color:
-        getTimestampColor(),
+        time:
+          submitMoment.time,
 
-      recordingSampleIndex:
-        timestampDraftSampleIndexRef.current,
-    }
+        color:
+          getTimestampColor(),
 
-    const nextTimestamps =
-      sortAudioTimestamps([
-        ...recordingTimestampsRef.current,
-        timestamp,
-      ])
+        recordingSampleIndex:
+          submitMoment.recordingSampleIndex,
+      },
+    ])
 
-    recordingTimestampsRef.current =
-      nextTimestamps
+    timestampSubmitMomentRef.current =
+      null
 
-    setRecordingTimestamps(
-      nextTimestamps,
-    )
-
-    resumeRecordingFromTimestampEditor()
+    closeTimestampEditor()
   }
 
   function handleTimestampCancel() {
-    resumeRecordingFromTimestampEditor()
+    timestampSubmitMomentRef.current =
+      null
+
+    closeTimestampEditor()
+  }
+
+  function handleTimestampButtonPointerDown(
+    event: ReactPointerEvent<HTMLButtonElement>,
+  ) {
+    if (
+      event.button !== 0
+    ) {
+      return
+    }
+
+    event.preventDefault()
+    event.stopPropagation()
+    openTimestampEditor()
+  }
+
+  function handleTimestampButtonClick(
+    event: ReactMouseEvent<HTMLButtonElement>,
+  ) {
+    event.preventDefault()
+    event.stopPropagation()
+    openTimestampEditor()
   }
 
   function stopMicrophoneStream() {
@@ -1266,9 +1586,6 @@ function AudioBlockView({
         lastWaveformSampleRef.current =
           0
 
-        lastElapsedTimestampRef.current =
-          null
-
         if (track) {
           track.style.transform =
             'translate3d(0, 0, 0)'
@@ -1287,22 +1604,10 @@ function AudioBlockView({
           samples,
         )
 
-      if (
-        lastElapsedTimestampRef.current ===
-        null
-      ) {
-        lastElapsedTimestampRef.current =
-          timestamp
-      }
-
-      elapsedSecondsRef.current +=
-        (
-          timestamp -
-          lastElapsedTimestampRef.current
-        ) / 1000
-
-      lastElapsedTimestampRef.current =
-        timestamp
+      elapsedSecondsRef.current =
+        getCurrentRecordingClockTime(
+          timestamp,
+        )
 
       if (
         lastWaveformSampleRef.current ===
@@ -1339,8 +1644,18 @@ function AudioBlockView({
         timeSinceLastSample >=
         WAVEFORM_SAMPLE_INTERVAL
       ) {
-        lastWaveformSampleRef.current =
-          timestamp
+        const samplesToAdd =
+          Math.max(
+            1,
+            Math.floor(
+              timeSinceLastSample /
+              WAVEFORM_SAMPLE_INTERVAL,
+            ),
+          )
+
+        lastWaveformSampleRef.current +=
+          samplesToAdd *
+          WAVEFORM_SAMPLE_INTERVAL
 
         let sum =
           0
@@ -1377,46 +1692,62 @@ function AudioBlockView({
             rms * 5,
           )
 
-        if (
-          lastRecordedWaveformSampleRef.current ===
-          0 ||
-          timestamp -
-          lastRecordedWaveformSampleRef.current >=
-          PLAYBACK_WAVEFORM_INTERVAL
+        const newSamples:
+          WaveformSample[] =
+          []
+
+        for (
+          let sampleIndex =
+            0;
+          sampleIndex <
+          samplesToAdd;
+          sampleIndex++
         ) {
           recordedWaveformRef.current.push(
             amplitude,
           )
 
-          recordingSampleCountRef.current =
-            recordedWaveformRef.current
-              .length
+          newSamples.push(
+            {
+              id:
+                waveformSampleIdRef.current++,
 
-          setRecordingSampleCount(
-            recordingSampleCountRef.current,
+              amplitude,
+            },
           )
-
-          lastRecordedWaveformSampleRef.current =
-            timestamp
         }
 
-        const sample: WaveformSample = {
-          id:
-            waveformSampleIdRef.current++,
+        recordingSampleCountRef.current =
+          recordedWaveformRef.current
+            .length
 
-          amplitude,
-        }
+        setRecordingSampleCount(
+          recordingSampleCountRef.current,
+        )
 
         const capacity =
           waveformCapacityRef.current
 
         setWaveform(
-          (current) => [
-            ...current.slice(
-              -(capacity - 1),
-            ),
-            sample,
-          ],
+          (current) => {
+            const samplesToKeep =
+              Math.max(
+                0,
+                capacity -
+                newSamples.length,
+              )
+
+            return [
+              ...(
+                samplesToKeep > 0
+                  ? current.slice(
+                    -samplesToKeep,
+                  )
+                  : []
+              ),
+              ...newSamples,
+            ]
+          },
         )
 
         setElapsedSeconds(
@@ -1566,6 +1897,9 @@ function AudioBlockView({
     recordingTimestampsRef.current =
       []
 
+    timestampSubmitMomentRef.current =
+      null
+
     if (!audioId) {
       return
     }
@@ -1588,6 +1922,9 @@ function AudioBlockView({
         }
 
         if (!stored) {
+          timestampSubmitMomentRef.current =
+            null
+
           setRecordingTimestamps([])
 
           return
@@ -1696,6 +2033,70 @@ function AudioBlockView({
     isTimestampEditorOpen,
   ])
 
+  useEffect(() => {
+    if (!isTimestampListOpen) {
+      return
+    }
+
+    function handlePointerDown(
+      event: PointerEvent,
+    ) {
+      const target =
+        event.target
+
+      if (
+        target instanceof Node &&
+        (
+          timestampListFloatingElement
+            ?.contains(target) ||
+          timestampListAnchorElement
+            ?.contains(target)
+        )
+      ) {
+        return
+      }
+
+      setIsTimestampListOpen(false)
+    }
+
+    function handleKeyDown(
+      event: KeyboardEvent,
+    ) {
+      if (
+        event.key ===
+        'Escape'
+      ) {
+        setIsTimestampListOpen(false)
+      }
+    }
+
+    document.addEventListener(
+      'pointerdown',
+      handlePointerDown,
+    )
+
+    document.addEventListener(
+      'keydown',
+      handleKeyDown,
+    )
+
+    return () => {
+      document.removeEventListener(
+        'pointerdown',
+        handlePointerDown,
+      )
+
+      document.removeEventListener(
+        'keydown',
+        handleKeyDown,
+      )
+    }
+  }, [
+    isTimestampListOpen,
+    timestampListAnchorElement,
+    timestampListFloatingElement,
+  ])
+
   async function handleTogglePlayback() {
     const audio =
       audioElementRef.current
@@ -1723,10 +2124,16 @@ function AudioBlockView({
     event: ReactMouseEvent<HTMLDivElement>,
   ) {
     if (
-      timestampFloatingElement &&
       event.target instanceof Node &&
-      timestampFloatingElement.contains(
-        event.target,
+      (
+        timestampFloatingElement
+          ?.contains(
+            event.target,
+          ) ||
+        timestampListFloatingElement
+          ?.contains(
+            event.target,
+          )
       )
     ) {
       return
@@ -1818,6 +2225,36 @@ function AudioBlockView({
     handlePlaybackSeek(
       targetTimestamp.time,
     )
+  }
+
+  function handleTimestampListToggle(
+    event: ReactMouseEvent<HTMLButtonElement>,
+  ) {
+    event.preventDefault()
+    event.stopPropagation()
+
+    if (
+      recordingTimestamps.length ===
+      0
+    ) {
+      return
+    }
+
+    setIsTimestampListOpen(
+      (isOpen) =>
+        !isOpen,
+    )
+  }
+
+  function handleTimestampListSelect(
+    timestamp: AudioTimestamp,
+  ) {
+    handlePlaybackSeek(
+      timestamp.time,
+    )
+
+    setIsTimestampListOpen(false)
+    focusAudioBlock()
   }
 
   function getPlaybackTimeAtPointer(
@@ -2062,8 +2499,12 @@ function AudioBlockView({
     recordingTimestampsRef.current =
       []
 
+    timestampSubmitMomentRef.current =
+      null
+
     setRecordingTimestamps([])
     setIsTimestampEditorOpen(false)
+    setIsTimestampListOpen(false)
     setTimestampDraftName('')
 
     setPlaybackWaveformVersion(
@@ -2478,13 +2919,20 @@ function AudioBlockView({
     )
 
   const visibleRecordingTimestamps =
-    recordingTimestamps.filter(
-      (timestamp) =>
-        getRecordingTimestampSampleIndex(
-          timestamp,
-        ) <=
-        recordingSampleCount,
-    )
+    recordingTimestamps
+
+  const displayedTimestampDraftTime =
+    isTimestampEditorOpen &&
+    recorderState ===
+    'recording'
+      ? elapsedSeconds
+      : timestampDraftTime
+
+  const shouldShowTimestampList =
+    isTimestampListOpen &&
+    timestampListAnchorElement !==
+    null &&
+    recordingTimestamps.length > 0
 
   return (
     <NodeViewWrapper
@@ -2518,18 +2966,6 @@ function AudioBlockView({
         glass-surface
       "
     >
-      <div
-        className="
-          pointer-events-none
-          absolute
-          inset-0
-
-          bg-linear-to-tl
-          from-red-500/5
-          via-red-500/1
-          to-transparent
-        "
-      />
       <div
         contentEditable={false}
       >
@@ -2714,15 +3150,12 @@ function AudioBlockView({
                       isTimestampEditorOpen
                     }
 
-                    onMouseDown={(
-                      event,
-                    ) => {
-                      event.preventDefault()
-                      event.stopPropagation()
-                    }}
+                    onPointerDown={
+                      handleTimestampButtonPointerDown
+                    }
 
                     onClick={
-                      openTimestampEditor
+                      handleTimestampButtonClick
                     }
 
                     className="
@@ -3035,17 +3468,41 @@ function AudioBlockView({
                         />
                       </button>
 
-                      {currentPlaybackTimestamp && (
-                        <div
-                          className="
-                            flex
-                            max-w-36
-                            min-w-0
-                            items-center
-                            gap-1.5
-                            px-1
-                          "
-                        >
+	                      {currentPlaybackTimestamp && (
+	                        <button
+	                          ref={
+	                            setTimestampListAnchorElement
+	                          }
+
+	                          type="button"
+
+	                          aria-expanded={
+	                            isTimestampListOpen
+	                          }
+
+	                          onMouseDown={(event) => {
+	                            event.preventDefault()
+	                            event.stopPropagation()
+	                          }}
+
+	                          onClick={
+	                            handleTimestampListToggle
+	                          }
+
+	                          className="
+	                            flex
+	                            max-w-36
+	                            min-w-0
+	                            items-center
+	                            gap-1.5
+	                            rounded-full
+	                            px-1.5
+	                            py-0.5
+	                            transition-colors
+
+	                            hover:bg-surface-hover
+	                          "
+	                        >
                           <span
                             className="
                               h-2
@@ -3061,18 +3518,18 @@ function AudioBlockView({
                             }}
                           />
 
-                          <span
-                            className="
-                              truncate
-                              text-xs
-                              text-foreground
+	                          <span
+	                            className="
+	                              truncate
+	                              text-xs
+	                              text-foreground
                             "
                           >
-                            {currentPlaybackTimestamp
-                              .name}
-                          </span>
-                        </div>
-                      )}
+	                            {currentPlaybackTimestamp
+	                              .name}
+	                          </span>
+	                        </button>
+	                      )}
 
                       <button
                         type="button"
@@ -3448,7 +3905,7 @@ function AudioBlockView({
 	                "
 	              >
 	                {formatDuration(
-	                  timestampDraftTime,
+	                  displayedTimestampDraftTime,
 	                )}
 	              </span>
 	            </div>
@@ -3476,6 +3933,16 @@ function AudioBlockView({
 	                  event.preventDefault()
 	                  event.stopPropagation()
 	                  handleTimestampCancel()
+	                }
+
+	                if (
+	                  event.key ===
+	                  'Enter' &&
+	                  timestampDraftName
+	                    .trim()
+	                    .length > 0
+	                ) {
+	                  captureTimestampSubmitMoment()
 	                }
 	              }}
 
@@ -3537,6 +4004,25 @@ function AudioBlockView({
 	              <button
 	                type="submit"
 
+	                onPointerDown={(event) => {
+	                  if (
+	                    event.button !==
+	                    0
+	                  ) {
+	                    return
+	                  }
+
+	                  if (
+	                    timestampDraftName
+	                      .trim()
+	                      .length === 0
+	                  ) {
+	                    return
+	                  }
+
+	                  captureTimestampSubmitMoment()
+	                }}
+
 	                className="
 	                  cursor-pointer
 	                  rounded-full
@@ -3556,6 +4042,142 @@ function AudioBlockView({
 	              </button>
 	            </div>
 	          </form>
+	        </FloatingPortal>
+	      )}
+
+	      {shouldShowTimestampList && (
+	        <FloatingPortal>
+	          <div
+	            ref={
+	              setTimestampListFloatingElement
+	            }
+
+	            style={{
+	              ...timestampListFloatingStyles,
+
+	              visibility:
+	                isTimestampListPositioned
+	                  ? 'visible'
+	                  : 'hidden',
+	            }}
+
+	            data-editor-popup
+
+	            onMouseDown={(event) => {
+	              event.stopPropagation()
+	            }}
+
+	            className="
+	              glass-surface
+	              z-120
+
+	              w-72
+	              overflow-hidden
+
+	              p-1.5
+	              shadow-2xl
+	            "
+	          >
+	            <div
+	              className="
+	                max-h-72
+	                overflow-y-auto
+	                pr-1
+	                scrollbar-none
+	              "
+	            >
+	              {recordingTimestamps.map(
+	                (timestamp) => {
+	                  const isCurrent =
+	                    currentPlaybackTimestamp
+	                      ?.id ===
+	                    timestamp.id
+
+	                  return (
+	                    <button
+	                      key={
+	                        timestamp.id
+	                      }
+
+	                      type="button"
+
+	                      onMouseDown={(event) => {
+	                        event.preventDefault()
+	                        event.stopPropagation()
+	                      }}
+
+	                      onClick={() => {
+	                        handleTimestampListSelect(
+	                          timestamp,
+	                        )
+	                      }}
+
+	                      className={`
+	                        flex
+	                        w-full
+	                        items-center
+	                        gap-2.5
+
+	                        rounded-lg
+	                        px-2.5
+	                        py-2
+
+	                        text-left
+	                        transition-colors
+
+	                        hover:bg-surface-hover
+
+	                        ${
+	                          isCurrent
+	                            ? 'bg-surface-hover/70'
+	                            : ''
+	                        }
+	                      `}
+	                    >
+	                      <span
+	                        className="
+	                          h-2.5
+	                          w-2.5
+	                          shrink-0
+	                          rounded-full
+	                        "
+
+	                        style={{
+	                          backgroundColor:
+	                            timestamp.color,
+	                        }}
+	                      />
+
+	                      <span
+	                        className="
+	                          min-w-0
+	                          flex-1
+	                          truncate
+	                          text-xs
+	                          text-foreground
+	                        "
+	                      >
+	                        {timestamp.name}
+	                      </span>
+
+	                      <span
+	                        className="
+	                          shrink-0
+	                          font-mono
+	                          text-[11px]
+	                          text-muted
+	                        "
+	                      >
+	                        {formatDuration(
+	                          timestamp.time,
+	                        )}
+	                      </span>
+	                    </button>
+	                  )
+	                },
+	              )}
+	            </div>
+	          </div>
 	        </FloatingPortal>
 	      )}
 	    </NodeViewWrapper>
