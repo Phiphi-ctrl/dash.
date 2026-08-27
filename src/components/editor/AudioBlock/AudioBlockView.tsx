@@ -54,7 +54,7 @@ const WAVEFORM_STEP =
   WAVEFORM_BAR_GAP
 
 const WAVEFORM_MAX_BAR_HEIGHT =
-  52
+  36
 
 const PLAYBACK_WAVEFORM_INTERVAL =
   WAVEFORM_SAMPLE_INTERVAL
@@ -82,6 +82,33 @@ const TIMESTAMP_COLORS = [
   '#f97316',
   '#f43f5e',
   '#eab308',
+]
+
+const EMPTY_WAVEFORM_BARS = [
+  0.22,
+  0.36,
+  0.18,
+  0.48,
+  0.3,
+  0.62,
+  0.26,
+  0.54,
+  0.2,
+  0.42,
+  0.32,
+  0.58,
+  0.24,
+  0.46,
+  0.28,
+  0.52,
+  0.18,
+  0.4,
+  0.34,
+  0.6,
+  0.26,
+  0.5,
+  0.22,
+  0.44,
 ]
 
 type RecorderState =
@@ -2928,6 +2955,45 @@ function AudioBlockView({
       ? elapsedSeconds
       : timestampDraftTime
 
+  const shouldKeepCompactHeaderOpen =
+    isTimestampEditorOpen ||
+    isTimestampListOpen ||
+    (
+      !hasRecording &&
+      recorderState ===
+      'idle' &&
+      microphoneError !==
+      null
+    )
+
+  const compactHeaderClassName =
+    shouldKeepCompactHeaderOpen
+      ? `
+        mb-1
+        max-h-16
+        translate-y-0
+        overflow-hidden
+        opacity-100
+        transition-all
+        duration-200
+        ease-out
+      `
+      : `
+        mb-0
+        max-h-0
+        -translate-y-1
+        overflow-hidden
+        opacity-0
+        transition-all
+        duration-200
+        ease-out
+
+        group-hover/audio-block:mb-1
+        group-hover/audio-block:max-h-16
+        group-hover/audio-block:translate-y-0
+        group-hover/audio-block:opacity-100
+      `
+
   const shouldShowTimestampList =
     isTimestampListOpen &&
     timestampListAnchorElement !==
@@ -2956,12 +3022,13 @@ function AudioBlockView({
 
       className="
         dash-audio-block
+        group/audio-block
         relative
 
         my-3
         overflow-hidden
         outline-none
-        px-4
+        px-3
 
         glass-surface
       "
@@ -2977,65 +3044,71 @@ function AudioBlockView({
               }
 
               className="
-              flex
-              min-h-40
-              flex-col
-              items-center
-              justify-center
-              gap-4
-
-              rounded-xl
-            "
+                flex
+                w-full
+                flex-col
+                px-2
+                py-2.5
+              "
             >
               <div
-                className="
-                flex
-                h-12
-                w-12
-                items-center
-                justify-center
-
-                rounded-full
-                bg-surface-hover
-
-                text-foreground-secondary
-              "
-              >
-                <AudioLines
-                  size={20}
-                />
-              </div>
-
-              <div
-                className="
-                flex
-                flex-col
-                items-center
-                gap-1
-              "
+                className={
+                  compactHeaderClassName
+                }
               >
                 <div
                   className="
-                  text-sm
-                  font-medium
-                  text-foreground
-                "
+                    flex
+                    min-h-7
+                    items-center
+                    justify-between
+                    gap-3
+                  "
                 >
-                  Record audio
+                  <div
+                    className="
+                      flex
+                      min-w-0
+                      items-center
+                      gap-2
+                    "
+                  >
+                    <AudioLines
+                      size={15}
+                      className="
+                        shrink-0
+                        text-foreground-secondary
+                      "
+                    />
+
+                    <span
+                      className="
+                        truncate
+                        text-sm
+                        font-medium
+                        text-foreground
+                      "
+                    >
+                      Record audio
+                    </span>
+                  </div>
+
+                  <span
+                    className="
+                      shrink-0
+                      text-xs
+                      text-muted
+                    "
+                  >
+                    Ready
+                  </span>
                 </div>
 
-                <div
-                  className="
-                  text-xs
-                  text-muted
-                "
-                >
-                  Capture a voice recording
-                </div>
                 {microphoneError && (
                   <div
                     className="
-                      mt-1
+                      mt-1.5
+                      truncate
                       text-xs
                       text-red-500
                     "
@@ -3045,45 +3118,103 @@ function AudioBlockView({
                 )}
               </div>
 
-              <button
-                type="button"
-
-                onMouseDown={(
-                  event,
-                ) => {
-                  event.preventDefault()
-                  event.stopPropagation()
-                }}
-
-                onClick={handleStartRecording}
-
+              <div
                 className="
                   flex
-                  cursor-pointer
+                  min-w-0
                   items-center
-                  gap-2
-
-                  rounded-full
-                  bg-surface-hover
-
-                  px-4
-                  py-2
-
-                  text-xs
-                  font-medium
-                  text-foreground
-
-                  transition-colors
-
-                  hover:bg-surface-hover/70
+                  gap-3
                 "
               >
-                <Mic
-                  size={14}
-                />
+                <button
+                  type="button"
 
-                Start recording
-              </button>
+                  aria-label="Start recording"
+
+                  onMouseDown={(
+                    event,
+                  ) => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                  }}
+
+                  onClick={handleStartRecording}
+
+                  className="
+                    flex
+                    h-9
+                    w-9
+                    shrink-0
+                    cursor-pointer
+                    items-center
+                    justify-center
+
+                    rounded-full
+                    bg-surface-hover
+
+                    text-foreground
+
+                    transition-transform
+                    duration-150
+
+                    hover:scale-105
+                    active:scale-95
+                  "
+                >
+                  <Mic
+                    size={16}
+                  />
+                </button>
+
+                <div
+                  className="
+                    relative
+                    flex
+                    h-11
+                    min-w-0
+                    flex-1
+                    items-center
+                    overflow-hidden
+                  "
+                >
+                  <div
+                    className="
+                      flex
+                      w-full
+                      items-center
+                      justify-center
+                      gap-[2px]
+                    "
+                  >
+                    {EMPTY_WAVEFORM_BARS.map(
+                      (
+                        amplitude,
+                        index,
+                      ) => (
+                        <div
+                          key={index}
+
+                          className="
+                            w-[2px]
+                            shrink-0
+                            rounded-full
+                            bg-foreground/20
+                          "
+
+                          style={{
+                            height:
+                              `${Math.max(
+                                4,
+                                amplitude *
+                                WAVEFORM_MAX_BAR_HEIGHT,
+                              )}px`,
+                          }}
+                        />
+                      ),
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         {recorderState ===
@@ -3096,114 +3227,122 @@ function AudioBlockView({
               className="
                 relative
                 flex
-                min-h-40
-                flex-col
-                justify-center
-                gap-5
                 w-full
-
-                px-5
-                py-4
+                flex-col
+                px-2
+                py-2.5
               "
             >
               <div
-                className="
-                  flex
-                  items-center
-                  justify-between
-                "
+                className={
+                  compactHeaderClassName
+                }
               >
                 <div
                   className="
                     flex
+                    min-h-7
                     items-center
-                    gap-2
+                    justify-between
+                    gap-3
                   "
                 >
                   <div
                     className="
-                      h-2
-                      w-2
-                      rounded-full
-                      bg-red-500
+                      flex
+                      min-w-0
+                      items-center
+                      gap-2
                     "
-                  />
+                  >
+                    <div
+                      className="
+                        h-2
+                        w-2
+                        shrink-0
+                        rounded-full
+                        bg-red-500
+                      "
+                    />
+
+                    <span
+                      className="
+                        truncate
+                        text-sm
+                        font-medium
+                        text-foreground
+                      "
+                    >
+                      Recording
+                    </span>
+
+                    <button
+                      ref={
+                        setTimestampAnchorElement
+                      }
+
+                      type="button"
+
+                      disabled={
+                        isTimestampEditorOpen
+                      }
+
+                      onPointerDown={
+                        handleTimestampButtonPointerDown
+                      }
+
+                      onClick={
+                        handleTimestampButtonClick
+                      }
+
+                      className="
+                        flex
+                        h-6
+                        w-6
+                        shrink-0
+                        cursor-pointer
+                        items-center
+                        justify-center
+
+                        rounded-full
+                        text-muted
+                        transition-colors
+
+                        hover:bg-surface-hover
+                        hover:text-foreground
+
+                        disabled:cursor-default
+                        disabled:opacity-40
+                      "
+                    >
+                      <Plus
+                        size={14}
+                      />
+                    </button>
+                  </div>
 
                   <span
                     className="
-                      text-sm
-                      font-medium
-                      text-foreground
-                    "
-                  >
-                    Recording
-                  </span>
-
-                  <button
-                    ref={
-                      setTimestampAnchorElement
-                    }
-
-                    type="button"
-
-                    disabled={
-                      isTimestampEditorOpen
-                    }
-
-                    onPointerDown={
-                      handleTimestampButtonPointerDown
-                    }
-
-                    onClick={
-                      handleTimestampButtonClick
-                    }
-
-                    className="
-                      flex
-                      h-6
-                      w-6
-                      cursor-pointer
-                      items-center
-                      justify-center
-
-                      rounded-full
+                      shrink-0
+                      font-mono
+                      text-xs
                       text-muted
-                      transition-colors
-
-                      hover:bg-surface-hover
-                      hover:text-foreground
-
-                      disabled:cursor-default
-                      disabled:opacity-40
                     "
                   >
-                    <Plus
-                      size={14}
-                    />
-                  </button>
+                    {formatDuration(
+                      elapsedSeconds,
+                    )}
+                  </span>
                 </div>
-
-                <span
-                  className="
-                    font-mono
-                    text-xs
-                    text-muted
-                    h-8
-                  "
-                >
-                  {formatDuration(
-                    elapsedSeconds,
-                  )}
-                </span>
               </div>
 
-	              <div
+              <div
                 className="
-                flex
-                w-full
-                min-w-0
-                items-center
-                gap-4
+                  flex
+                  w-full
+                  min-w-0
+                  items-center
+                  gap-3
                 "
               >
                 <button
@@ -3222,8 +3361,8 @@ function AudioBlockView({
 
                   className="
                     flex
-                    h-11
-                    w-11
+                    h-9
+                    w-9
                     shrink-0
                     cursor-pointer
                     items-center
@@ -3246,13 +3385,13 @@ function AudioBlockView({
                 <div
                   ref={waveformViewportRef}
                   className="
-                  relative
-                  flex
-                  h-16
-                  min-w-0
-                  flex-1
-                  items-center
-                  overflow-hidden
+                    relative
+                    flex
+                    h-11
+                    min-w-0
+                    flex-1
+                    items-center
+                    overflow-hidden
                 "
                 >
                   <div
@@ -3341,17 +3480,17 @@ function AudioBlockView({
 
                   <div
                     className="
-                    absolute
-                    right-0
-                    top-1/2
+                      absolute
+                      right-0
+                      top-1/2
 
-                    h-14
-                    w-px
+                      h-9
+                      w-px
 
-                    -translate-y-1/2
+                      -translate-y-1/2
 
-                    bg-red-500
-                  "
+                      bg-red-500
+                    "
                   />
                 </div>
               </div>
@@ -3368,255 +3507,265 @@ function AudioBlockView({
 
               className="
                 flex
-                min-h-40
-                flex-col
-                justify-center
-                gap-5
                 w-full
-
-                px-5
-                py-4
+                flex-col
+                px-2
+                py-2.5
               "
             >
               <div
-                className="
-                  flex
-                  items-center
-                  justify-between
-                "
+                className={
+                  compactHeaderClassName
+                }
               >
                 <div
                   className="
                     flex
+                    min-h-7
                     items-center
-                    gap-2
+                    justify-between
+                    gap-3
                   "
                 >
-                  <AudioLines
-                    size={16}
+                  <div
                     className="
-                      text-foreground-secondary
-                    "
-                  />
-
-                  <span
-                    className="
-                      text-sm
-                      font-medium
-                      text-foreground
+                      flex
+                      min-w-0
+                      items-center
+                      gap-2
                     "
                   >
-                    Playback
-                  </span>
-
-                  {recordingTimestamps.length >
-                    0 && (
-                    <div
+                    <AudioLines
+                      size={15}
                       className="
-                        ml-1
-                        flex
-                        h-7
-                        min-w-0
-                        items-center
-                        gap-1
+                        shrink-0
+                        text-foreground-secondary
+                      "
+                    />
 
-                        rounded-full
-                        bg-surface-hover/60
-                        px-1
+                    <span
+                      className="
+                        truncate
+                        text-sm
+                        font-medium
+                        text-foreground
                       "
                     >
-                      <button
-                        type="button"
+                      Playback
+                    </span>
 
-                        disabled={
-                          !previousPlaybackTimestamp
-                        }
-
-                        onMouseDown={(event) => {
-                          event.preventDefault()
-                          event.stopPropagation()
-                        }}
-
-                        onClick={() => {
-                          handleTimestampNavigation(
-                            'previous',
-                          )
-                        }}
-
+                    {recordingTimestamps.length >
+                      0 && (
+                      <div
                         className="
+                          ml-1
                           flex
-                          h-6
-                          w-6
-                          shrink-0
-                          cursor-pointer
-                          items-center
-                          justify-center
-
-                          rounded-full
-                          text-muted
-                          transition-colors
-
-                          hover:bg-surface-hover
-                          hover:text-foreground
-
-                          disabled:cursor-default
-                          disabled:opacity-35
-                        "
-                      >
-                        <ChevronLeft
-                          size={14}
-                        />
-                      </button>
-
-                      <button
-                        ref={
-                          setTimestampListAnchorElement
-                        }
-
-                        type="button"
-
-                        aria-expanded={
-                          isTimestampListOpen
-                        }
-
-                        onMouseDown={(event) => {
-                          event.preventDefault()
-                          event.stopPropagation()
-                        }}
-
-                        onClick={
-                          handleTimestampListToggle
-                        }
-
-                        className="
-                          flex
-                          max-w-36
+                          h-7
                           min-w-0
                           items-center
-                          gap-1.5
-                          rounded-full
-                          px-1.5
-                          py-0.5
-                          transition-colors
+                          gap-1
 
-                          hover:bg-surface-hover
+                          rounded-full
+                          bg-surface-hover/60
+                          px-1
                         "
                       >
-                        {currentPlaybackTimestamp && (
-                          <span
-                            className="
-                              h-2
-                              w-2
-                              shrink-0
-                              rounded-full
-                            "
+                        <button
+                          type="button"
 
-                            style={{
-                              backgroundColor:
-                                currentPlaybackTimestamp
-                                  .color,
-                            }}
-                          />
-                        )}
+                          disabled={
+                            !previousPlaybackTimestamp
+                          }
 
-                        <span
+                          onMouseDown={(event) => {
+                            event.preventDefault()
+                            event.stopPropagation()
+                          }}
+
+                          onClick={() => {
+                            handleTimestampNavigation(
+                              'previous',
+                            )
+                          }}
+
                           className="
-                            truncate
-                            text-xs
-                            text-foreground
+                            flex
+                            h-6
+                            w-6
+                            shrink-0
+                            cursor-pointer
+                            items-center
+                            justify-center
+
+                            rounded-full
+                            text-muted
+                            transition-colors
+
+                            hover:bg-surface-hover
+                            hover:text-foreground
+
+                            disabled:cursor-default
+                            disabled:opacity-35
                           "
                         >
-                          {currentPlaybackTimestamp
-                            ?.name ??
-                            'None'}
-                        </span>
-                      </button>
+                          <ChevronLeft
+                            size={14}
+                          />
+                        </button>
 
-                      <button
-                        type="button"
+                        <button
+                          ref={
+                            setTimestampListAnchorElement
+                          }
 
-                        disabled={
-                          !nextPlaybackTimestamp
-                        }
+                          type="button"
 
-                        onMouseDown={(event) => {
-                          event.preventDefault()
-                          event.stopPropagation()
-                        }}
+                          aria-expanded={
+                            isTimestampListOpen
+                          }
 
-                        onClick={() => {
-                          handleTimestampNavigation(
-                            'next',
-                          )
-                        }}
+                          onMouseDown={(event) => {
+                            event.preventDefault()
+                            event.stopPropagation()
+                          }}
 
-                        className="
-                          flex
-                          h-6
-                          w-6
-                          shrink-0
-                          cursor-pointer
-                          items-center
-                          justify-center
+                          onClick={
+                            handleTimestampListToggle
+                          }
 
-                          rounded-full
-                          text-muted
-                          transition-colors
+                          className="
+                            flex
+                            max-w-36
+                            min-w-0
+                            items-center
+                            gap-1.5
+                            rounded-full
+                            px-1.5
+                            py-0.5
+                            transition-colors
 
-                          hover:bg-surface-hover
-                          hover:text-foreground
+                            hover:bg-surface-hover
+                          "
+                        >
+                          {currentPlaybackTimestamp && (
+                            <span
+                              className="
+                                h-2
+                                w-2
+                                shrink-0
+                                rounded-full
+                              "
 
-                          disabled:cursor-default
-                          disabled:opacity-35
-                        "
-                      >
-                        <ChevronRight
-                          size={14}
-                        />
-                      </button>
-                    </div>
-                  )}
+                              style={{
+                                backgroundColor:
+                                  currentPlaybackTimestamp
+                                    .color,
+                              }}
+                            />
+                          )}
+
+                          <span
+                            className="
+                              truncate
+                              text-xs
+                              text-foreground
+                            "
+                          >
+                            {currentPlaybackTimestamp
+                              ?.name ??
+                              'None'}
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+
+                          disabled={
+                            !nextPlaybackTimestamp
+                          }
+
+                          onMouseDown={(event) => {
+                            event.preventDefault()
+                            event.stopPropagation()
+                          }}
+
+                          onClick={() => {
+                            handleTimestampNavigation(
+                              'next',
+                            )
+                          }}
+
+                          className="
+                            flex
+                            h-6
+                            w-6
+                            shrink-0
+                            cursor-pointer
+                            items-center
+                            justify-center
+
+                            rounded-full
+                            text-muted
+                            transition-colors
+
+                            hover:bg-surface-hover
+                            hover:text-foreground
+
+                            disabled:cursor-default
+                            disabled:opacity-35
+                          "
+                        >
+                          <ChevronRight
+                            size={14}
+                          />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+
+                    onMouseDown={(event) => {
+                      event.preventDefault()
+                      event.stopPropagation()
+                    }}
+
+                    onClick={
+                      handleDeleteRecording
+                    }
+
+                    className="
+                      flex
+                      h-7
+                      w-7
+                      shrink-0
+                      cursor-pointer
+                      items-center
+                      justify-center
+
+                      rounded-full
+
+                      text-muted
+                      transition-colors
+
+                      hover:text-red-500
+                    "
+                  >
+                    <Trash2
+                      size={14}
+                    />
+                  </button>
                 </div>
-
-                <button
-                  type="button"
-
-                  onMouseDown={(event) => {
-                    event.preventDefault()
-                    event.stopPropagation()
-                  }}
-
-                  onClick={
-                    handleDeleteRecording
-                  }
-
-                  className="
-                    flex
-                    h-8
-                    w-8
-                    cursor-pointer
-                    items-center
-                    justify-center
-
-                    rounded-full
-
-                    text-muted
-                    transition-colors
-
-                    hover:text-red-500
-                  "
-                >
-                  <Trash2
-                    size={15}
-                  />
-                </button>
               </div>
 
               <div
                 className="
                   flex
+                  w-full
+                  min-w-0
                   items-center
-                  gap-4
+                  gap-3
                 "
               >
                 <button
@@ -3635,8 +3784,8 @@ function AudioBlockView({
 
                   className="
                     flex
-                    h-11
-                    w-11
+                    h-9
+                    w-9
                     shrink-0
                     items-center
                     justify-center
@@ -3659,13 +3808,13 @@ function AudioBlockView({
                   {isPlaying
                     ? (
                       <Pause
-                        size={18}
+                        size={16}
                         fill="currentColor"
                       />
                     )
                     : (
                       <Play
-                        size={18}
+                        size={16}
                         fill="currentColor"
                         className="
                           translate-x-px
@@ -3686,7 +3835,7 @@ function AudioBlockView({
                   <div
                     className="
                       relative
-                      h-16
+                      h-11
                       w-full
                     "
                   >
