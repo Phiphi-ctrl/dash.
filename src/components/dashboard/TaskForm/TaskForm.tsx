@@ -689,7 +689,7 @@ function TaskForm ({initialValues, onClose, onSubmit, categories, today}: TaskFo
                 }}
               >
                 <div className="glass-panel-bg"/>
-                <div className="relative z-10">
+                <div className="relative z-10 overflow-hidden h-50 overflow-y-auto scrollbar-none">
                   <CategoryPicker
                     categories={categories}
                     currentlySelected={newCategoryId}

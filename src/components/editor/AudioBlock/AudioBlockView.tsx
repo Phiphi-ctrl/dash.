@@ -39,6 +39,7 @@ import {
   loadAudio,
   type StoredAudioTimestamp,
 } from '../utils/audioStorage.ts'
+import Tooltip from '../../ui/Tooltip.tsx'
 
 const WAVEFORM_SAMPLE_INTERVAL =
   50
@@ -3275,27 +3276,33 @@ function AudioBlockView({
                     >
                       Recording
                     </span>
-
-                    <button
-                      ref={
-                        setTimestampAnchorElement
+                    <Tooltip
+                      content={
+                        <span>Add Timestamp</span>
                       }
+                      active={!isTimestampEditorOpen}
+                      delay={200}
+                    >
+                      <button
+                        ref={
+                          setTimestampAnchorElement
+                        }
 
-                      type="button"
+                        type="button"
 
-                      disabled={
-                        isTimestampEditorOpen
-                      }
+                        disabled={
+                          isTimestampEditorOpen
+                        }
 
-                      onPointerDown={
-                        handleTimestampButtonPointerDown
-                      }
+                        onPointerDown={
+                          handleTimestampButtonPointerDown
+                        }
 
-                      onClick={
-                        handleTimestampButtonClick
-                      }
+                        onClick={
+                          handleTimestampButtonClick
+                        }
 
-                      className="
+                        className="
                         flex
                         h-6
                         w-6
@@ -3314,11 +3321,12 @@ function AudioBlockView({
                         disabled:cursor-default
                         disabled:opacity-40
                       "
-                    >
-                      <Plus
-                        size={14}
-                      />
-                    </button>
+                      >
+                        <Plus
+                          size={14}
+                        />
+                      </button>
+                    </Tooltip>
                   </div>
 
                   <span

@@ -2,6 +2,9 @@ import {
   EditorContent,
   useEditor,
 } from '@tiptap/react'
+import type {
+  Editor,
+} from '@tiptap/core'
 import {
   BackgroundColor,
   Color,
@@ -63,8 +66,140 @@ type DashBlockEditorProps = {
 const MIN_COLUMN_RATIO = 0.2
 const MAX_COLUMN_RATIO = 0.8
 const COLUMN_RESIZE_HIT_WIDTH = 24
+const HEADING_OUTLINE_SCROLL_OFFSET = 80
 
 const DEBUG_DROP_ZONES = true
+
+type HeadingOutlineItem = {
+  key: string
+  id: string | null
+  pos: number
+  level: 1 | 2 | 3
+  title: string
+}
+
+function getHeadingOutlineItems(
+    editor: Editor,
+): HeadingOutlineItem[] {
+  const items:
+      HeadingOutlineItem[] = []
+
+  editor.state.doc.descendants(
+      (node, pos) => {
+        if (
+            node.type.name !==
+            'heading'
+        ) {
+          return
+        }
+
+        const level =
+            node.attrs.level
+
+        if (
+            level !== 1 &&
+            level !== 2 &&
+            level !== 3
+        ) {
+          return
+        }
+
+        const id =
+            typeof node.attrs.id ===
+            'string'
+                ? node.attrs.id
+                : null
+
+        const title =
+            node.textContent
+                .trim() ||
+            `Heading ${level}`
+
+        items.push({
+          key:
+              id ??
+              `${pos}-${level}`,
+
+          id,
+          pos,
+          level,
+          title,
+        })
+      },
+  )
+
+  return items
+}
+
+function areHeadingOutlineItemsEqual(
+    first: HeadingOutlineItem[],
+    second: HeadingOutlineItem[],
+) {
+  if (
+      first.length !==
+      second.length
+  ) {
+    return false
+  }
+
+  return first.every(
+      (item, index) => {
+        const other =
+            second[index]
+
+        return (
+            other !== undefined &&
+            item.key === other.key &&
+            item.pos === other.pos &&
+            item.level === other.level &&
+            item.title === other.title
+        )
+      },
+  )
+}
+
+function getHeadingOutlineBarClassName(
+    level: HeadingOutlineItem['level'],
+) {
+  switch (level) {
+    case 1:
+      return 'w-5'
+
+    case 2:
+      return 'w-3'
+
+    case 3:
+      return 'w-1.5'
+  }
+}
+
+function getHeadingOutlineTitleClassName(
+    level: HeadingOutlineItem['level'],
+) {
+  switch (level) {
+    case 1:
+      return 'pl-0 text-sm font-semibold text-accent'
+
+    case 2:
+      return 'pl-5 text-sm font-medium text-foreground-secondary'
+
+    case 3:
+      return 'pl-10 text-xs font-normal text-muted'
+  }
+}
+
+function getHeadingOutlineItemPos(
+    editor: Editor,
+    item: HeadingOutlineItem,
+) {
+  return item.id
+      ? findNodePosById(
+          editor.state.doc,
+          item.id,
+      ) ??
+      item.pos
+      : item.pos
+}
 
 const dragHandlePositionConfig = {
   placement: 'left-start' as const,
@@ -260,6 +395,43 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
   ] =
       useState<MathEditorTarget | null>(
           null,
+      )
+
+  const [
+    headingOutlineItems,
+    setHeadingOutlineItems,
+  ] =
+      useState<HeadingOutlineItem[]>(
+          [],
+      )
+
+  const [
+    activeHeadingOutlineKey,
+    setActiveHeadingOutlineKey,
+  ] =
+      useState<string | null>(
+          null,
+      )
+
+  const syncHeadingOutline =
+      useCallback(
+          (editorInstance: Editor) => {
+            const nextItems =
+                getHeadingOutlineItems(
+                    editorInstance,
+                )
+
+            setHeadingOutlineItems(
+                (currentItems) =>
+                    areHeadingOutlineItemsEqual(
+                        currentItems,
+                        nextItems,
+                    )
+                        ? currentItems
+                        : nextItems,
+            )
+          },
+          [],
       )
 
   function clampColumnRatio(
@@ -1001,10 +1173,18 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
 
     content: value,
 
+    onCreate: ({
+                 editor,
+               }) => {
+      syncHeadingOutline(
+          editor,
+      )
+    },
+
     editorProps: {
       attributes: {
         class:
-            'dash-editor outline-none text-foreground pl-15 py-5',
+            'dash-editor outline-none text-foreground pl-15 pr-16 py-5',
       },
 
       handleKeyDown: (
@@ -1446,6 +1626,10 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
     },
 
     onUpdate: ({ editor }) => {
+      syncHeadingOutline(
+          editor,
+      )
+
       onChange(
         editor.getJSON()
       )
@@ -1598,37 +1782,36 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
     closeHandleMenu()
   }
 
-  const getHandleVirtualElement =
-      useCallback(() => {
-        if (!editor) {
-          return null
+  function getHandleVirtualElement() {
+    if (!editor) {
+      return null
+    }
+
+    const pos =
+        lockedHandlePosRef.current
+
+    if (pos === null) {
+      return null
+    }
+
+    return {
+      getBoundingClientRect: () => {
+        const dom =
+            editor.view.nodeDOM(
+                pos,
+            )
+
+        if (
+            !(dom instanceof HTMLElement)
+        ) {
+          return new DOMRect()
         }
 
-        const pos =
-            lockedHandlePosRef.current
-
-        if (pos === null) {
-          return null
-        }
-
-        return {
-          getBoundingClientRect: () => {
-            const dom =
-                editor.view.nodeDOM(
-                    pos,
-                )
-
-            if (
-                !(dom instanceof HTMLElement)
-            ) {
-              return new DOMRect()
-            }
-
-            return dom
-                .getBoundingClientRect()
-          },
-        }
-      }, [editor])
+        return dom
+            .getBoundingClientRect()
+      },
+    }
+  }
 
   const closeHandleMenu =
       useCallback(() => {
@@ -1656,6 +1839,84 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
         editor,
         setOpenHandleMenu,
       ])
+
+  function handleHeadingOutlineClick(
+      item: HeadingOutlineItem,
+  ) {
+    if (!editor) {
+      return
+    }
+
+    const currentPos =
+        getHeadingOutlineItemPos(
+            editor,
+            item,
+        )
+
+    const node =
+        editor.state.doc.nodeAt(
+            currentPos,
+        )
+
+    if (
+        node?.type.name !==
+        'heading'
+    ) {
+      return
+    }
+
+    const dom =
+        editor.view.nodeDOM(
+            currentPos,
+        )
+
+    if (
+        !(dom instanceof HTMLElement)
+    ) {
+      return
+    }
+
+    closeHandleMenu()
+
+    const scrollViewport =
+        editorShellRef.current
+            ?.closest<HTMLElement>(
+                '[data-note-scroll-viewport]',
+            )
+
+    if (!scrollViewport) {
+      dom.scrollIntoView({
+        block:
+            'start',
+
+        behavior:
+            'smooth',
+      })
+
+      return
+    }
+
+    const viewportRect =
+        scrollViewport
+            .getBoundingClientRect()
+
+    const headingRect =
+        dom.getBoundingClientRect()
+
+    scrollViewport.scrollTo({
+      top:
+          Math.max(
+              0,
+              scrollViewport.scrollTop +
+              headingRect.top -
+              viewportRect.top -
+              HEADING_OUTLINE_SCROLL_OFFSET,
+          ),
+
+      behavior:
+          'smooth',
+    })
+  }
 
   function hideDropIndicator() {
     if (!dropIndicatorRef.current) {
@@ -2362,6 +2623,166 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
   }, [
     isHandleMenuOpen,
     closeHandleMenu,
+  ])
+
+  useEffect(() => {
+    if (
+        !editor ||
+        headingOutlineItems.length === 0
+    ) {
+      return
+    }
+
+    const scrollViewport =
+        editorShellRef.current
+            ?.closest<HTMLElement>(
+                '[data-note-scroll-viewport]',
+            )
+
+    if (!scrollViewport) {
+      return
+    }
+
+    const activeScrollViewport =
+        scrollViewport
+
+    let animationFrameId:
+        number | null = null
+
+    function updateActiveHeading() {
+      animationFrameId = null
+
+      const viewportRect =
+          activeScrollViewport
+              .getBoundingClientRect()
+
+      const activeLine =
+          viewportRect.top +
+          HEADING_OUTLINE_SCROLL_OFFSET
+
+      let activeKey:
+          string | null = null
+
+      let firstVisibleKey:
+          string | null = null
+
+      for (
+          const item of
+          headingOutlineItems
+      ) {
+        const currentPos =
+            getHeadingOutlineItemPos(
+                editor,
+                item,
+            )
+
+        const node =
+            editor.state.doc.nodeAt(
+                currentPos,
+            )
+
+        if (
+            node?.type.name !==
+            'heading'
+        ) {
+          continue
+        }
+
+        const dom =
+            editor.view.nodeDOM(
+                currentPos,
+            )
+
+        if (
+            !(dom instanceof HTMLElement)
+        ) {
+          continue
+        }
+
+        const headingRect =
+            dom.getBoundingClientRect()
+
+        if (
+            firstVisibleKey === null &&
+            headingRect.bottom >=
+            viewportRect.top
+        ) {
+          firstVisibleKey =
+              item.key
+        }
+
+        if (
+            headingRect.top <=
+            activeLine
+        ) {
+          activeKey =
+              item.key
+
+          continue
+        }
+
+        break
+      }
+
+      const nextActiveKey =
+          activeKey ??
+          firstVisibleKey
+
+      setActiveHeadingOutlineKey(
+          (currentKey) =>
+              currentKey ===
+              nextActiveKey
+                  ? currentKey
+                  : nextActiveKey,
+      )
+    }
+
+    function scheduleActiveHeadingUpdate() {
+      if (animationFrameId !== null) {
+        return
+      }
+
+      animationFrameId =
+          window.requestAnimationFrame(
+              updateActiveHeading,
+          )
+    }
+
+    scheduleActiveHeadingUpdate()
+
+    activeScrollViewport.addEventListener(
+        'scroll',
+        scheduleActiveHeadingUpdate,
+        {
+          passive: true,
+        },
+    )
+
+    window.addEventListener(
+        'resize',
+        scheduleActiveHeadingUpdate,
+    )
+
+    return () => {
+      activeScrollViewport.removeEventListener(
+          'scroll',
+          scheduleActiveHeadingUpdate,
+      )
+
+      window.removeEventListener(
+          'resize',
+          scheduleActiveHeadingUpdate,
+      )
+
+      if (animationFrameId !== null) {
+        window.cancelAnimationFrame(
+            animationFrameId,
+        )
+      }
+    }
+  }, [
+    editor,
+    headingOutlineItems,
   ])
 
   function handleInsertInlineMath() {
@@ -3206,6 +3627,204 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
                     : undefined
               }
           />
+      )}
+
+      {headingOutlineItems.length > 0 && (
+          <div
+              className="
+                pointer-events-none
+                sticky
+                top-10
+                z-30
+                h-0
+                w-full
+              "
+          >
+            <nav
+                aria-label="Document headings"
+                className="
+                  group/heading-outline
+                  pointer-events-auto
+                  relative
+
+                  ml-auto
+                  -mr-8
+                  flex
+                  max-h-[calc(100vh-20rem)]
+                  w-7
+                  flex-col
+                  items-stretch
+                  gap-0.5
+                  overflow-x-hidden
+                  overflow-y-auto
+
+                  rounded-4xl
+                  border
+                  border-transparent
+                  bg-transparent
+                  px-1
+                  py-3
+                  shadow-none
+                  backdrop-blur-none
+                  scrollbar-none
+
+                  transition-[width,padding,gap,border-color,background-color,box-shadow,backdrop-filter]
+                  duration-300
+                  ease-out
+
+                  hover:w-80
+                  hover:border-white/10
+                  hover:bg-transparent
+                  hover:gap-1
+                  hover:px-6
+                  hover:py-8
+                  hover:shadow-xl
+                  hover:backdrop-blur-xl
+
+                  focus-within:w-80
+                  focus-within:border-white/10
+                  focus-within:bg-transparent
+                  focus-within:gap-1
+                  focus-within:px-6
+                  focus-within:py-8
+                  focus-within:shadow-xl
+                  focus-within:backdrop-blur-xl
+                "
+            >
+              {headingOutlineItems.map(
+                  (item) => {
+                    const isActiveHeading =
+                        item.key ===
+                        activeHeadingOutlineKey
+
+                    return (
+                        <button
+                            key={item.key}
+
+                            type="button"
+
+                            aria-label={
+                              `Go to ${item.title}`
+                            }
+
+                            onMouseDown={(event) => {
+                              event.preventDefault()
+                              event.stopPropagation()
+                            }}
+
+                            onClick={() => {
+                              handleHeadingOutlineClick(
+                                  item,
+                              )
+                            }}
+
+                            className={`
+                              relative
+                              flex
+                              h-3
+                              w-full
+                              shrink-0
+                              cursor-pointer
+                              items-center
+                              rounded-lg
+
+                              text-left
+                              transition-[height,background-color]
+                              duration-200
+                              ease-out
+
+                              group-hover/heading-outline:h-8
+                              group-focus-within/heading-outline:h-8
+                              focus-visible:outline-none
+                              focus-visible:ring-1
+                              focus-visible:ring-accent/60
+
+                              ${
+                                  isActiveHeading
+                                      ? `
+                                        group-hover/heading-outline:bg-surface-hover
+                                        group-focus-within/heading-outline:bg-surface-hover
+                                      `
+                                      : `
+                                        group-hover/heading-outline:hover:bg-surface-hover
+                                        group-focus-within/heading-outline:hover:bg-surface-hover
+                                      `
+                              }
+                            `}
+                        >
+                          <span
+                              className={`
+                                min-w-0
+                                max-w-full
+                                truncate
+                                opacity-0
+                                translate-x-2
+
+                                absolute
+                                inset-y-0
+                                left-0
+                                right-0
+                                flex
+                                items-center
+
+                                transition-[opacity,transform]
+                                delay-75
+                                duration-150
+                                ease-out
+
+                                group-hover/heading-outline:opacity-100
+                                group-hover/heading-outline:translate-x-0
+
+                                group-focus-within/heading-outline:opacity-100
+                                group-focus-within/heading-outline:translate-x-0
+
+                                ${getHeadingOutlineTitleClassName(
+                                    item.level,
+                                )}
+                              `}
+                          >
+                            {item.title}
+                          </span>
+
+                          <span
+                              className={`
+                                absolute
+                                right-0
+                                top-1/2
+
+                                h-1
+                                shrink-0
+                                rounded-full
+                                -translate-y-1/2
+                                origin-right
+
+                                transition-[opacity,transform,background-color]
+                                duration-300
+                                ease-out
+
+                                ${getHeadingOutlineBarClassName(
+                                    item.level,
+                                )}
+
+                                ${
+                                    isActiveHeading
+                                        ? 'bg-foreground/80 hover:bg-foreground/90'
+                                        : 'bg-foreground/40 hover:bg-foreground/80'
+                                }
+
+                                group-hover/heading-outline:opacity-0
+                                group-hover/heading-outline:scale-x-75
+
+                                group-focus-within/heading-outline:opacity-0
+                                group-focus-within/heading-outline:scale-x-75
+                              `}
+                          />
+                        </button>
+                    )
+                  },
+              )}
+            </nav>
+          </div>
       )}
 
       <EditorContent editor={editor} />
