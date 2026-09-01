@@ -1,29 +1,49 @@
-import LiveDateTime from '../components/dashboard/LiveDateTime.tsx'
 import {
+  FilePlus,
+  FolderPlus,
   Maximize2,
   Minimize2,
-  Notebook,
-  PlusIcon,
   Trash2,
   PanelLeftClose,
   PanelLeftOpen,
 } from 'lucide-react'
 import type { Note } from '../types/Note.ts'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import Button from '../components/ui/Button.tsx'
 import DashBlockEditor from "../components/editor/DashBlockEditor.tsx";
 import {dateTimeFormatter} from "../utils/Datetime.ts";
+import type { Category } from '../types/Category.ts'
+import type { NoteFolder } from '../types/NoteFolder.ts'
+import NotesTreeSidebar, { type NotesTreeSidebarHandle }
+  from '../components/notes/NotesTreeSidebar.tsx'
+import {
+  getCategoryIdFromFolderId,
+  getCategoryFolderId,
+  isFolderInTrash,
+  isKnownFolderId,
+  isSystemFolderId,
+  NOTES_INBOX_FOLDER_ID,
+  NOTES_TRASH_FOLDER_ID,
+} from '../utils/noteTree.ts'
 
 type NotesProps = {
     notes: Note[]
-    onAddNote: () => string
+    categories: Category[]
+    noteFolders: NoteFolder[]
+    onAddNote: (folderId: string) => string
+    onAddFolder: (parentId: string) => string | null
+    onRenameFolder: (folderId: string, name: string) => void
+    onDeleteFolder: (folderId: string) => void
+    onEmptyTrash: () => void
+    onMoveNote: (noteId: string, targetFolderId: string) => void
+    onMoveFolder: (folderId: string, targetFolderId: string) => void
 
     onUpdateNote: (
         id: string,
         changes: Partial<
             Pick<
                 Note,
-                'title' | 'document' | 'categoryId'
+                'title' | 'document' | 'categoryId' | 'folderId' | 'deletedAt'
             >
         >
     ) => void
@@ -33,7 +53,20 @@ type NotesProps = {
     ) => void
 }
 
-function Notes({notes, onAddNote, onUpdateNote, onDeleteNote}: NotesProps) {
+function Notes({
+  notes,
+  categories,
+  noteFolders,
+  onAddNote,
+  onAddFolder,
+  onRenameFolder,
+  onDeleteFolder,
+  onEmptyTrash,
+  onMoveNote,
+  onMoveFolder,
+  onUpdateNote,
+  onDeleteNote,
+}: NotesProps) {
 
   const [selectedNoteId, setSelectedNoteId] =
     useState<string | null>(null)
@@ -45,6 +78,27 @@ function Notes({notes, onAddNote, onUpdateNote, onDeleteNote}: NotesProps) {
 
   const [isNotesSidebarOpen, setIsNotesSidebarOpen] =
     useState(true)
+
+  const [activeFolderId, setActiveFolderId] =
+    useState(NOTES_INBOX_FOLDER_ID)
+
+  const notesTreeSidebarRef =
+    useRef<NotesTreeSidebarHandle | null>(null)
+
+  const resolvedActiveFolderId =
+    isKnownFolderId(
+      categories,
+      noteFolders,
+      activeFolderId,
+    )
+      ? activeFolderId
+      : NOTES_INBOX_FOLDER_ID
+
+  const canCreateInActiveFolder =
+    !isFolderInTrash(
+      noteFolders,
+      resolvedActiveFolderId,
+    )
 
   const [isNoteFullscreen, setIsNoteFullscreen] =
     useState(false)
@@ -59,6 +113,32 @@ function Notes({notes, onAddNote, onUpdateNote, onDeleteNote}: NotesProps) {
     hover:bg-accent-soft
     hover:border-accent
     hover:text-accent
+  `
+
+  const createControlButtonClass = `
+    flex
+    h-10
+    w-10
+    shrink-0
+    cursor-pointer
+    items-center
+    justify-center
+    rounded-4xl
+    border
+    border-border
+    bg-app-surface
+    text-muted
+    transition-colors
+    duration-400
+
+    hover:border-accent
+    hover:bg-accent-soft
+    hover:text-accent
+    disabled:cursor-default
+    disabled:opacity-40
+    disabled:hover:border-border
+    disabled:hover:bg-app-surface
+    disabled:hover:text-muted
   `
 
   const deleteNoteButtonClass = `
@@ -79,6 +159,177 @@ function Notes({notes, onAddNote, onUpdateNote, onDeleteNote}: NotesProps) {
     setSelectedNoteId(null)
     setIsNoteFullscreen(false)
   }
+
+  function getNoteFolderId(note: Note) {
+    if (
+      note.folderId &&
+      isKnownFolderId(
+        categories,
+        noteFolders,
+        note.folderId,
+      )
+    ) {
+      return note.folderId
+    }
+
+    if (note.categoryId) {
+      return getCategoryFolderId(note.categoryId)
+    }
+
+    return NOTES_INBOX_FOLDER_ID
+  }
+
+  function handleSelectNote(noteId: string) {
+    const nextSelectedNote =
+      notes.find(
+        (note) => note.id === noteId,
+      ) ?? null
+
+    if (nextSelectedNote) {
+      setActiveFolderId(
+        getNoteFolderId(nextSelectedNote),
+      )
+    }
+
+    setIsNoteFullscreen(false)
+    setSelectedNoteId(noteId)
+  }
+
+  function handleAddFolderToActiveFolder() {
+    if (!canCreateInActiveFolder) {
+      return
+    }
+
+    const folderId =
+      onAddFolder(
+        resolvedActiveFolderId,
+      )
+
+    if (!folderId) {
+      return
+    }
+
+    setActiveFolderId(folderId)
+    notesTreeSidebarRef.current?.startEditingFolder(
+      folderId,
+      'New folder',
+      resolvedActiveFolderId,
+    )
+  }
+
+  function handleAddNoteToActiveFolder() {
+    if (!canCreateInActiveFolder) {
+      return
+    }
+
+    const id =
+      onAddNote(
+        resolvedActiveFolderId,
+      )
+
+    setIsNoteFullscreen(false)
+    setSelectedNoteId(id)
+  }
+
+  function handleEmptyTrash() {
+    const shouldClearSelectedNote =
+      selectedNote !== null &&
+      (
+        selectedNote.deletedAt !== null ||
+        getNoteFolderId(selectedNote) === NOTES_TRASH_FOLDER_ID ||
+        isFolderInTrash(
+          noteFolders,
+          selectedNote.folderId,
+        )
+      )
+    const shouldResetActiveFolder =
+      resolvedActiveFolderId === NOTES_TRASH_FOLDER_ID ||
+      isFolderInTrash(
+        noteFolders,
+        resolvedActiveFolderId,
+      )
+
+    onEmptyTrash()
+
+    if (shouldResetActiveFolder) {
+      setActiveFolderId(NOTES_INBOX_FOLDER_ID)
+    }
+
+    if (shouldClearSelectedNote) {
+      setSelectedNoteId(null)
+      setIsNoteFullscreen(false)
+    }
+  }
+
+  function getVirtualFolderName(folderId: string | null) {
+    if (folderId === NOTES_TRASH_FOLDER_ID) {
+      return 'Trash'
+    }
+
+    const categoryId =
+      getCategoryIdFromFolderId(folderId)
+
+    if (categoryId) {
+      return (
+        categories.find((category) => category.id === categoryId)?.name ??
+        'Category'
+      )
+    }
+
+    return 'Inbox'
+  }
+
+  function getFolderPathSegments(folderId: string | null) {
+    const normalizedFolderId =
+      folderId &&
+      isKnownFolderId(
+        categories,
+        noteFolders,
+        folderId,
+      )
+        ? folderId
+        : NOTES_INBOX_FOLDER_ID
+    const storedFolderSegments: string[] = []
+    const visitedFolderIds = new Set<string>()
+    let currentFolderId: string | null = normalizedFolderId
+
+    while (
+      currentFolderId &&
+      !isSystemFolderId(currentFolderId)
+    ) {
+      if (visitedFolderIds.has(currentFolderId)) {
+        break
+      }
+
+      visitedFolderIds.add(currentFolderId)
+
+      const folder =
+        noteFolders.find((item) => item.id === currentFolderId) ?? null
+
+      if (!folder) {
+        break
+      }
+
+      storedFolderSegments.unshift(folder.name)
+      currentFolderId =
+        folder.parentId ?? NOTES_INBOX_FOLDER_ID
+    }
+
+    return [
+      getVirtualFolderName(currentFolderId),
+      ...storedFolderSegments,
+    ]
+  }
+
+  const pathSegments =
+    selectedNote === null
+      ? getFolderPathSegments(resolvedActiveFolderId)
+      : [
+        ...getFolderPathSegments(
+          getNoteFolderId(selectedNote),
+        ),
+        selectedNote.title || 'Untitled',
+      ]
 
   function renderSelectedNoteHeader(isFullscreen: boolean) {
     if (selectedNote === null) {
@@ -169,12 +420,60 @@ function Notes({notes, onAddNote, onUpdateNote, onDeleteNote}: NotesProps) {
 
   return (
     <main className="flex flex-1 flex-col px-10 gap-2">
-      <header className="flex gap-1 items-center justify-between">
-        <LiveDateTime />
-        <div className="flex gap-1 text-foreground-secondary">
-          <Notebook />
-          <span>notes.</span>
-        </div>
+      <header
+        className="
+          flex
+          min-h-8
+          min-w-0
+          items-center
+          text-xs
+          text-muted
+        "
+      >
+        <nav
+          className="
+            flex
+            min-w-0
+            items-center
+            gap-1.5
+            overflow-hidden
+          "
+          aria-label="Current note path"
+        >
+          {pathSegments.map((segment, index) => {
+            const isLastSegment =
+              index === pathSegments.length - 1
+
+            return (
+              <span
+                key={`${segment}-${index}`}
+                className="
+                  flex
+                  min-w-0
+                  items-center
+                  gap-1.5
+                "
+              >
+                {index > 0 && (
+                  <span className="shrink-0 text-border">/</span>
+                )}
+
+                <span
+                  className={`
+                    truncate
+                    ${
+                      isLastSegment
+                        ? 'max-w-80 text-foreground-secondary'
+                        : 'max-w-36'
+                    }
+                  `}
+                >
+                  {segment}
+                </span>
+              </span>
+            )
+          })}
+        </nav>
       </header>
       <section className="flex flex-col gap-1 h-168">
         <div className="flex justify-between mb-2">
@@ -199,25 +498,30 @@ function Notes({notes, onAddNote, onUpdateNote, onDeleteNote}: NotesProps) {
                 hover:text-accent
               `}
             />
-            <h3 className="text-xl font-semibold">Active Notes.</h3>
+            <h3 className="text-xl font-semibold">Notes.</h3>
           </div>
           <div className="flex gap-2">
-            <Button
-              onClick={() => {
-                const id = onAddNote()
-                setIsNoteFullscreen(false)
-                setSelectedNoteId(id)
-              }}
-              Icon={PlusIcon}
-              className={`
-              bg-app-surface 
-              border-border 
-              text-muted 
-              hover:bg-accent-soft
-              hover:border-accent
-              hover:text-accent
-            `}
-            />
+            <button
+              type="button"
+              disabled={!canCreateInActiveFolder}
+              onClick={handleAddFolderToActiveFolder}
+              aria-label="New folder"
+              title="New folder"
+              className={createControlButtonClass}
+            >
+              <FolderPlus className="size-4" />
+            </button>
+
+            <button
+              type="button"
+              disabled={!canCreateInActiveFolder}
+              onClick={handleAddNoteToActiveFolder}
+              aria-label="New file"
+              title="New file"
+              className={createControlButtonClass}
+            >
+              <FilePlus className="size-4" />
+            </button>
           </div>
 
         </div>
@@ -235,35 +539,21 @@ function Notes({notes, onAddNote, onUpdateNote, onDeleteNote}: NotesProps) {
               }
             `}
           >
-            {notes.map((note) => (
-              <div className="flex gap-2" key={note.id}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsNoteFullscreen(false)
-                    setSelectedNoteId(note.id)
-                  }}
-                  className={`
-                flex
-                w-full
-                cursor-pointer
-                rounded-xl
-                px-3
-                py-2
-                text-left
-                transition-colors
-          
-                ${
-                    selectedNoteId === note.id
-                      ? 'bg-surface-hover text-foreground'
-                      : 'text-foreground-secondary hover:bg-surface-hover/50'
-                  }
-              `}
-                >
-                  <span className="truncate">{note.title || 'Untitled'}</span>
-                </button>
-              </div>
-            ))}
+            <NotesTreeSidebar
+              ref={notesTreeSidebarRef}
+              categories={categories}
+              folders={noteFolders}
+              notes={notes}
+              activeFolderId={resolvedActiveFolderId}
+              selectedNoteId={selectedNoteId}
+              onActiveFolderChange={setActiveFolderId}
+              onRenameFolder={onRenameFolder}
+              onDeleteFolder={onDeleteFolder}
+              onEmptyTrash={handleEmptyTrash}
+              onMoveNote={onMoveNote}
+              onMoveFolder={onMoveFolder}
+              onSelectNote={handleSelectNote}
+            />
           </aside>
           <section
             className={`

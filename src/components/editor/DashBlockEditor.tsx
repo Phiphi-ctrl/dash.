@@ -44,6 +44,8 @@ import Columns from './extensions/Columns.ts'
 import Column from './extensions/Column.ts'
 import CodeBlock from './extensions/CodeBlock.ts'
 import AudioBlock from "./extensions/AudioBlock.ts";
+import ImageBlock from './extensions/ImageBlock.ts'
+import PdfBlock from './extensions/PdfBlock.ts'
 import {
   Mathematics,
 } from '@tiptap/extension-mathematics'
@@ -1073,6 +1075,8 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
       Column,
       CodeBlock,
       AudioBlock,
+      ImageBlock,
+      PdfBlock,
 
       TextStyle,
       BlockStyle,
@@ -1130,6 +1134,8 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
           'column',
           'codeBlock',
           'audioBlock',
+          'imageBlock',
+          'pdfBlock',
         ],
 
         generateID: () =>
@@ -1679,6 +1685,42 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
               {
                 type:
                     'audioBlock',
+              },
+          )
+          .run()
+
+      closeHandleMenu()
+
+      return
+    }
+
+    if (command.type === 'imageBlock') {
+      editor
+          .chain()
+          .focus()
+          .insertContentAt(
+              insertPos,
+              {
+                type:
+                    'imageBlock',
+              },
+          )
+          .run()
+
+      closeHandleMenu()
+
+      return
+    }
+
+    if (command.type === 'pdfBlock') {
+      editor
+          .chain()
+          .focus()
+          .insertContentAt(
+              insertPos,
+              {
+                type:
+                    'pdfBlock',
               },
           )
           .run()
@@ -3674,7 +3716,7 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
 
                   hover:w-80
                   hover:border-white/10
-                  hover:bg-transparent
+                  hover:bg-canvas/50
                   hover:gap-1
                   hover:px-6
                   hover:py-8
@@ -3727,6 +3769,7 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
                               cursor-pointer
                               items-center
                               rounded-lg
+                              p-2
 
                               text-left
                               transition-[height,background-color]
@@ -3742,11 +3785,11 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
                               ${
                                   isActiveHeading
                                       ? `
-                                        group-hover/heading-outline:bg-surface-hover
+                                        group-hover/heading-outline:bg-transparent
                                         group-focus-within/heading-outline:bg-surface-hover
                                       `
                                       : `
-                                        group-hover/heading-outline:hover:bg-surface-hover
+                                        group-hover/heading-outline:hover:bg-transparent
                                         group-focus-within/heading-outline:hover:bg-surface-hover
                                       `
                               }

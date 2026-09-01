@@ -5,6 +5,8 @@ export type Note = {
   title: string
   document: DashDocument
   categoryId: string | null
+  folderId: string | null
   createdAt: string
   updatedAt: string
+  deletedAt: string | null
 }

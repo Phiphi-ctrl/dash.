@@ -14,6 +14,36 @@ import type { NewCategory, Category } from './types/Category.ts'
 import CategoryForm from './components/dashboard/CategoryForm/CategoryForm.tsx'
 import type { Note } from './types/Note.ts'
 import { createEmptyDashDocument } from './types/Block.ts'
+import type { NoteFolder } from './types/NoteFolder.ts'
+import {
+  canMoveFolder,
+  emptyTrash,
+  getFolderBranchIds,
+  isFolderInTrash,
+  moveCategoryContentsToTrash,
+  moveFolderBranchToTrash,
+  normalizeStoredNoteFolders,
+  normalizeStoredNotes,
+  NOTES_INBOX_FOLDER_ID,
+  NOTES_TRASH_FOLDER_ID,
+  resolveFolderCategoryId,
+} from './utils/noteTree.ts'
+
+function readStoredArray(key: string) {
+  const storedValue = localStorage.getItem(key)
+
+  if (!storedValue) {
+    return []
+  }
+
+  try {
+    const parsedValue = JSON.parse(storedValue)
+
+    return Array.isArray(parsedValue) ? parsedValue : []
+  } catch {
+    return []
+  }
+}
 
 function createEmptyTaskValues(): NewTask {
   return {
@@ -51,19 +81,41 @@ function App() {
     localStorage.setItem("dash.tasks", JSON.stringify(tasks))
   }, [tasks])
 
-  const [notes, setNotes] = useState<Note[]>(() => {
-    const storedNotes = localStorage.getItem("dash.notes")
-    if(!storedNotes) return []
-    return JSON.parse(storedNotes)
-  })
+  const [noteFolders, setNoteFolders] = useState<NoteFolder[]>(() =>
+    normalizeStoredNoteFolders(
+      readStoredArray('dash.noteFolders'),
+    ),
+  )
+
+  useEffect(() => {
+    localStorage.setItem("dash.noteFolders", JSON.stringify(noteFolders))
+  }, [noteFolders])
+
+  const [notes, setNotes] = useState<Note[]>(() =>
+    normalizeStoredNotes(
+      readStoredArray('dash.notes'),
+      categories,
+      noteFolders,
+    ),
+  )
 
   useEffect(() => {
     localStorage.setItem("dash.notes", JSON.stringify(notes))
   }, [notes])
 
   //note handlers
-  function handleAddNote() {
+  function handleAddNote(
+    folderId: string | null = NOTES_INBOX_FOLDER_ID,
+  ) {
     const now = new Date().toISOString()
+    const targetFolderId =
+      folderId ?? NOTES_INBOX_FOLDER_ID
+    const isTrashTarget =
+      targetFolderId === NOTES_TRASH_FOLDER_ID ||
+      isFolderInTrash(
+        noteFolders,
+        targetFolderId,
+      )
 
     const note: Note = {
       id: crypto.randomUUID(),
@@ -72,9 +124,21 @@ function App() {
       document:
         createEmptyDashDocument(),
 
-      categoryId: null,
+      categoryId:
+        isTrashTarget
+          ? null
+          : resolveFolderCategoryId(
+            noteFolders,
+            targetFolderId,
+          ),
+      folderId:
+        targetFolderId,
       createdAt: now,
       updatedAt: now,
+      deletedAt:
+        isTrashTarget
+          ? now
+          : null,
     }
 
     setNotes((currentNotes) => [
@@ -90,7 +154,7 @@ function App() {
     changes: Partial<
       Pick<
         Note,
-        'title' | 'document' | 'categoryId'
+        'title' | 'document' | 'categoryId' | 'folderId' | 'deletedAt'
       >
     >
   ) {
@@ -108,11 +172,262 @@ function App() {
   }
 
   function handleDeleteNote(id: string) {
+    const deletedAt =
+      new Date().toISOString()
+
     setNotes((currentNotes) =>
-      currentNotes.filter(
-        (note) => note.id !== id
+      currentNotes.flatMap(
+        (note) => {
+          if (note.id !== id) {
+            return [
+              note,
+            ]
+          }
+
+          const isAlreadyInTrash =
+            note.folderId === NOTES_TRASH_FOLDER_ID ||
+            note.deletedAt !== null ||
+            isFolderInTrash(
+              noteFolders,
+              note.folderId,
+            )
+
+          if (isAlreadyInTrash) {
+            return []
+          }
+
+          return [
+            {
+              ...note,
+              categoryId:
+                null,
+              folderId:
+              NOTES_TRASH_FOLDER_ID,
+              updatedAt:
+              deletedAt,
+              deletedAt,
+            },
+          ]
+        },
       )
     )
+  }
+
+  function handleAddNoteFolder(
+    parentId: string | null = NOTES_INBOX_FOLDER_ID,
+  ) {
+    const normalizedParentId =
+      parentId ?? NOTES_INBOX_FOLDER_ID
+
+    if (
+      normalizedParentId === NOTES_TRASH_FOLDER_ID ||
+      isFolderInTrash(
+        noteFolders,
+        normalizedParentId,
+      )
+    ) {
+      return null
+    }
+
+    const now =
+      new Date().toISOString()
+
+    const folder: NoteFolder = {
+      id:
+        crypto.randomUUID(),
+      name:
+        'New folder',
+      parentId:
+      normalizedParentId,
+      createdAt:
+      now,
+      updatedAt:
+      now,
+      deletedAt:
+        null,
+    }
+
+    setNoteFolders((currentFolders) => [
+      ...currentFolders,
+      folder,
+    ])
+
+    return folder.id
+  }
+
+  function handleRenameNoteFolder(
+    folderId: string,
+    name: string,
+  ) {
+    const trimmedName =
+      name.trim()
+
+    setNoteFolders((currentFolders) =>
+      currentFolders.map((folder) =>
+        folder.id === folderId
+          ? {
+            ...folder,
+            name:
+              trimmedName || 'Untitled folder',
+            updatedAt:
+              new Date().toISOString(),
+          }
+          : folder,
+      ),
+    )
+  }
+
+  function handleDeleteNoteFolder(folderId: string) {
+    const deletedAt =
+      new Date().toISOString()
+
+    setNoteFolders((currentFolders) => {
+      const movedTree =
+        moveFolderBranchToTrash(
+          notes,
+          currentFolders,
+          folderId,
+          deletedAt,
+        )
+
+      setNotes(
+        movedTree.notes,
+      )
+
+      return movedTree.folders
+    })
+  }
+
+  function handleEmptyNoteTrash() {
+    setNoteFolders((currentFolders) => {
+      const emptiedTree =
+        emptyTrash(
+          notes,
+          currentFolders,
+        )
+
+      setNotes(
+        emptiedTree.notes,
+      )
+
+      return emptiedTree.folders
+    })
+  }
+
+  function handleMoveNote(
+    noteId: string,
+    targetFolderId: string,
+  ) {
+    const movedAt =
+      new Date().toISOString()
+    const isTrashTarget =
+      targetFolderId === NOTES_TRASH_FOLDER_ID ||
+      isFolderInTrash(
+        noteFolders,
+        targetFolderId,
+      )
+
+    setNotes((currentNotes) =>
+      currentNotes.map((note) =>
+        note.id === noteId
+          ? {
+            ...note,
+            categoryId:
+              isTrashTarget
+                ? null
+                : resolveFolderCategoryId(
+                  noteFolders,
+                  targetFolderId,
+                ),
+            folderId:
+            targetFolderId,
+            updatedAt:
+            movedAt,
+            deletedAt:
+              isTrashTarget
+                ? note.deletedAt ?? movedAt
+                : null,
+          }
+          : note,
+      ),
+    )
+  }
+
+  function handleMoveNoteFolder(
+    folderId: string,
+    targetParentId: string,
+  ) {
+    const movedAt =
+      new Date().toISOString()
+
+    setNoteFolders((currentFolders) => {
+      if (
+        !canMoveFolder(
+          currentFolders,
+          folderId,
+          targetParentId,
+        )
+      ) {
+        return currentFolders
+      }
+
+      const movedFolderIds =
+        getFolderBranchIds(
+          currentFolders,
+          folderId,
+        )
+      const isTrashTarget =
+        targetParentId === NOTES_TRASH_FOLDER_ID ||
+        isFolderInTrash(
+          currentFolders,
+          targetParentId,
+        )
+      const nextFolders =
+        currentFolders.map((folder) =>
+          movedFolderIds.has(folder.id)
+            ? {
+              ...folder,
+              parentId:
+                folder.id === folderId
+                  ? targetParentId
+                  : folder.parentId,
+              updatedAt:
+              movedAt,
+              deletedAt:
+                isTrashTarget
+                  ? folder.deletedAt ?? movedAt
+                  : null,
+            }
+            : folder,
+        )
+      const nextCategoryId =
+        isTrashTarget
+          ? null
+          : resolveFolderCategoryId(
+            nextFolders,
+            folderId,
+          )
+
+      setNotes((currentNotes) =>
+        currentNotes.map((note) =>
+          note.folderId && movedFolderIds.has(note.folderId)
+            ? {
+              ...note,
+              categoryId:
+              nextCategoryId,
+              updatedAt:
+              movedAt,
+              deletedAt:
+                isTrashTarget
+                  ? note.deletedAt ?? movedAt
+                  : null,
+            }
+            : note,
+        ),
+      )
+
+      return nextFolders
+    })
   }
 
   const sortedTasks = [...tasks].sort((a, b) => Date.parse(a.startAt) - Date.parse(b.startAt))
@@ -142,6 +457,25 @@ function App() {
   }
 
   function handleDeleteCategory(id: string) {
+    const deletedAt =
+      new Date().toISOString()
+
+    setNoteFolders((currentFolders) => {
+      const movedTree =
+        moveCategoryContentsToTrash(
+          notes,
+          currentFolders,
+          id,
+          deletedAt,
+        )
+
+      setNotes(
+        movedTree.notes,
+      )
+
+      return movedTree.folders
+    })
+
     setCategories((currentCategories) => currentCategories.filter((c) => c.id !== id))
   }
 
@@ -335,7 +669,15 @@ function App() {
             path="/notes"
             element={<Notes
               notes={notes}
+              categories={categories}
+              noteFolders={noteFolders}
               onAddNote={handleAddNote}
+              onAddFolder={handleAddNoteFolder}
+              onRenameFolder={handleRenameNoteFolder}
+              onDeleteFolder={handleDeleteNoteFolder}
+              onEmptyTrash={handleEmptyNoteTrash}
+              onMoveNote={handleMoveNote}
+              onMoveFolder={handleMoveNoteFolder}
               onUpdateNote={handleUpdateNote}
               onDeleteNote={handleDeleteNote}
             />}

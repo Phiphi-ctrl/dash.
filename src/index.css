@@ -191,7 +191,7 @@
 
 .glass-surface {
   @apply
-  bg-transparent
+  bg-canvas/40
   backdrop-blur-xl
   border
   border-white/10

@@ -298,6 +298,90 @@ const SlashCommands =
               return
             }
 
+            if (props.command.type === 'imageBlock') {
+              const $from =
+                editor.state.doc.resolve(
+                  range.from,
+                )
+
+              const blockPos =
+                $from.before(
+                  $from.depth,
+                )
+
+              const blockNode =
+                editor.state.doc.nodeAt(
+                  blockPos,
+                )
+
+              if (!blockNode) {
+                return
+              }
+
+              editor
+                .chain()
+                .focus()
+                .insertContentAt(
+                  {
+                    from:
+                    blockPos,
+
+                    to:
+                      blockPos +
+                      blockNode.nodeSize,
+                  },
+                  {
+                    type:
+                      'imageBlock',
+                  },
+                )
+                .run()
+
+              return
+            }
+
+            if (props.command.type === 'pdfBlock') {
+              const $from =
+                editor.state.doc.resolve(
+                  range.from,
+                )
+
+              const blockPos =
+                $from.before(
+                  $from.depth,
+                )
+
+              const blockNode =
+                editor.state.doc.nodeAt(
+                  blockPos,
+                )
+
+              if (!blockNode) {
+                return
+              }
+
+              editor
+                .chain()
+                .focus()
+                .insertContentAt(
+                  {
+                    from:
+                    blockPos,
+
+                    to:
+                      blockPos +
+                      blockNode.nodeSize,
+                  },
+                  {
+                    type:
+                      'pdfBlock',
+                  },
+                )
+                .run()
+
+              return
+            }
+
             if (props.command.type === 'columns') {
               const $from =
                 editor.state.doc.resolve(

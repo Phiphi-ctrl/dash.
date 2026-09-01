@@ -5,7 +5,11 @@ import {
   Pilcrow,
   Sigma,
   Code2,
-  type LucideIcon, Columns2, AudioLines,
+  type LucideIcon,
+  Columns2,
+  AudioLines,
+  Image as ImageIcon,
+  FileText,
 } from 'lucide-react'
 
 export type BlockInsertCommand =
@@ -27,6 +31,12 @@ export type BlockInsertCommand =
 }
     | {
     type: 'audioBlock'
+}
+    | {
+    type: 'imageBlock'
+}
+    | {
+    type: 'pdfBlock'
 }
 
 export type SlashInsertCommand =
@@ -201,6 +211,56 @@ export const blockOptions: BlockOption[] = [
     command: {
       type:
         'audioBlock',
+    },
+  },
+
+  {
+    label:
+      'Banner',
+
+    description:
+      'Upload a cover image',
+
+    Icon:
+    ImageIcon,
+
+    keywords: [
+      'banner',
+      'cover',
+      'header',
+      'image',
+      'picture',
+      'photo',
+      'upload',
+    ],
+
+    command: {
+      type:
+        'imageBlock',
+    },
+  },
+
+  {
+    label:
+      'PDF',
+
+    description:
+      'Upload a PDF document',
+
+    Icon:
+      FileText,
+
+    keywords: [
+      'pdf',
+      'document',
+      'file',
+      'viewer',
+      'upload',
+    ],
+
+    command: {
+      type:
+        'pdfBlock',
     },
   },
 ]
