@@ -476,54 +476,77 @@ function Notes({
         </nav>
       </header>
       <section className="flex flex-col gap-1 h-168">
-        <div className="flex justify-between mb-2">
-          <div className="flex justify-center items-center gap-3 text-foreground">
-            <Button
-              onClick={() => {
-                setIsNotesSidebarOpen(
-                  (current) => !current
-                )
-              }}
-              Icon={
-                isNotesSidebarOpen
-                  ? PanelLeftClose
-                  : PanelLeftOpen
-              }
-              className={`
-                bg-app-surface
-                border-border
-                text-muted
-                hover:bg-accent-soft
-                hover:border-accent
-                hover:text-accent
-              `}
-            />
+        <div className="flex items-center mb-2">
+          <div className="flex min-w-0 items-center gap-3 text-foreground">
+            <div className="flex shrink-0 items-center">
+              <Button
+                onClick={() => {
+                  setIsNotesSidebarOpen(
+                    (current) => !current
+                  )
+                }}
+                Icon={
+                  isNotesSidebarOpen
+                    ? PanelLeftClose
+                    : PanelLeftOpen
+                }
+                className={`
+                  bg-app-surface
+                  border-border
+                  text-muted
+                  hover:bg-accent-soft
+                  hover:border-accent
+                  hover:text-accent
+                `}
+              />
+
+              <div
+                aria-hidden={!isNotesSidebarOpen}
+                className={`
+                  flex
+                  origin-left
+                  items-center
+                  gap-2
+                  overflow-hidden
+                  transition-[width,margin-left,opacity,transform,filter]
+                  duration-300
+                  ease-out
+
+                  ${
+                    isNotesSidebarOpen
+                      ? 'ml-2 w-[5.5rem] translate-x-0 scale-100 opacity-100 blur-0'
+                      : 'ml-0 w-0 -translate-x-7 scale-75 opacity-0 blur-[1px]'
+                  }
+                `}
+              >
+                <button
+                  type="button"
+                  disabled={!canCreateInActiveFolder || !isNotesSidebarOpen}
+                  tabIndex={isNotesSidebarOpen ? 0 : -1}
+                  onClick={handleAddFolderToActiveFolder}
+                  aria-label="New folder"
+                  title="New folder"
+                  className={createControlButtonClass}
+                >
+                  <FolderPlus className="size-4" />
+                </button>
+
+                <button
+                  type="button"
+                  disabled={!canCreateInActiveFolder || !isNotesSidebarOpen}
+                  tabIndex={isNotesSidebarOpen ? 0 : -1}
+                  onClick={handleAddNoteToActiveFolder}
+                  aria-label="New file"
+                  title="New file"
+                  className={createControlButtonClass}
+                >
+                  <FilePlus className="size-4" />
+                </button>
+              </div>
+            </div>
+
             <h3 className="text-xl font-semibold">Notes.</h3>
           </div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              disabled={!canCreateInActiveFolder}
-              onClick={handleAddFolderToActiveFolder}
-              aria-label="New folder"
-              title="New folder"
-              className={createControlButtonClass}
-            >
-              <FolderPlus className="size-4" />
-            </button>
-
-            <button
-              type="button"
-              disabled={!canCreateInActiveFolder}
-              onClick={handleAddNoteToActiveFolder}
-              aria-label="New file"
-              title="New file"
-              className={createControlButtonClass}
-            >
-              <FilePlus className="size-4" />
-            </button>
-          </div>
-
         </div>
         <div className="flex min-h-0 flex-1">
           <aside
