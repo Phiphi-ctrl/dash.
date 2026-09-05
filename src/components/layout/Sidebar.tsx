@@ -139,7 +139,7 @@ function Sidebar() {
           <span
             className={spanStyle}
           >
-            Categories
+            Workspaces
           </span>
         </NavLink>
         <NavLink
@@ -195,6 +195,7 @@ function Sidebar() {
           </span>
         </NavLink>
         <NavLink
+          to=""
           end
           className="
           flex
@@ -224,6 +225,7 @@ function Sidebar() {
       {/*Bottom Navigation*/}
       <div className="mt-auto flex flex-col">
         <NavLink
+          to=""
           end
           className="
           flex

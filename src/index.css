@@ -191,13 +191,13 @@
 
 .glass-surface {
   @apply
-  bg-canvas/40
+  bg-canvas/70
   backdrop-blur-xl
-  border
-  border-white/10
   shadow-xl
-  rounded-4xl;
+  rounded-4xl
+  border-white/20
 }
+
 
 .glass-panel {
   @apply
@@ -211,7 +211,7 @@
 
 .glass-sidebar {
   @apply
-  bg-transparent
+  bg-canvas/10
   backdrop-blur-xl
   border-r
   border-white/10
@@ -229,6 +229,22 @@
   border-white/10
   shadow-lg
   rounded-4xl;
+}
+
+.note-actions-liquid-glass {
+  background: rgba(0, 0, 0, 0.05);
+
+  backdrop-filter:
+          url(#note-actions-liquid-glass)
+          blur(1px)
+          saturate(150%);
+
+  border: 1px solid rgba(255, 255, 255, 0.16);
+
+  box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.22),
+          inset 0 -1px 0 rgba(255, 255, 255, 0.06),
+          0 8px 30px rgba(0, 0, 0, 0.22);
 }
 
 @keyframes active-task-progress-enter {
@@ -342,6 +358,68 @@
   font-size: 1.25rem;
   line-height: 1.75rem;
   font-weight: 700;
+}
+
+.dash-editor ul[data-type="bulletList"] {
+  list-style: disc;
+  padding-left: 1.5rem;
+}
+
+.dash-editor li[data-type="listItem"] {
+  padding-left: 0.25rem;
+}
+
+.dash-editor li {
+  margin-top: 0.35rem;
+  margin-bottom: 0.35rem;
+}
+
+.dash-editor li::marker {
+  color: var(--color-muted);
+}
+
+.dash-editor ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 0;
+}
+
+.dash-editor li[data-type="taskItem"] {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  padding-left: 0;
+}
+
+.dash-editor li[data-type="taskItem"] > label {
+  display: flex;
+  flex: 0 0 1rem;
+  align-items: center;
+  justify-content: center;
+  height: 1.625rem;
+  cursor: pointer;
+}
+
+.dash-editor li[data-type="taskItem"] input[type="checkbox"] {
+  width: 0.95rem;
+  height: 0.95rem;
+  margin: 0;
+  cursor: pointer;
+  accent-color: var(--color-accent);
+}
+
+.dash-editor li[data-type="taskItem"] > div {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.dash-editor li[data-type="taskItem"] > div > p {
+  margin: 0;
+}
+
+.dash-editor li[data-type="taskItem"][data-checked="true"] > div {
+  color: var(--color-muted);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--color-muted) 72%, transparent);
 }
 
 .dash-editor .is-empty::before {

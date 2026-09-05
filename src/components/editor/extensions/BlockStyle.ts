@@ -12,6 +12,8 @@ const BlockStyle =
           types: [
             'paragraph',
             'heading',
+            'listItem',
+            'taskItem',
           ],
 
           attributes: {

@@ -1,15 +1,25 @@
 import {
-  FilePlus,
-  FolderPlus,
-  Maximize2,
-  Minimize2,
-  Trash2,
-  PanelLeftClose,
-  PanelLeftOpen,
+    Ellipsis,
+    FilePlus,
+    FolderPlus,
+    Maximize2,
+    Minimize2,
+    Trash2,
+    PanelLeftClose,
+    PanelLeftOpen, UserRound, Dot, PenLine,
 } from 'lucide-react'
+import {
+  autoUpdate,
+  flip,
+  FloatingPortal,
+  offset,
+  shift,
+  useFloating,
+} from '@floating-ui/react'
 import type { Note } from '../types/Note.ts'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Button from '../components/ui/Button.tsx'
+import Tooltip from '../components/ui/Tooltip.tsx'
 import DashBlockEditor from "../components/editor/DashBlockEditor.tsx";
 import {dateTimeFormatter} from "../utils/Datetime.ts";
 import type { Category } from '../types/Category.ts'
@@ -85,6 +95,31 @@ function Notes({
   const notesTreeSidebarRef =
     useRef<NotesTreeSidebarHandle | null>(null)
 
+  const selectedNoteTitleInputRef =
+    useRef<HTMLInputElement | null>(null)
+
+  const noteScrollViewportRef =
+    useRef<HTMLDivElement | null>(null)
+
+  const [
+    noteActionsButtonElement,
+    setNoteActionsButtonElement,
+  ] =
+    useState<HTMLButtonElement | null>(null)
+
+  const [
+    noteActionsMenuElement,
+    setNoteActionsMenuElement,
+  ] =
+    useState<HTMLDivElement | null>(null)
+
+  const [isNoteActionsMenuOpen, setIsNoteActionsMenuOpen] =
+    useState(false)
+
+  const isVisibleNoteActionsMenu =
+    selectedNote !== null &&
+    isNoteActionsMenuOpen
+
   const resolvedActiveFolderId =
     isKnownFolderId(
       categories,
@@ -106,49 +141,154 @@ function Notes({
   const isSelectedNoteFullscreen =
     selectedNote !== null && isNoteFullscreen
 
-  const noteActionButtonClass = `
-    bg-app-surface
-    border-border
+  const toolbarButtonClass = `
+    !p-2
+    !rounded-4xl
+    !border-transparent
+    bg-transparent
     text-muted
-    hover:bg-accent-soft
-    hover:border-accent
-    hover:text-accent
-  `
-
-  const createControlButtonClass = `
-    flex
-    h-10
-    w-10
-    shrink-0
-    cursor-pointer
-    items-center
-    justify-center
-    rounded-4xl
-    border
-    border-border
-    bg-app-surface
-    text-muted
-    transition-colors
-    duration-400
-
-    hover:border-accent
-    hover:bg-accent-soft
-    hover:text-accent
+    hover:!border-transparent
+    hover:bg-surface-hover
+    hover:text-foreground
     disabled:cursor-default
-    disabled:opacity-40
-    disabled:hover:border-border
-    disabled:hover:bg-app-surface
+    disabled:opacity-35
+    disabled:hover:!border-transparent
+    disabled:hover:bg-transparent
     disabled:hover:text-muted
   `
 
-  const deleteNoteButtonClass = `
-    bg-app-surface
-    border-border
-    text-muted
-    hover:bg-accent-danger-soft
-    hover:border-danger
-    hover:text-danger
-  `
+
+
+  const {
+    floatingStyles:
+      noteActionsFloatingStyles,
+    isPositioned:
+      isNoteActionsMenuPositioned,
+    update:
+      updateNoteActionsMenuPosition,
+  } =
+    useFloating({
+      open:
+        isVisibleNoteActionsMenu,
+
+      onOpenChange:
+        setIsNoteActionsMenuOpen,
+
+      elements: {
+        reference:
+          noteActionsButtonElement,
+
+        floating:
+          noteActionsMenuElement,
+      },
+
+      placement:
+        'bottom',
+
+      strategy:
+        'fixed',
+
+      whileElementsMounted:
+        autoUpdate,
+
+      middleware: [
+        offset(8),
+
+        flip({
+          padding: 12,
+        }),
+
+        shift({
+          padding: 12,
+        }),
+      ],
+    })
+
+  useEffect(() => {
+    if (!isVisibleNoteActionsMenu) {
+      return
+    }
+
+    const animationFrameId =
+      window.requestAnimationFrame(
+        () => {
+          void updateNoteActionsMenuPosition()
+        },
+      )
+
+    return () => {
+      window.cancelAnimationFrame(
+        animationFrameId,
+      )
+    }
+  }, [
+    isVisibleNoteActionsMenu,
+    noteActionsButtonElement,
+    noteActionsMenuElement,
+    updateNoteActionsMenuPosition,
+  ])
+
+  useEffect(() => {
+    if (!isVisibleNoteActionsMenu) {
+      return
+    }
+
+    function handleDocumentPointerDown(event: PointerEvent) {
+      const target = event.target
+
+      if (!(target instanceof Node)) {
+        return
+      }
+
+      const clickedActionsTrigger =
+        target instanceof Element &&
+        target.closest(
+          '[data-notes-actions-trigger]',
+        )
+
+      if (
+        clickedActionsTrigger ||
+        noteActionsButtonElement?.contains(target) ||
+        noteActionsMenuElement?.contains(target)
+      ) {
+        return
+      }
+
+      setIsNoteActionsMenuOpen(false)
+    }
+
+    function handleDocumentKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setIsNoteActionsMenuOpen(false)
+      }
+    }
+
+    document.addEventListener(
+      'pointerdown',
+      handleDocumentPointerDown,
+    )
+
+    document.addEventListener(
+      'keydown',
+      handleDocumentKeyDown,
+    )
+
+    return () => {
+      document.removeEventListener(
+        'pointerdown',
+        handleDocumentPointerDown,
+      )
+
+      document.removeEventListener(
+        'keydown',
+        handleDocumentKeyDown,
+      )
+    }
+  }, [
+    isVisibleNoteActionsMenu,
+    noteActionsButtonElement,
+    noteActionsMenuElement,
+  ])
 
   function handleDeleteSelectedNote() {
     if (selectedNote === null) {
@@ -158,6 +298,7 @@ function Notes({
     onDeleteNote(selectedNote.id)
     setSelectedNoteId(null)
     setIsNoteFullscreen(false)
+    setIsNoteActionsMenuOpen(false)
   }
 
   function getNoteFolderId(note: Note) {
@@ -179,6 +320,17 @@ function Notes({
     return NOTES_INBOX_FOLDER_ID
   }
 
+  function isNoteInTrash(note: Note) {
+    return (
+      note.deletedAt !== null ||
+      getNoteFolderId(note) === NOTES_TRASH_FOLDER_ID ||
+      isFolderInTrash(
+        noteFolders,
+        note.folderId,
+      )
+    )
+  }
+
   function handleSelectNote(noteId: string) {
     const nextSelectedNote =
       notes.find(
@@ -192,6 +344,7 @@ function Notes({
     }
 
     setIsNoteFullscreen(false)
+    setIsNoteActionsMenuOpen(false)
     setSelectedNoteId(noteId)
   }
 
@@ -209,6 +362,7 @@ function Notes({
       return
     }
 
+    setIsNoteFullscreen(false)
     setActiveFolderId(folderId)
     notesTreeSidebarRef.current?.startEditingFolder(
       folderId,
@@ -229,19 +383,42 @@ function Notes({
 
     setIsNoteFullscreen(false)
     setSelectedNoteId(id)
+    setIsNoteActionsMenuOpen(false)
+  }
+
+  function handleToggleSelectedNoteFullscreen() {
+    if (selectedNote === null) {
+      return
+    }
+
+    setIsNoteActionsMenuOpen(false)
+    setIsNoteFullscreen((current) => !current)
+  }
+
+  function handleToggleNoteActionsMenu(
+    triggerElement: HTMLButtonElement,
+  ) {
+    if (selectedNote === null) {
+      return
+    }
+
+    setNoteActionsButtonElement(
+      triggerElement,
+    )
+
+    setIsNoteActionsMenuOpen((current) => !current)
+  }
+
+  function handleRenameSelectedNote() {
+    selectedNoteTitleInputRef.current?.focus()
+    selectedNoteTitleInputRef.current?.select()
+    setIsNoteActionsMenuOpen(false)
   }
 
   function handleEmptyTrash() {
     const shouldClearSelectedNote =
       selectedNote !== null &&
-      (
-        selectedNote.deletedAt !== null ||
-        getNoteFolderId(selectedNote) === NOTES_TRASH_FOLDER_ID ||
-        isFolderInTrash(
-          noteFolders,
-          selectedNote.folderId,
-        )
-      )
+      isNoteInTrash(selectedNote)
     const shouldResetActiveFolder =
       resolvedActiveFolderId === NOTES_TRASH_FOLDER_ID ||
       isFolderInTrash(
@@ -331,103 +508,17 @@ function Notes({
         selectedNote.title || 'Untitled',
       ]
 
-  function renderSelectedNoteHeader(isFullscreen: boolean) {
-    if (selectedNote === null) {
-      return null
-    }
-
+  function renderBreadcrumb() {
     return (
-      <div
-        className="
-          absolute
-          inset-x-0
-          top-0
-          z-20
-
-          flex
-          items-center
-          justify-between
-
-          pl-4
-          py-4
-
-          bg-canvas/90
-          backdrop-blur-xs
-        "
-      >
-        <div className="flex flex-col">
-          <input
-            type="text"
-            value={selectedNote.title}
-            onChange={(event) => {
-              onUpdateNote(selectedNote.id, {
-                title: event.target.value,
-              })
-            }}
-            className="
-              w-full
-
-              pl-15
-
-              bg-transparent
-              text-2xl
-              font-bold
-              text-foreground
-              outline-none
-            "
-          />
-          <span className="text-muted text-xs pl-15">
-            {dateTimeFormatter.format(Date.parse(selectedNote.createdAt))}
-          </span>
-        </div>
-
-        <div className="flex gap-2">
-          <Button
-            onClick={() => setIsNoteFullscreen((current) => !current)}
-            Icon={isFullscreen ? Minimize2 : Maximize2}
-            className={noteActionButtonClass}
-          />
-          <Button
-            onClick={handleDeleteSelectedNote}
-            Icon={Trash2}
-            className={deleteNoteButtonClass}
-          />
-        </div>
-      </div>
-    )
-  }
-
-  function renderSelectedNoteEditor() {
-    if (selectedNote === null) {
-      return null
-    }
-
-    return (
-      <DashBlockEditor
-        key={selectedNote.id}
-        value={selectedNote.document}
-        onChange={(document) => {
-          onUpdateNote(
-            selectedNote.id,
-            {
-              document,
-            },
-          )
-        }}
-      />
-    )
-  }
-
-  return (
-    <main className="flex flex-1 flex-col px-10 gap-2">
       <header
         className="
           flex
-          min-h-8
+          min-h-6
           min-w-0
           items-center
-          text-xs
+          text-sm
           text-muted
+          pt-2
         "
       >
         <nav
@@ -474,80 +565,396 @@ function Notes({
             )
           })}
         </nav>
-      </header>
-      <section className="flex flex-col gap-1 h-168">
-        <div className="flex items-center mb-2">
-          <div className="flex min-w-0 items-center gap-3 text-foreground">
-            <div className="flex shrink-0 items-center">
-              <Button
-                onClick={() => {
-                  setIsNotesSidebarOpen(
-                    (current) => !current
-                  )
-                }}
-                Icon={
-                  isNotesSidebarOpen
-                    ? PanelLeftClose
-                    : PanelLeftOpen
-                }
-                className={`
-                  bg-app-surface
-                  border-border
-                  text-muted
-                  hover:bg-accent-soft
-                  hover:border-accent
-                  hover:text-accent
-                `}
-              />
 
-              <div
-                aria-hidden={!isNotesSidebarOpen}
-                className={`
+      </header>
+    )
+  }
+
+  function renderNoteActionsMenu() {
+    if (
+        selectedNote === null ||
+        !isVisibleNoteActionsMenu
+    ) {
+      return null
+    }
+
+    return (
+        <FloatingPortal>
+
+          <div
+              ref={setNoteActionsMenuElement}
+
+              style={{
+                ...noteActionsFloatingStyles,
+
+                visibility:
+                    isNoteActionsMenuPositioned
+                        ? 'visible'
+                        : 'hidden',
+              }}
+
+              data-notes-actions-menu
+
+              className="
+                z-120
+                w-48
+                overflow-hidden
+                p-2
+                glass-surface
+              "
+          >
+            <button
+                type="button"
+                onMouseDown={(event) => {
+                  event.preventDefault()
+                  event.stopPropagation()
+                }}
+                onClick={handleRenameSelectedNote}
+                className="
                   flex
-                  origin-left
+                  w-full
+                  cursor-pointer
                   items-center
                   gap-2
-                  overflow-hidden
-                  transition-[width,margin-left,opacity,transform,filter]
+                  rounded-4xl
+                  px-2.5
+                  py-2
+                  text-left
+                  text-xs
+                  text-foreground-secondary
+                  transition-colors
+                  ease-in
                   duration-300
-                  ease-out
 
-                  ${
-                    isNotesSidebarOpen
-                      ? 'ml-2 w-[5.5rem] translate-x-0 scale-100 opacity-100 blur-0'
-                      : 'ml-0 w-0 -translate-x-7 scale-75 opacity-0 blur-[1px]'
-                  }
-                `}
-              >
-                <button
-                  type="button"
-                  disabled={!canCreateInActiveFolder || !isNotesSidebarOpen}
-                  tabIndex={isNotesSidebarOpen ? 0 : -1}
-                  onClick={handleAddFolderToActiveFolder}
-                  aria-label="New folder"
-                  title="New folder"
-                  className={createControlButtonClass}
-                >
-                  <FolderPlus className="size-4" />
-                </button>
+                  hover:bg-surface-hover
+                  hover:text-foreground
+                "
+            >
+              <PenLine size={14} />
+              Rename
+            </button>
 
-                <button
-                  type="button"
-                  disabled={!canCreateInActiveFolder || !isNotesSidebarOpen}
-                  tabIndex={isNotesSidebarOpen ? 0 : -1}
-                  onClick={handleAddNoteToActiveFolder}
-                  aria-label="New file"
-                  title="New file"
-                  className={createControlButtonClass}
-                >
-                  <FilePlus className="size-4" />
-                </button>
+            <button
+                type="button"
+                onMouseDown={(event) => {
+                  event.preventDefault()
+                  event.stopPropagation()
+                }}
+                onClick={handleDeleteSelectedNote}
+                className="
+                  flex
+                  w-full
+                  cursor-pointer
+                  items-center
+                  gap-2
+                  rounded-4xl
+                  px-2.5
+                  py-2
+                  text-left
+                  text-xs
+                  text-danger
+                  transition-colors
+                  ease-in
+                  duration-300
+
+                  hover:bg-danger-soft
+                "
+            >
+              <Trash2 size={14} />
+              <span>
+              {isNoteInTrash(selectedNote)
+                  ? 'Delete permanently'
+                  : 'Move to trash'}
+            </span>
+            </button>
+          </div>
+
+        </FloatingPortal>
+    )
+  }
+
+  function renderNotesToolbar(showActionsMenu = true) {
+    const hasSelectedNote =
+      selectedNote !== null
+
+    return (
+      <div
+        className="
+          flex
+          min-h-10
+          shrink-0
+          items-center
+          justify-between
+          gap-2
+        "
+      >
+        <div
+          className="
+            flex
+            min-w-0
+            items-center
+            gap-1
+            text-foreground
+          "
+        >
+          <Tooltip
+            content={
+              isNotesSidebarOpen
+                ? 'Collapse notes sidebar'
+                : 'Expand notes sidebar'
+            }
+            placement="bottom"
+          >
+            <Button
+              onClick={() => {
+                setIsNotesSidebarOpen(
+                  (current) => !current,
+                )
+              }}
+              Icon={
+                isNotesSidebarOpen
+                  ? PanelLeftClose
+                  : PanelLeftOpen
+              }
+              aria-label={
+                isNotesSidebarOpen
+                  ? 'Collapse notes sidebar'
+                  : 'Expand notes sidebar'
+              }
+              className={toolbarButtonClass}
+            />
+          </Tooltip>
+
+          <div
+            aria-hidden={!isNotesSidebarOpen}
+            className={`
+              flex
+              shrink-0
+              overflow-hidden
+              transition-[width,opacity,transform]
+              duration-300
+              ease-out
+
+              ${
+                isNotesSidebarOpen
+                  ? 'w-9 translate-x-0 opacity-100'
+                  : 'pointer-events-none w-0 -translate-x-2 opacity-0'
+              }
+            `}
+          >
+            <Tooltip
+              active={isNotesSidebarOpen}
+              content="Create folder"
+              placement="bottom"
+            >
+              <Button
+                disabled={!canCreateInActiveFolder || !isNotesSidebarOpen}
+                tabIndex={isNotesSidebarOpen ? 0 : -1}
+                onClick={handleAddFolderToActiveFolder}
+                Icon={FolderPlus}
+                aria-label="New folder"
+                className={toolbarButtonClass}
+              />
+            </Tooltip>
+          </div>
+
+          <Tooltip
+            content="Create note"
+            placement="bottom"
+          >
+            <Button
+              disabled={!canCreateInActiveFolder}
+              onClick={handleAddNoteToActiveFolder}
+              Icon={FilePlus}
+              aria-label="New note"
+              className={toolbarButtonClass}
+            />
+          </Tooltip>
+
+
+        </div>
+
+        <div className="flex shrink-0 items-center gap-1.5">
+          <Tooltip
+            content={
+              isSelectedNoteFullscreen
+                ? 'Exit fullscreen'
+                : 'Open note fullscreen'
+            }
+            placement="bottom"
+          >
+            <Button
+              disabled={!hasSelectedNote}
+              onClick={handleToggleSelectedNoteFullscreen}
+              Icon={isSelectedNoteFullscreen ? Minimize2 : Maximize2}
+              aria-label={
+                isSelectedNoteFullscreen
+                  ? 'Exit fullscreen'
+                  : 'Open note fullscreen'
+              }
+              className={toolbarButtonClass}
+            />
+          </Tooltip>
+
+          <Tooltip
+            active={!isVisibleNoteActionsMenu}
+            content="Note actions"
+            placement="bottom"
+          >
+            <Button
+              ref={
+                showActionsMenu
+                  ? setNoteActionsButtonElement
+                  : undefined
+              }
+              data-notes-actions-trigger="true"
+              disabled={!hasSelectedNote}
+              onPointerDown={(event) => {
+                setNoteActionsButtonElement(
+                  event.currentTarget,
+                )
+              }}
+              onClick={(event) => {
+                handleToggleNoteActionsMenu(
+                  event.currentTarget,
+                )
+              }}
+              Icon={Ellipsis}
+              aria-label="Note actions"
+              aria-expanded={
+                isVisibleNoteActionsMenu
+                  ? true
+                  : undefined
+              }
+              className={`
+                ${toolbarButtonClass}
+                ${
+                  isVisibleNoteActionsMenu
+                    ? '!border-transparent bg-surface-hover text-foreground'
+                    : ''
+                }
+              `}
+            />
+          </Tooltip>
+        </div>
+
+        {showActionsMenu && renderNoteActionsMenu()}
+      </div>
+    )
+  }
+
+  function renderSelectedNoteHeader() {
+    if (selectedNote === null) {
+      return null
+    }
+
+    return (
+      <header
+        className="
+          shrink-0
+          py-3
+        "
+      >
+        <div className="flex min-w-0 flex-col">
+          <input
+            ref={selectedNoteTitleInputRef}
+            type="text"
+            value={selectedNote.title}
+            onChange={(event) => {
+              onUpdateNote(selectedNote.id, {
+                title: event.target.value,
+              })
+            }}
+            className="
+              w-full
+
+              pl-8
+
+              bg-transparent
+              text-6xl
+              font-bold
+              text-foreground
+              outline-none
+            "
+          />
+          <div className="flex pl-8 text-muted text-xs items-center">
+              <span className="flex">
+                  {dateTimeFormatter.format(Date.parse(selectedNote.createdAt))}
+              </span>
+              <Dot />
+              <div className="flex items-center gap-2">
+                  <UserRound size={14}/>
+                  <span>Philipp Saboi</span>
               </div>
-            </div>
 
-            <h3 className="text-xl font-semibold">Notes.</h3>
           </div>
         </div>
+      </header>
+    )
+  }
+
+  function renderSelectedNoteEditor() {
+    if (selectedNote === null) {
+      return null
+    }
+
+    return (
+      <DashBlockEditor
+        key={selectedNote.id}
+        value={selectedNote.document}
+        onChange={(document) => {
+          onUpdateNote(
+            selectedNote.id,
+            {
+              document,
+            },
+          )
+        }}
+      />
+    )
+  }
+
+  function renderSelectedNoteWorkspace() {
+    if (selectedNote === null) {
+      return null
+    }
+
+    return (
+      <div
+        className="
+          flex
+          h-full
+          min-h-0
+          flex-col
+          overflow-hidden
+        "
+      >
+        <div
+          ref={noteScrollViewportRef}
+          data-note-scroll-viewport
+          className="
+            min-h-0
+            flex-1
+            overflow-y-auto
+            scrollbar-none
+            px-8
+          "
+        >
+          {renderSelectedNoteHeader()}
+
+          {renderSelectedNoteEditor()}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <main className="flex flex-1 flex-col px-10">
+      {renderBreadcrumb()}
+
+      <section className="flex flex-1 min-h-0 flex-col">
+        {renderNotesToolbar(!isSelectedNoteFullscreen)}
+
         <div className="flex min-h-0 flex-1">
           <aside
             className={`
@@ -557,8 +964,8 @@ function Notes({
               duration-300
               ${
                 isNotesSidebarOpen
-                  ? 'w-64 border-r border-border pr-10 opacity-100'
-                  : 'w-0 pr-0 opacity-0'
+                  ? 'w-64 pr-0 opacity-100'
+                  : 'pointer-events-none w-0 pr-0 opacity-0'
               }
             `}
           >
@@ -584,53 +991,29 @@ function Notes({
               flex-1
               transition-all
               duration-200
-              ${isNotesSidebarOpen ? 'pl-10' : 'pl-0'}
+              ${isNotesSidebarOpen ? 'pl-0' : 'pl-0'}
             `}
           >
-              {selectedNote !== null ? (
-                  <div className="relative h-full overflow-hidden">
-                      {renderSelectedNoteHeader(false)}
-                      {!isSelectedNoteFullscreen && (
-                        <div
-                            data-note-scroll-viewport
-                            className="
-                              h-full
-                              overflow-y-auto
-                              scrollbar-none
-                              pl-4
-                              pr-8
-                              pt-20
-                            "
-                        >
-                            {renderSelectedNoteEditor()}
-                        </div>
-                      )}
-                  </div>
-              ) : (
-                  <div className="flex h-full items-center justify-center text-muted">
-                      .  .  .
-                  </div>
-              )}
+            {selectedNote !== null && !isSelectedNoteFullscreen ? (
+              renderSelectedNoteWorkspace()
+            ) : (
+              <div className="flex h-full items-center justify-center text-muted">
+                .  .  .
+              </div>
+            )}
           </section>
         </div>
       </section>
+
       {selectedNote !== null && isSelectedNoteFullscreen && (
         <div className="fixed inset-0 z-50 bg-canvas px-10">
-          <div className="relative h-full overflow-hidden">
-            {renderSelectedNoteHeader(true)}
-            <div
-              data-note-scroll-viewport
-              className="
-                h-full
-                overflow-y-auto
-                scrollbar-none
-                pl-4
-                pr-8
-                pt-20
-              "
-            >
-              {renderSelectedNoteEditor()}
-            </div>
+          <div className="flex h-full min-h-0 flex-col">
+            {renderBreadcrumb()}
+            {renderNotesToolbar()}
+
+            <section className="min-h-0 flex-1">
+              {renderSelectedNoteWorkspace()}
+            </section>
           </div>
         </div>
       )}

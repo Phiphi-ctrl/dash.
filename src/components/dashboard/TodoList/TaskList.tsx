@@ -16,7 +16,7 @@ function TaskList({tasks, onToggle, onDelete, onEdit, today, categories } : Task
 
   const filteredTodayTasks = tasks.filter((task: Task) => isSameDay(today, new Date(task.startAt)))
   return (
-    <div className="h-134 overflow-hidden overflow-y-auto mr-2">
+    <div className="mr-2">
       {filteredTodayTasks.length === 0 ? (
         <p className="text-foreground-secondary">Nothing Planned yet...</p>
       ) : (

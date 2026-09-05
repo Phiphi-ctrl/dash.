@@ -26,7 +26,7 @@ function Settings() {
   }
 
   return (
-    <main className="flex flex-1 flex-col px-10">
+    <main className="flex h-full min-h-0 flex-1 flex-col px-10">
       <header className="flex gap-1 items-center justify-between">
         <LiveDateTime />
         <div className="flex gap-1 text-foreground-secondary">

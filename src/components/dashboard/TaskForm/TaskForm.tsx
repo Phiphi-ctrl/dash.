@@ -15,8 +15,8 @@ import SaveTemplateButton from '../../ui/SaveTemplateButton.tsx'
 import Checkbox2 from '../../ui/Checkbox2.tsx'
 import PriorityPicker from './PriorityPicker/PriorityPicker.tsx'
 import { createPortal } from 'react-dom'
-import * as React from 'react'
 import CategoryPicker from './CategoryPicker/CategoryPicker.tsx'
+import type { Category } from '../../../types/Category.ts'
 
 
 type TaskFormProps = {
@@ -642,7 +642,7 @@ function TaskForm ({initialValues, onClose, onSubmit, categories, today}: TaskFo
             <LayoutDashboard className="size-4"/>
           </div>
           <span className="p-1">
-          Category
+          Workspace
           </span>
         </div>
         <div className="flex items-center relative -ml-20">
@@ -671,7 +671,7 @@ function TaskForm ({initialValues, onClose, onSubmit, categories, today}: TaskFo
                   <span>{selectedCategory.name}</span>
                 </>
               ) : (
-                <span>No Category</span>
+                <span>No Workspace</span>
               )}
             </button>
 

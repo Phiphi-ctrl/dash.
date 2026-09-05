@@ -32,7 +32,11 @@ type CollisionPadding =
 
 type TooltipProps = {
   content: ReactNode
-  children: ReactNode
+  children:
+    | ReactNode
+    | ((
+      reference: TooltipReferenceRenderProps,
+    ) => ReactNode)
 
   active?: boolean
   delay?: number
@@ -50,6 +54,11 @@ type TooltipProps = {
   collisionBoundary?: Element | null
 
   collisionPadding?: CollisionPadding
+}
+
+type TooltipReferenceRenderProps = {
+  ref: (element: Element | null) => void
+  props: Record<string, unknown>
 }
 
 function Tooltip({
@@ -71,7 +80,7 @@ function Tooltip({
     referenceElement,
     setReferenceElement,
   ] =
-    useState<HTMLDivElement | null>(null)
+    useState<Element | null>(null)
 
   const [
     floatingElement,
@@ -178,6 +187,45 @@ function Tooltip({
       role,
     ])
 
+  const referenceProps =
+    getReferenceProps({
+      onPointerDown: () => {
+        setIsOpen(false)
+      },
+
+      onClick: () => {
+        setIsOpen(false)
+      },
+    })
+
+  function renderReference() {
+    if (typeof children === 'function') {
+      return children({
+        ref:
+          setReferenceElement,
+
+        props:
+          referenceProps,
+      })
+    }
+
+    return (
+      <div
+        ref={
+          setReferenceElement
+        }
+
+        {...referenceProps}
+
+        className="
+          flex
+        "
+      >
+        {children}
+      </div>
+    )
+  }
+
   const {
     isMounted,
     styles:
@@ -213,27 +261,7 @@ function Tooltip({
 
   return (
     <>
-      <div
-        ref={
-          setReferenceElement
-        }
-
-        {...getReferenceProps({
-          onPointerDown: () => {
-            setIsOpen(false)
-          },
-
-          onClick: () => {
-            setIsOpen(false)
-          },
-        })}
-
-        className="
-          flex
-        "
-      >
-        {children}
-      </div>
+      {renderReference()}
 
       {active &&
         isMounted && (

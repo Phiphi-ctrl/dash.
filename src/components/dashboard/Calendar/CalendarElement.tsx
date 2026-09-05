@@ -885,7 +885,7 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
       layoutTaskSegments(taskSegments)
 
   return (
-    <div className="flex flex-col w-full gap-8">
+    <div className="flex min-h-0 flex-1 flex-col w-full gap-8">
       <div className="flex">
         <div className="text-3xl font-bold text-foreground">
           {monthFormatter.format(visibleWeekStart)}
@@ -913,7 +913,7 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
         </div>
       </div>
       {/*Day grid*/}
-      <div className="flex flex-col w-full">
+      <div className="flex min-h-0 flex-1 flex-col w-full">
         <div className="grid grid-cols-[4rem_repeat(7,minmax(0,1fr))] place-items-center">
           <time></time>
           {days.map((day) => (
@@ -945,7 +945,7 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
           grid-cols-[4rem_repeat(7,minmax(0,1fr))]
           grid-rows-[repeat(96,1.25rem)]
           w-full
-          h-140 overflow-y-auto
+          h-full min-h-0 flex-1 overflow-y-auto
           ${dragState !== null ? 'select-none' : ''}
           `}
           ref={calendarGridRef}

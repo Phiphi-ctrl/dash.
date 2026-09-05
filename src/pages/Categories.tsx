@@ -14,19 +14,19 @@ type CategoriesProps = {
 
 function Categories( { categories, setIsAddCategoryOpen, handleDeleteCategory, tasks }: CategoriesProps ) {
   return (
-    <main className="flex flex-1 z-0 flex-col px-10 gap-8">
+    <main className="flex h-full min-h-0 flex-1 z-0 flex-col px-10 gap-8 overflow-hidden">
       <header className="flex gap-1 items-center justify-between">
         <LiveDateTime />
         <div className="flex gap-1 text-foreground-secondary">
           <LayoutDashboard />
-          <span>categories.</span>
+          <span>workspaces.</span>
         </div>
       </header>
-      <section className="flex flex-col gap-1">
+      <section className="flex min-h-0 flex-1 flex-col gap-1">
         <div className="flex justify-between mb-4 p-2">
           <div className="flex justify-center items-center p-2 gap-3 text-foreground">
             <ListSortDescending className="size-5" />
-            <h3 className="text-xl font-semibold">Active Categories.</h3>
+            <h3 className="text-xl font-semibold">Active Workspaces.</h3>
           </div>
           <Button
             onClick={() => {
@@ -44,7 +44,7 @@ function Categories( { categories, setIsAddCategoryOpen, handleDeleteCategory, t
           />
         </div>
         <div></div>
-        <div className="flex flex-wrap gap-6 h-135 py-4 px-4 overflow-hidden overflow-y-auto dash-scrollbar">
+        <div className="flex min-h-0 flex-1 flex-wrap gap-6 py-4 px-4 overflow-hidden overflow-y-auto dash-scrollbar">
           {categories.map((category) => (
             <CategoryCard
               key={category.id}

@@ -10,6 +10,8 @@ import {
   AudioLines,
   Image as ImageIcon,
   FileText,
+  List,
+  ListChecks,
 } from 'lucide-react'
 
 export type BlockInsertCommand =
@@ -28,6 +30,12 @@ export type BlockInsertCommand =
 }
     | {
     type: 'codeBlock'
+}
+    | {
+    type: 'bulletList'
+}
+    | {
+    type: 'taskList'
 }
     | {
     type: 'audioBlock'
@@ -191,28 +199,77 @@ export const blockOptions: BlockOption[] = [
       },
     },
 
-  {
-    label:
-      'Audio',
+    {
+      label:
+        'Bulleted List',
 
-    description:
-      'Add an audio block',
+      description:
+        'Add a bullet list',
 
-    Icon:
-    AudioLines,
+      Icon:
+        List,
 
-    keywords: [
-      'audio',
-      'recording',
-      'microphone',
-      'mic',
-    ],
+      keywords: [
+        'bulleted',
+        'bullet',
+        'list',
+        'unordered',
+        'ul',
+      ],
 
-    command: {
-      type:
-        'audioBlock',
+      command: {
+        type:
+          'bulletList',
+      },
     },
-  },
+
+    {
+      label:
+        'Checklist',
+
+      description:
+        'Add checkable items',
+
+      Icon:
+        ListChecks,
+
+      keywords: [
+        'checklist',
+        'todo',
+        'task',
+        'checkbox',
+        'checked',
+        'list',
+      ],
+
+      command: {
+        type:
+          'taskList',
+      },
+    },
+
+    {
+      label:
+        'Audio',
+
+      description:
+        'Add an audio block',
+
+      Icon:
+        AudioLines,
+
+      keywords: [
+        'audio',
+        'recording',
+        'microphone',
+        'mic',
+      ],
+
+      command: {
+        type:
+          'audioBlock',
+      },
+    },
 
   {
     label:

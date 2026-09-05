@@ -1,10 +1,9 @@
 import type { Task } from '../../../types/Task.ts'
 import { useEffect, useState } from 'react'
 import ActiveTaskCard from './ActiveTaskCard.tsx'
-import * as React from 'react'
 import { isSameDay } from '../../../utils/Datetime.ts'
 import type { Category } from '../../../types/Category.ts'
-import { getTaskColor } from '../../../utils/Category.ts'
+
 
 
 type ActiveTaskProps = {
@@ -86,9 +85,6 @@ function ActiveTask ({tasks, today, onToggle, categories}: ActiveTaskProps) {
       <div className="flex flex-wrap rounded-lg gap-2">
         {activeTasks.map((task) => (
           <button
-            style={{
-              '--task-color-active': getTaskColor(task, categories),
-            } as React.CSSProperties}
             type="button"
             key={task.id}
             onClick={() => {
@@ -99,13 +95,22 @@ function ActiveTask ({tasks, today, onToggle, categories}: ActiveTaskProps) {
             gap-2 
             cursor-pointer 
             border
-            ${task.id === selectedTask?.id ? 'border-[var(--task-color-active)] bg-[var(--task-color-active)]/10' : 'border-border'}
-            rounded-4xl 
+            glass-surface
             p-4
             `}
           >
             <span>{task.emoji}</span>
-            <span className="font-semibold mr-2 text-foreground">{task.title}</span>
+            <span
+              className={`
+              font-semibold 
+              mr-2 
+              ${task.id === selectedTaskId ? 'text-foreground' : 'text-muted'}
+              transition-colors
+              duration-500
+              `}
+            >
+              {task.title}
+            </span>
           </button>
         ))}
       </div>

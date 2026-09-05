@@ -13,6 +13,10 @@ import {
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import UniqueID from '@tiptap/extension-unique-id'
+import {
+  TaskItem,
+  TaskList,
+} from '@tiptap/extension-list'
 import DragHandle from '@tiptap/extension-drag-handle-react'
 import {
   GripVertical,
@@ -69,8 +73,11 @@ const MIN_COLUMN_RATIO = 0.2
 const MAX_COLUMN_RATIO = 0.8
 const COLUMN_RESIZE_HIT_WIDTH = 24
 const HEADING_OUTLINE_SCROLL_OFFSET = 80
+const HEADING_OUTLINE_VIEWPORT_TOP_OFFSET = 40
+const HEADING_OUTLINE_VIEWPORT_BOTTOM_INSET = 24
+const HEADING_OUTLINE_VIEWPORT_MIN_HEIGHT = 160
 
-const DEBUG_DROP_ZONES = true
+const DEBUG_DROP_ZONES = false
 
 type HeadingOutlineItem = {
   key: string
@@ -78,6 +85,12 @@ type HeadingOutlineItem = {
   pos: number
   level: 1 | 2 | 3
   title: string
+}
+
+type HeadingOutlineViewportPosition = {
+  top: number
+  right: number
+  maxHeight: number
 }
 
 function getHeadingOutlineItems(
@@ -207,11 +220,191 @@ const dragHandlePositionConfig = {
   placement: 'left-start' as const,
 }
 
+function isListContainerNodeName(
+    value: string | null | undefined,
+) {
+  return (
+      value === 'bulletList' ||
+      value === 'taskList'
+  )
+}
+
+function isListItemNodeName(
+    value: string | null | undefined,
+) {
+  return (
+      value === 'listItem' ||
+      value === 'taskItem'
+  )
+}
+
+function canDropListItemIntoContainer(
+    itemNodeName: string | null | undefined,
+    containerNodeName: string | null | undefined,
+) {
+  return (
+      (
+          itemNodeName === 'listItem' &&
+          containerNodeName === 'bulletList'
+      ) ||
+      (
+          itemNodeName === 'taskItem' &&
+          containerNodeName === 'taskList'
+      )
+  )
+}
+
+function getDropContainerFromElement(
+    element: Element | null,
+    shell: HTMLElement,
+) {
+  if (!element) {
+    return null
+  }
+
+  const listContainer =
+      element.closest<HTMLElement>(
+          'ul[data-type="bulletList"], ul[data-type="taskList"]',
+      )
+
+  if (
+      listContainer &&
+      shell.contains(listContainer)
+  ) {
+    return listContainer
+  }
+
+  const layoutContainer =
+      element.closest<HTMLElement>(
+      '.dash-column, .dash-editor',
+      )
+
+  return layoutContainer &&
+      shell.contains(layoutContainer)
+      ? layoutContainer
+      : null
+}
+
+function getBulletListHandleOffset(
+    element: HTMLElement,
+    rect: DOMRect,
+) {
+  const list =
+      element.closest<HTMLElement>(
+          'ul[data-type="bulletList"]',
+      )
+
+  if (!list) {
+    return 24
+  }
+
+  const listRect =
+      list.getBoundingClientRect()
+
+  const computedPadding =
+      Number.parseFloat(
+          window.getComputedStyle(list).paddingLeft,
+      )
+
+  return Math.min(
+      Math.max(
+          rect.left - listRect.left,
+          Number.isFinite(computedPadding)
+              ? computedPadding
+              : 0,
+          24,
+      ),
+      40,
+  )
+}
+
+function getDragHandleReferenceRect(
+    nodeName: string | null | undefined,
+    element: HTMLElement,
+) {
+  const rect =
+      element.getBoundingClientRect()
+
+  if (
+      nodeName !== 'listItem'
+  ) {
+    return rect
+  }
+
+  const offset =
+      getBulletListHandleOffset(
+          element,
+          rect,
+      )
+
+  return new DOMRect(
+      rect.left - offset,
+      rect.top,
+      rect.width + offset,
+      rect.height,
+  )
+}
+
+function getInsertPositionAfterHandleNode(
+    editor: Editor,
+    pos: number,
+    nodeName: string,
+    nodeSize: number,
+) {
+  if (
+      !isListItemNodeName(
+          nodeName,
+      )
+  ) {
+    return pos + nodeSize
+  }
+
+  const $pos =
+      editor.state.doc.resolve(
+          pos,
+      )
+
+  for (
+      let depth = $pos.depth;
+      depth > 0;
+      depth--
+  ) {
+    if (
+        isListContainerNodeName(
+            $pos.node(depth).type.name,
+        )
+    ) {
+      return $pos.after(depth)
+    }
+  }
+
+  return pos + nodeSize
+}
+
 const nestedDragHandleConfig:
     NestedOptions = {
   edgeDetection: 'none',
 
   rules: [
+    {
+      id:
+          'excludeListItemContentBlocks',
+
+      evaluate: ({
+                   parent,
+                 }) => {
+        if (
+            isListItemNodeName(
+                parent?.type.name,
+            )
+        ) {
+          return 1000
+        }
+
+        return 0
+      },
+    },
+
     {
       id:
           'excludeDashLayoutNodes',
@@ -412,6 +605,14 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
     setActiveHeadingOutlineKey,
   ] =
       useState<string | null>(
+          null,
+      )
+
+  const [
+    headingOutlineViewportPosition,
+    setHeadingOutlineViewportPosition,
+  ] =
+      useState<HeadingOutlineViewportPosition | null>(
           null,
       )
 
@@ -1064,6 +1265,26 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
           levels: [1, 2, 3],
         },
 
+        bulletList: {
+          HTMLAttributes: {
+            'data-type':
+              'bulletList',
+
+            class:
+              'dash-bullet-list',
+          },
+        },
+
+        listItem: {
+          HTMLAttributes: {
+            'data-type':
+              'listItem',
+
+            class:
+              'dash-list-item',
+          },
+        },
+
         trailingNode: false,
 
         dropcursor: false,
@@ -1074,6 +1295,27 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
       Columns,
       Column,
       CodeBlock,
+      TaskList.configure({
+        HTMLAttributes: {
+          'data-type':
+            'taskList',
+
+          class:
+            'dash-task-list',
+        },
+      }),
+      TaskItem.configure({
+        HTMLAttributes: {
+          'data-type':
+            'taskItem',
+
+          class:
+            'dash-task-item',
+        },
+
+        nested:
+          false,
+      }),
       AudioBlock,
       ImageBlock,
       PdfBlock,
@@ -1133,6 +1375,10 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
           'columns',
           'column',
           'codeBlock',
+          'bulletList',
+          'listItem',
+          'taskList',
+          'taskItem',
           'audioBlock',
           'imageBlock',
           'pdfBlock',
@@ -1190,7 +1436,7 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
     editorProps: {
       attributes: {
         class:
-            'dash-editor outline-none text-foreground pl-15 pr-16 py-5',
+            'dash-editor outline-none text-foreground px-8',
       },
 
       handleKeyDown: (
@@ -1489,7 +1735,10 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
 
                 if (
                     containerNode?.type.name ===
-                    'column'
+                    'column' ||
+                    isListContainerNodeName(
+                        containerNode?.type.name,
+                    )
                 ) {
                   if (
                       target.previousBlockId ===
@@ -1676,6 +1925,59 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
       return
     }
 
+    if (
+        command.type === 'bulletList' ||
+        command.type === 'taskList'
+    ) {
+      const content =
+          command.type === 'bulletList'
+              ? {
+                type: 'bulletList',
+                content: [
+                  {
+                    type: 'listItem',
+                    content: [
+                      {
+                        type: 'paragraph',
+                      },
+                    ],
+                  },
+                ],
+              }
+              : {
+                type: 'taskList',
+                content: [
+                  {
+                    type: 'taskItem',
+                    attrs: {
+                      checked: false,
+                    },
+                    content: [
+                      {
+                        type: 'paragraph',
+                      },
+                    ],
+                  },
+                ],
+              }
+
+      editor
+          .chain()
+          .focus()
+          .insertContentAt(
+              insertPos,
+              content,
+          )
+          .setTextSelection(
+              insertPos + 3,
+          )
+          .run()
+
+      closeHandleMenu()
+
+      return
+    }
+
     if (command.type === 'audioBlock') {
       editor
           .chain()
@@ -1830,7 +2132,8 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
     }
 
     const pos =
-        lockedHandlePosRef.current
+        lockedHandlePosRef.current ??
+        activeNodePosRef.current
 
     if (pos === null) {
       return null
@@ -1849,8 +2152,15 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
           return new DOMRect()
         }
 
-        return dom
-            .getBoundingClientRect()
+        const node =
+            editor.state.doc.nodeAt(
+                pos,
+            )
+
+        return getDragHandleReferenceRect(
+            node?.type.name,
+            dom,
+        )
       },
     }
   }
@@ -2109,7 +2419,11 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
     const indicator =
       dropIndicatorRef.current
 
-    if (!shell || !indicator) {
+    if (
+        !shell ||
+        !indicator ||
+        !editor
+    ) {
       return
     }
 
@@ -2120,8 +2434,9 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
         )
 
     const activeContainer =
-        elementUnderPointer?.closest<HTMLElement>(
-            '.dash-column, .dash-editor'
+        getDropContainerFromElement(
+            elementUnderPointer,
+            shell,
         )
 
     if (!activeContainer) {
@@ -2129,9 +2444,19 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
       return
     }
 
+    const activeContainerType =
+        activeContainer.dataset.type ??
+        null
+
+    const isListContainer =
+        isListContainerNodeName(
+            activeContainerType,
+        )
+
     const isRootContainer =
-        activeContainer?.classList.contains(
-            'dash-editor'
+        !isListContainer &&
+        activeContainer.classList.contains(
+            'dash-editor',
         )
 
     const verticalContainerId =
@@ -2139,6 +2464,49 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
             ? null
             : activeContainer.dataset.id ??
             null
+
+    if (
+        isListContainer &&
+        !verticalContainerId
+    ) {
+      clearDropTarget()
+      return
+    }
+
+    const draggedPos =
+        draggedBlockPosRef.current
+
+    const draggedNode =
+        draggedPos !== null
+            ? editor.state.doc.nodeAt(
+                draggedPos,
+            )
+            : null
+
+    const draggedNodeName =
+        draggedNode?.type.name ??
+        null
+
+    if (
+        isListContainer &&
+        !canDropListItemIntoContainer(
+            draggedNodeName,
+            activeContainerType,
+        )
+    ) {
+      clearDropTarget()
+      return
+    }
+
+    if (
+        !isListContainer &&
+        isListItemNodeName(
+            draggedNodeName,
+        )
+    ) {
+      clearDropTarget()
+      return
+    }
 
     const blocks = Array.from(
       activeContainer.children,
@@ -2181,16 +2549,6 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
 
       const hoveredRect =
           blockRects[hoveredBlockIndex]
-
-      const draggedPos =
-          draggedBlockPosRef.current
-
-      const draggedNode =
-          draggedPos !== null && editor
-              ? editor.state.doc.nodeAt(
-                  draggedPos,
-              )
-              : null
 
       const canSideDrop =
           draggedNode?.attrs.id !==
@@ -2572,7 +2930,12 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
     setInsertMenuInsideColumn(isPositionInsideColumn(editor.state.doc, pos))
 
     insertPositionRef.current =
-        pos + node.nodeSize
+        getInsertPositionAfterHandleNode(
+            editor,
+            pos,
+            node.type.name,
+            node.nodeSize,
+        )
 
     editor.view.dispatch(
         editor.state.tr
@@ -2665,6 +3028,165 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
   }, [
     isHandleMenuOpen,
     closeHandleMenu,
+  ])
+
+  useEffect(() => {
+    if (
+        headingOutlineItems.length === 0
+    ) {
+      return
+    }
+
+    const editorShell =
+        editorShellRef.current
+
+    if (!editorShell) {
+      return
+    }
+
+    const scrollViewport =
+        editorShell
+            .closest<HTMLElement>(
+                '[data-note-scroll-viewport]',
+            )
+
+    if (!scrollViewport) {
+      return
+    }
+
+    const activeScrollViewport =
+        scrollViewport
+
+    let animationFrameId:
+        number | null = null
+
+    function updateHeadingOutlinePosition() {
+      animationFrameId = null
+
+      const viewportRect =
+          activeScrollViewport
+              .getBoundingClientRect()
+
+      const top =
+          Math.max(
+              HEADING_OUTLINE_VIEWPORT_TOP_OFFSET,
+              viewportRect.top +
+              HEADING_OUTLINE_VIEWPORT_TOP_OFFSET,
+          )
+
+      const viewportBottom =
+          Math.min(
+              window.innerHeight -
+              HEADING_OUTLINE_VIEWPORT_BOTTOM_INSET,
+              viewportRect.bottom,
+          )
+
+      const nextPosition:
+          HeadingOutlineViewportPosition = {
+        top,
+
+        right:
+            Math.max(
+                0,
+                window.innerWidth -
+                viewportRect.right,
+            ),
+
+        maxHeight:
+            Math.max(
+                HEADING_OUTLINE_VIEWPORT_MIN_HEIGHT,
+                viewportBottom -
+                top,
+            ),
+      }
+
+      setHeadingOutlineViewportPosition(
+          (currentPosition) => {
+            if (
+                currentPosition &&
+                Math.abs(
+                    currentPosition.top -
+                    nextPosition.top,
+                ) < 0.5 &&
+                Math.abs(
+                    currentPosition.right -
+                    nextPosition.right,
+                ) < 0.5 &&
+                Math.abs(
+                    currentPosition.maxHeight -
+                    nextPosition.maxHeight,
+                ) < 0.5
+            ) {
+              return currentPosition
+            }
+
+            return nextPosition
+          },
+      )
+    }
+
+    function scheduleHeadingOutlinePositionUpdate() {
+      if (animationFrameId !== null) {
+        return
+      }
+
+      animationFrameId =
+          window.requestAnimationFrame(
+              updateHeadingOutlinePosition,
+          )
+    }
+
+    scheduleHeadingOutlinePositionUpdate()
+
+    activeScrollViewport.addEventListener(
+        'scroll',
+        scheduleHeadingOutlinePositionUpdate,
+        {
+          passive: true,
+        },
+    )
+
+    window.addEventListener(
+        'resize',
+        scheduleHeadingOutlinePositionUpdate,
+    )
+
+    const resizeObserver =
+        typeof ResizeObserver === 'undefined'
+            ? null
+            : new ResizeObserver(
+                scheduleHeadingOutlinePositionUpdate,
+            )
+
+    resizeObserver?.observe(
+        activeScrollViewport,
+    )
+
+    resizeObserver?.observe(
+        editorShell,
+    )
+
+    return () => {
+      activeScrollViewport.removeEventListener(
+          'scroll',
+          scheduleHeadingOutlinePositionUpdate,
+      )
+
+      window.removeEventListener(
+          'resize',
+          scheduleHeadingOutlinePositionUpdate,
+      )
+
+      resizeObserver?.disconnect()
+
+      if (animationFrameId !== null) {
+        window.cancelAnimationFrame(
+            animationFrameId,
+        )
+      }
+    }
+  }, [
+    headingOutlineItems.length,
   ])
 
   useEffect(() => {
@@ -3235,16 +3757,19 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
                 ) {
                   activeNodePosRef.current =
                       pos
+                } else {
+                  activeNodePosRef.current =
+                      null
                 }
               }}
           >
           <div
-            className="
+            className={`
               flex
               -translate-x-2
               items-center
               gap-0.5
-            "
+            `}
             ref={handleControlsRef}
           >
             <div
@@ -3675,24 +4200,34 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
           <div
               className="
                 pointer-events-none
-                sticky
-                top-10
-                z-30
+                fixed
+                z-40
                 h-0
-                w-full
+                w-7
               "
+              style={{
+                top:
+                    `${headingOutlineViewportPosition?.top ?? 0}px`,
+
+                right:
+                    `${headingOutlineViewportPosition?.right ?? 0}px`,
+
+                visibility:
+                    headingOutlineViewportPosition
+                        ? 'visible'
+                        : 'hidden',
+              }}
           >
             <nav
                 aria-label="Document headings"
                 className="
                   group/heading-outline
                   pointer-events-auto
-                  relative
+                  absolute
+                  right-0
+                  top-0
 
-                  ml-auto
-                  -mr-8
                   flex
-                  max-h-[calc(100vh-20rem)]
                   w-7
                   flex-col
                   items-stretch
@@ -3732,6 +4267,12 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
                   focus-within:shadow-xl
                   focus-within:backdrop-blur-xl
                 "
+                style={{
+                  maxHeight:
+                      headingOutlineViewportPosition
+                          ? `${headingOutlineViewportPosition.maxHeight}px`
+                          : undefined,
+                }}
             >
               {headingOutlineItems.map(
                   (item) => {

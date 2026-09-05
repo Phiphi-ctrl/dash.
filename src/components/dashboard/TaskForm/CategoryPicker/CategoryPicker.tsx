@@ -16,7 +16,7 @@ function CategoryPicker({
         type="button"
         onClick={() => onSelect(null)}
       >
-        No Category
+        No Workspace
       </button>
 
       {categories.map((category) => (

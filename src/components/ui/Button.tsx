@@ -1,14 +1,27 @@
 import type { LucideIcon } from 'lucide-react'
+import {
+  forwardRef,
+  type ButtonHTMLAttributes,
+} from 'react'
 
-type ButtonProps = {
-  onClick: () => void,
+type ButtonProps = Omit<
+  ButtonHTMLAttributes<HTMLButtonElement>,
+  'children' | 'className'
+> & {
   Icon: LucideIcon,
   className: string
 }
 
-function Button ({onClick, Icon, className}: ButtonProps) {
+const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button ({
+  onClick,
+  Icon,
+  className,
+  type = 'button',
+  ...buttonProps
+}: ButtonProps, ref) {
   return (
     <button
+      ref={ref}
       className={`
         shrink-0
         p-3
@@ -20,12 +33,13 @@ function Button ({onClick, Icon, className}: ButtonProps) {
         transition-colors
         duration-400
         `}
-      type="button"
+      type={type}
       onClick={onClick}
+      {...buttonProps}
     >
       <Icon className="size-4" />
     </button>
   )
-}
+})
 
 export default Button

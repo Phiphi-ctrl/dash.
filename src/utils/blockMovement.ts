@@ -10,6 +10,22 @@ type RemoveSourceResult = {
   sourceNode: ProseMirrorNode
 }
 
+function canMoveListItemFromParent(
+  sourceNode: ProseMirrorNode,
+  sourceParent: ProseMirrorNode,
+) {
+  return (
+    (
+      sourceNode.type.name === 'listItem' &&
+      sourceParent.type.name === 'bulletList'
+    ) ||
+    (
+      sourceNode.type.name === 'taskItem' &&
+      sourceParent.type.name === 'taskList'
+    )
+  )
+}
+
 export function removeSourceForMove(
   transaction: Transaction,
   sourcePos: number,
@@ -38,6 +54,42 @@ export function removeSourceForMove(
       sourcePos +
       sourceNode.nodeSize,
     )
+    return {
+      transaction,
+      sourceNode,
+    }
+  }
+
+  if (
+    canMoveListItemFromParent(
+      sourceNode,
+      sourceParent,
+    )
+  ) {
+    if (sourceParent.childCount > 1) {
+      transaction.delete(
+        sourcePos,
+        sourcePos +
+        sourceNode.nodeSize,
+      )
+
+      return {
+        transaction,
+        sourceNode,
+      }
+    }
+
+    const listPos =
+      $source.before(
+        $source.depth,
+      )
+
+    transaction.delete(
+      listPos,
+      listPos +
+      sourceParent.nodeSize,
+    )
+
     return {
       transaction,
       sourceNode,

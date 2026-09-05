@@ -477,6 +477,22 @@ const SlashCommands =
               return
             }
 
+            if (props.command.type === 'bulletList') {
+              chain
+                .toggleBulletList()
+                .run()
+
+              return
+            }
+
+            if (props.command.type === 'taskList') {
+              chain
+                .toggleTaskList()
+                .run()
+
+              return
+            }
+
             if (props.command.type === 'heading') {
               chain
                 .setHeading({

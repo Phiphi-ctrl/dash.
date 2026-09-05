@@ -619,9 +619,9 @@ function App() {
   const today = new Date();
 
   return (
-    <div className="flex h-full text-white overflow-hidden">
+    <div className="flex h-dvh text-white overflow-hidden">
       <Sidebar />
-      <div className="min-w-0 min-h-0 flex-1 overflow-y-auto dash-scrollbar">
+      <div className="flex min-w-0 min-h-0 flex-1 overflow-y-auto dash-scrollbar">
         <Routes>
           <Route
             path="/"
