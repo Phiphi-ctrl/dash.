@@ -1,11 +1,20 @@
 import { useEffect, useState } from "react"
-import TaskList from '../components/dashboard/TodoList/TaskList'
+import UpcomingTaskList from '../components/dashboard/TodoList/TaskList'
 import type { Task } from '../types/Task'
 import Button from '../components/ui/Button.tsx'
-import { PlusIcon, ListChecks, LoaderCircle, ChevronDown, ChevronUp, Dot, UserRound } from 'lucide-react'
+import {
+  PlusIcon,
+  LoaderCircle,
+  ChevronDown,
+  ChevronUp,
+  Dot,
+  UserRound,
+  SquareArrowRight,
+} from 'lucide-react'
 import LiveDateTime from '../components/dashboard/LiveDateTime.tsx'
 import ActiveTask from '../components/dashboard/Active/ActiveTask.tsx'
 import type { Category } from '../types/Category.ts'
+import Tooltip from '../components/ui/Tooltip.tsx'
 
 type DashboardProps = {
   today: Date
@@ -16,6 +25,23 @@ type DashboardProps = {
   setIsAddTaskOpen: (isOpen: boolean) => void
   handleEditTaskItem: (task: Task) => void
   categories: Category[]
+}
+
+type DashboardGradientStop = {
+  offset: string
+  color: string
+}
+
+type DashboardDayProgressGradient = {
+  id: string
+  glowColor: string
+  stops: DashboardGradientStop[]
+}
+
+type DashboardTimeOfDayTheme = {
+  label: string
+  gradient: string
+  dayProgressGradient: DashboardDayProgressGradient
 }
 
 
@@ -49,7 +75,7 @@ function Dashboard({
 
   const now = useCurrentTime()
 
-  function getTimeOfDay(now: Date) {
+  function getTimeOfDay(now: Date): DashboardTimeOfDayTheme {
     const hour = now.getHours()
 
     if (hour >= 5 && hour < 12) {
@@ -57,6 +83,15 @@ function Dashboard({
         label: "Morning",
         gradient:
           "bg-linear-to-r from-amber-300 via-orange-400 to-rose-400",
+        dayProgressGradient: {
+          id: 'dashboard-day-progress-morning',
+          glowColor: '#fb923c',
+          stops: [
+            { offset: '0%', color: '#fcd34d' },
+            { offset: '50%', color: '#fb923c' },
+            { offset: '100%', color: '#fb7185' },
+          ],
+        },
       }
     }
 
@@ -65,6 +100,15 @@ function Dashboard({
         label: "Afternoon",
         gradient:
           "bg-linear-to-r from-sky-400 via-cyan-400 to-blue-500",
+        dayProgressGradient: {
+          id: 'dashboard-day-progress-afternoon',
+          glowColor: '#22d3ee',
+          stops: [
+            { offset: '0%', color: '#38bdf8' },
+            { offset: '50%', color: '#22d3ee' },
+            { offset: '100%', color: '#3b82f6' },
+          ],
+        },
       }
     }
 
@@ -73,6 +117,15 @@ function Dashboard({
         label: "Evening",
         gradient:
           "bg-linear-to-r from-orange-500 via-rose-500 to-purple-500",
+        dayProgressGradient: {
+          id: 'dashboard-day-progress-evening',
+          glowColor: '#f43f5e',
+          stops: [
+            { offset: '0%', color: '#f97316' },
+            { offset: '50%', color: '#f43f5e' },
+            { offset: '100%', color: '#a855f7' },
+          ],
+        },
       }
     }
 
@@ -80,12 +133,21 @@ function Dashboard({
       label: "Night",
       gradient:
         "bg-linear-to-r from-indigo-400 via-violet-500 to-purple-600",
+      dayProgressGradient: {
+        id: 'dashboard-day-progress-night',
+        glowColor: '#8b5cf6',
+        stops: [
+          { offset: '0%', color: '#818cf8' },
+          { offset: '50%', color: '#8b5cf6' },
+          { offset: '100%', color: '#9333ea' },
+        ],
+      },
     }
   }
 
-  function renderGreeting () {
-    const timeOfDay = getTimeOfDay(now)
+  const timeOfDay = getTimeOfDay(now)
 
+  function renderGreeting () {
     return (
       <h1 className="text-8xl font-bold tracking-tight">
         <span className="text-foreground">Good{" "}</span>
@@ -114,7 +176,7 @@ function Dashboard({
 
   return (
     <main className="flex min-h-full flex-1 z-0 flex-col px-10 gap-8 pb-10">
-      <header className="flex-start flex-col gap-1 items-center justify-start pt-20">
+      <header className="flex-start flex-col gap-1 items-center justify-start pt-10">
         {renderGreeting()}
         {renderGreetingUnderline("Philipp Saboi")}
       </header>
@@ -146,6 +208,7 @@ function Dashboard({
               today={today}
               onToggle={handleToggleTaskItem}
               categories={categories}
+              dayProgressGradient={timeOfDay.dayProgressGradient}
             />
           )}
         </div>
@@ -153,8 +216,8 @@ function Dashboard({
         <div className="flex flex-col gap-1">
           <div className="flex justify-between mb-4 p-2">
             <div className="flex justify-center items-center p-2 gap-3 text-foreground">
-              <ListChecks className="size-5" />
-              <h3 className="text-xl font-semibold">To-Do list.</h3>
+              <SquareArrowRight className="size-5" />
+              <h3 className="text-xl font-semibold">upcoming.</h3>
               <button
                 className="cursor-pointer"
                 type="button"
@@ -167,30 +230,42 @@ function Dashboard({
                 )}
               </button>
             </div>
-            <Button
-              onClick={() => {
-                setEditingTask(null)
-                setIsAddTaskOpen(true)
-              }}
-              Icon={PlusIcon}
-              className={`
+            <Tooltip
+              content={
+                <div className="flex items-center gap-1 text-xs text-muted">
+                  <PlusIcon size={14}/>
+                  <span className="font-semibold text-foreground-secondary">add new</span>
+                  <span>task</span>
+                </div>
+              }
+              delay={800}
+              placement="top"
+            >
+              <Button
+                onClick={() => {
+                  setEditingTask(null)
+                  setIsAddTaskOpen(true)
+                }}
+                Icon={PlusIcon}
+                className={`
                 bg-app-surface 
                 border-border 
                 text-muted 
-                hover:bg-accent-soft
-                hover:border-accent
-                hover:text-accent
+                hover:scale-110
+                hover:text-foreground
               `}
-            />
+              />
+            </Tooltip>
+
           </div>
           {isToDoOpen && (
-            <TaskList
+            <UpcomingTaskList
               tasks={tasks}
               onToggle={handleToggleTaskItem}
               onDelete={handleDeleteTaskItem}
               onEdit={handleEditTaskItem}
               categories={categories}
-              today={today}
+              now={now}
             />
           )}
         </div>

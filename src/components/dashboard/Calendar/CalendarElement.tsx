@@ -1,4 +1,14 @@
 import {
+  arrow,
+  autoUpdate,
+  flip,
+  FloatingPortal,
+  hide,
+  offset,
+  shift,
+  useFloating,
+} from '@floating-ui/react'
+import {
   getStartOfWeek,
   dayFormatter,
   monthFormatter,
@@ -62,6 +72,7 @@ export type DragState =
 type PendingSegmentInteraction = {
   pointerId: number
   taskId: string
+  anchorElement: HTMLButtonElement
   startX: number
   startY: number
   durationMs: number
@@ -78,6 +89,55 @@ type MovePreview = {
 
 const taskSegmentDragThresholdPx = 5
 const calendarSlotDurationMs = 15 * 60 * 1000
+const taskInfoArrowWidthPx = 18
+const taskInfoArrowHeightPx = 9
+const taskInfoArrowTipRadiusPx = 2
+const taskInfoArrowShoulderPx = 4
+const taskInfoCornerRadiusPx = 32
+const taskInfoSurfacePaddingPx = taskInfoArrowHeightPx + 3
+
+function getTaskInfoSurfacePath(
+    width: number,
+    height: number,
+    placementSide: string,
+    arrowX: number | undefined,
+    arrowY: number | undefined
+): string {
+  const padding = taskInfoSurfacePaddingPx
+  const left = padding + 0.5
+  const top = padding + 0.5
+  const right = padding + width - 0.5
+  const bottom = padding + height - 0.5
+  const radius = Math.min(taskInfoCornerRadiusPx, (width - 1) / 2, (height - 1) / 2)
+  const half = taskInfoArrowWidthPx / 2
+  const depth = taskInfoArrowHeightPx
+  const tip = taskInfoArrowTipRadiusPx
+  const shoulder = taskInfoArrowShoulderPx
+  const slope = shoulder / 2
+  const x = padding + (arrowX ?? 0) + half
+  const y = padding + (arrowY ?? 0) + half
+
+  // The same silhouette clips the glass and draws its border, leaving no join to cover.
+  return [
+    `M ${left + radius} ${top}`,
+    placementSide === 'bottom'
+      ? `H ${x - half - shoulder} Q ${x - half} ${top} ${x - half + slope} ${top - slope} L ${x - tip} ${top - depth + tip} Q ${x} ${top - depth} ${x + tip} ${top - depth + tip} L ${x + half - slope} ${top - slope} Q ${x + half} ${top} ${x + half + shoulder} ${top}`
+      : '',
+    `H ${right - radius} A ${radius} ${radius} 0 0 1 ${right} ${top + radius}`,
+    placementSide === 'left'
+      ? `V ${y - half - shoulder} Q ${right} ${y - half} ${right + slope} ${y - half + slope} L ${right + depth - tip} ${y - tip} Q ${right + depth} ${y} ${right + depth - tip} ${y + tip} L ${right + slope} ${y + half - slope} Q ${right} ${y + half} ${right} ${y + half + shoulder}`
+      : '',
+    `V ${bottom - radius} A ${radius} ${radius} 0 0 1 ${right - radius} ${bottom}`,
+    placementSide === 'top'
+      ? `H ${x + half + shoulder} Q ${x + half} ${bottom} ${x + half - slope} ${bottom + slope} L ${x + tip} ${bottom + depth - tip} Q ${x} ${bottom + depth} ${x - tip} ${bottom + depth - tip} L ${x - half + slope} ${bottom + slope} Q ${x - half} ${bottom} ${x - half - shoulder} ${bottom}`
+      : '',
+    `H ${left + radius} A ${radius} ${radius} 0 0 1 ${left} ${bottom - radius}`,
+    placementSide === 'right'
+      ? `V ${y + half + shoulder} Q ${left} ${y + half} ${left - slope} ${y + half - slope} L ${left - depth + tip} ${y + tip} Q ${left - depth} ${y} ${left - depth + tip} ${y - tip} L ${left - slope} ${y - half + slope} Q ${left} ${y - half} ${left} ${y - half - shoulder}`
+      : '',
+    `V ${top + radius} A ${radius} ${radius} 0 0 1 ${left + radius} ${top} Z`,
+  ].join(' ')
+}
 
 function getCalendarMovePreviewAtPoint(
     clientX: number,
@@ -141,6 +201,103 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
       useState<DragState>(null)
 
   const [infoTaskId, setInfoTaskId] = useState<string | null>(null)
+
+  const [infoPortalElement, setInfoPortalElement] = useState<HTMLDivElement | null>(null)
+
+  const [
+    infoAnchorElement,
+    setInfoAnchorElement,
+  ] =
+    useState<HTMLButtonElement | null>(null)
+
+  const [
+    infoFloatingElement,
+    setInfoFloatingElement,
+  ] =
+    useState<HTMLDivElement | null>(null)
+
+  const [
+    infoArrowElement,
+    setInfoArrowElement,
+  ] =
+    useState<HTMLSpanElement | null>(null)
+
+  const isTaskInfoOpen =
+    infoTaskId !== null &&
+    infoAnchorElement !== null
+
+  const {
+    floatingStyles: taskInfoFloatingStyles,
+    isPositioned: isTaskInfoPositioned,
+    middlewareData: taskInfoMiddlewareData,
+    placement: taskInfoPlacement,
+  } = useFloating({
+    open:
+      isTaskInfoOpen,
+
+    elements: {
+      reference:
+        infoAnchorElement,
+
+      floating:
+        infoFloatingElement,
+    },
+
+    placement:
+      'right-start',
+
+    strategy:
+      'absolute',
+
+    whileElementsMounted:
+      autoUpdate,
+
+    middleware: [
+      offset(16),
+
+      flip({
+        padding:
+          12,
+
+        fallbackPlacements: [
+          'left-start',
+          'right-start',
+          'bottom-start',
+          'top-start',
+        ],
+      }),
+
+      shift({
+        padding:
+          12,
+      }),
+
+      arrow({
+        element:
+          infoArrowElement,
+
+        padding:
+          taskInfoCornerRadiusPx + taskInfoArrowShoulderPx + 1,
+      }),
+
+      hide({ strategy: 'referenceHidden' }),
+
+      {
+        name: 'surface',
+        fn: ({ rects, placement, middlewareData }) => ({
+          data: {
+            path: getTaskInfoSurfacePath(
+              rects.floating.width,
+              rects.floating.height,
+              placement.split('-')[0],
+              middlewareData.arrow?.x,
+              middlewareData.arrow?.y
+            ),
+          },
+        }),
+      },
+    ],
+  })
 
   useEffect(() => {
     if (dragState === null) return
@@ -288,6 +445,8 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
       }
 
       pending.dragStarted = true
+      setInfoTaskId(null)
+      setInfoAnchorElement(null)
 
       const preview =
           getCalendarMovePreviewAtPoint(
@@ -325,10 +484,20 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
         return
       }
 
-      setInfoTaskId((currentTaskId) =>
-        currentTaskId === pending.taskId
+      const isClosingCurrentInfo =
+        infoTaskId === pending.taskId &&
+        infoAnchorElement === pending.anchorElement
+
+      setInfoTaskId(
+        isClosingCurrentInfo
           ? null
           : pending.taskId
+      )
+
+      setInfoAnchorElement(
+        isClosingCurrentInfo
+          ? null
+          : pending.anchorElement
       )
     }
 
@@ -355,7 +524,7 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
       window.removeEventListener('pointerup', handlePointerUp)
       window.removeEventListener('pointercancel', handlePointerCancel)
     }
-  }, [])
+  }, [infoAnchorElement, infoTaskId])
 
   useLayoutEffect(() => {
     const layoutElement = draggedLayoutRef.current
@@ -434,11 +603,29 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
       dragState
   ])
 
-  function toggleTaskInfo(taskId: string) {
-    setInfoTaskId((currentTaskId) =>
-      currentTaskId === taskId
+  function closeTaskInfo() {
+    setInfoTaskId(null)
+    setInfoAnchorElement(null)
+  }
+
+  function toggleTaskInfo(
+      taskId: string,
+      anchorElement: HTMLButtonElement
+  ) {
+    const isClosingCurrentInfo =
+      infoTaskId === taskId &&
+      infoAnchorElement === anchorElement
+
+    setInfoTaskId(
+      isClosingCurrentInfo
         ? null
         : taskId
+    )
+
+    setInfoAnchorElement(
+      isClosingCurrentInfo
+        ? null
+        : anchorElement
     )
   }
 
@@ -475,6 +662,7 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
     pendingSegmentInteractionRef.current = {
       pointerId: event.pointerId,
       taskId: segment.task.id,
+      anchorElement: event.currentTarget,
       startX: event.clientX,
       startY: event.clientY,
       durationMs: end.getTime() - start.getTime(),
@@ -884,6 +1072,123 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
   const positionedTaskSegments =
       layoutTaskSegments(taskSegments)
 
+  const infoTask =
+    infoTaskId === null
+      ? undefined
+      : displayTasks.find((task) => task.id === infoTaskId)
+
+  const infoTaskColor =
+    getTaskColor(infoTask, categories)
+
+  const taskInfoPlacementSide =
+    taskInfoPlacement.split('-')[0]
+
+  const taskInfoSurfacePath = taskInfoMiddlewareData.surface?.path as string | undefined
+
+  function renderTaskInfoPopover() {
+    if (
+      !isTaskInfoOpen ||
+      infoTask === undefined ||
+      infoPortalElement === null
+    ) {
+      return null
+    }
+
+    return (
+      <FloatingPortal root={infoPortalElement}>
+        <div
+          ref={setInfoFloatingElement}
+          data-placement={taskInfoPlacementSide}
+          style={{
+            ...taskInfoFloatingStyles,
+            '--task-info-surface-padding': `${taskInfoSurfacePaddingPx}px`,
+            borderRadius: taskInfoCornerRadiusPx,
+            visibility:
+              isTaskInfoPositioned && taskInfoSurfacePath && !taskInfoMiddlewareData.hide?.referenceHidden
+                ? 'visible'
+                : 'hidden',
+          } as React.CSSProperties}
+          className="
+            z-50
+            pointer-events-auto
+            w-78
+            max-w-[calc(100%-1.5rem)]
+            calendar-task-info-popover
+            p-4
+            flex
+            flex-col
+            gap-8
+          "
+        >
+          <span
+            ref={setInfoArrowElement}
+            aria-hidden="true"
+            style={{ width: taskInfoArrowWidthPx, height: taskInfoArrowWidthPx }}
+            className="absolute invisible pointer-events-none"
+          />
+          <div
+            aria-hidden="true"
+            className="glass-surface calendar-task-info-surface"
+            style={{ clipPath: taskInfoSurfacePath ? `path('${taskInfoSurfacePath}')` : undefined }}
+          />
+          <svg aria-hidden="true" className="calendar-task-info-outline">
+            <path d={taskInfoSurfacePath} fill="none" strokeWidth={1} strokeLinejoin="round" />
+          </svg>
+          <div className="flex items-center justify-end gap-4 text-foreground">
+            <div className="flex gap-4">
+              <button
+                onClick={() => {onEdit(infoTask)}}
+              >
+                <Pen className="size-4"/>
+              </button>
+              <button
+                onClick={() => {
+                  onDelete(infoTask.id)
+                  closeTaskInfo()
+                }}
+              >
+                <Trash2 className="size-4"/>
+              </button>
+            </div>
+            <button
+              onClick={closeTaskInfo}
+            >
+              <X className="size-4"/>
+            </button>
+          </div>
+          <div className="flex gap-2 text-foreground">
+            <span>{infoTask.emoji}</span>
+            <span>{infoTask.title}</span>
+          </div>
+          <div className="flex flex-col text-foreground-secondary gap-2">
+            <div className="flex gap-2 items-center">
+              <span
+                style={{
+                  '--task-color-task': infoTaskColor,
+                } as React.CSSProperties}
+                className="bg-[var(--task-color-task)] rounded-full size-4"
+              />
+              <span>{getTimeRange(infoTask.startAt, infoTask.endAt, today)}</span>
+            </div>
+            <div className="flex gap-2 items-center">
+              <LayoutDashboard className="size-4"/>
+              <span>{getTaskCategory(infoTask, categories)}</span>
+            </div>
+            <div className="flex gap-2 items-center">
+              <ClockFading className="size-4"/>
+              <span>{getDuration(infoTask.startAt, infoTask.endAt)}</span>
+            </div>
+            <div className="flex gap-2 items-center">
+              <CheckCheck className="size-4"/>
+              <span>{infoTask.completed ? 'Completed' : 'Pending'}</span>
+            </div>
+
+          </div>
+        </div>
+      </FloatingPortal>
+    )
+  }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col w-full gap-8">
       <div className="flex">
@@ -940,6 +1245,7 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
           ))}
         </div>
         {/*Calendar grid*/}
+        <div className="relative flex min-h-0 flex-1">
         <div className={`
           grid
           grid-cols-[4rem_repeat(7,minmax(0,1fr))]
@@ -987,7 +1293,6 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
               segment.task.endAt
             )
             const startRange = timeRange[0]
-            const popupToLeft = segment.dayIndex >= 5
             const endRange = timeRange[1]
             const segmentSlotSpan =
                 segment.endSlot - segment.startSlot
@@ -1106,7 +1411,10 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
                         return
                       }
 
-                      toggleTaskInfo(segment.task.id)
+                      toggleTaskInfo(
+                        segment.task.id,
+                        event.currentTarget
+                      )
                     }}
                   >
 
@@ -1127,71 +1435,6 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
                     )}
 
                   </button>
-                  {infoTaskId === segment.task.id && (
-                    <div
-                      className={`
-                      absolute
-                      ${popupToLeft ? 'right-full mr-3' : 'left-full ml-3'}
-                      top-0
-                      z-50
-                      w-78
-                      glass-popover
-                      p-4
-                      flex
-                      flex-col
-                      gap-8
-                      `}
-                    >
-                      <div className="flex items-center justify-end gap-4 text-foreground">
-                        <div className="flex gap-4">
-                          <button
-                            onClick={() => {onEdit(segment.task)}}
-                          >
-                            <Pen className="size-4"/>
-                          </button>
-                          <button
-                            onClick={() => {onDelete(segment.task.id)}}
-                          >
-                            <Trash2 className="size-4"/>
-                          </button>
-                        </div>
-                        <button
-                          onClick={() => setInfoTaskId(null)}
-                        >
-                          <X className="size-4"/>
-                        </button>
-                      </div>
-                      <div className="flex gap-2 text-foreground">
-                        <span>{segment.task.emoji}</span>
-                        <span>{segment.task.title}</span>
-                      </div>
-                      <div className="flex flex-col text-foreground-secondary gap-2">
-                        <div className="flex gap-2 items-center">
-                          <span
-                            style={{
-                              '--task-color-task': color,
-                            } as React.CSSProperties}
-                            className="bg-[var(--task-color-task)] rounded-full size-4"
-                          />
-                          <span>{getTimeRange(segment.task.startAt, segment.task.endAt, today)}</span>
-                        </div>
-                        <div className="flex gap-2 items-center">
-                          <LayoutDashboard className="size-4"/>
-                          <span>{getTaskCategory(segment.task, categories)}</span>
-                        </div>
-                        <div className="flex gap-2 items-center">
-                          <ClockFading className="size-4"/>
-                          <span>{getDuration(segment.task.startAt, segment.task.endAt)}</span>
-                        </div>
-                        <div className="flex gap-2 items-center">
-                          <CheckCheck className="size-4"/>
-                          <span>{segment.task.completed ? 'Completed' : 'Pending'}</span>
-                        </div>
-
-                      </div>
-                    </div>
-                  )}
-
                 </div>
                 <div
                   className="
@@ -1218,6 +1461,12 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
               </div>
             )
           })}
+        </div>
+          <div
+            ref={setInfoPortalElement}
+            className="absolute inset-0 z-50 overflow-hidden pointer-events-none"
+          />
+          {renderTaskInfoPopover()}
         </div>
       </div>
     </div>

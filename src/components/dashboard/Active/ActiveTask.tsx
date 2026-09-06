@@ -1,8 +1,12 @@
 import type { Task } from '../../../types/Task.ts'
 import { useEffect, useState } from 'react'
 import ActiveTaskCard from './ActiveTaskCard.tsx'
-import { isSameDay } from '../../../utils/Datetime.ts'
+import type { DayProgressGradient } from './ActiveTaskCard.tsx'
+import { getDuration, getTimeRange, isSameDay } from '../../../utils/Datetime.ts'
 import type { Category } from '../../../types/Category.ts'
+import PulseDot from '../../ui/PulseDot.tsx'
+import { Clock2 } from 'lucide-react'
+import { getTaskColor } from '../../../utils/Category.ts'
 
 
 
@@ -11,9 +15,10 @@ type ActiveTaskProps = {
   today: Date
   onToggle: ( id: string ) => void,
   categories: Category[],
+  dayProgressGradient: DayProgressGradient
 }
 
-function ActiveTask ({tasks, today, onToggle, categories}: ActiveTaskProps) {
+function ActiveTask ({tasks, today, onToggle, categories, dayProgressGradient}: ActiveTaskProps) {
 
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [now, setNow] = useState(new Date())
@@ -81,8 +86,8 @@ function ActiveTask ({tasks, today, onToggle, categories}: ActiveTaskProps) {
 
 
   return (
-    <div className="flex flex-col">
-      <div className="flex flex-wrap rounded-lg gap-2">
+    <div className="flex gap-4 glass-surface max-h-69 w-fit p-6">
+      <div className="flex flex-col gap-1 overflow-hidden overflow-y-auto dash-scrollbar">
         {activeTasks.map((task) => (
           <button
             type="button"
@@ -92,25 +97,38 @@ function ActiveTask ({tasks, today, onToggle, categories}: ActiveTaskProps) {
             }}
             className={`
             flex 
+            items-center
             gap-2 
             cursor-pointer 
-            border
-            glass-surface
-            p-4
+            p-3
+            rounded-4xl
+            ${selectedTaskId === task.id ? 'bg-muted/10' : 'bg-transparent'}
+            transition-colors duration-300
             `}
           >
-            <span>{task.emoji}</span>
-            <span
-              className={`
-              font-semibold 
-              mr-2 
-              ${task.id === selectedTaskId ? 'text-foreground' : 'text-muted'}
-              transition-colors
-              duration-500
-              `}
-            >
-              {task.title}
+            <div>
+              {task.emoji !== null && (
+                <span className={`text-3xl size-9 pl-2 pr-2 cursor-default ${selectedTaskId === task.id ? 'opacity-100' : 'opacity-20'} transition-opacity duration-300`}>
+              {task.emoji}
             </span>
+              )}
+            </div>
+            <div className="flex min-w-0 flex-1 flex-col gap-1">
+              <div className="flex gap-2 items-center">
+                <PulseDot color={getTaskColor(task, categories)} pulse={selectedTaskId === task.id} />
+                <span className={`min-w-0 truncate max-w-50 ${selectedTaskId === task.id ? 'text-foreground font-semibold' : 'text-muted font-normal'} transition-colors duration-300`}>
+                  {task.title}
+                </span>
+              </div>
+              <div className={`flex items-center gap-2 text-sm ${selectedTaskId === task.id ? 'text-foreground-secondary' : 'text-muted'} transition-colors duration-300`}>
+                <span className="flex items-center gap-2 shrink-0">
+                  <Clock2 className="size-4"/> {getDuration(task.startAt, task.endAt)}
+                </span>
+                <span className="max-w-40 truncate">
+                  {getTimeRange(task.startAt, task.endAt, today)}
+                </span>
+              </div>
+            </div>
           </button>
         ))}
       </div>
@@ -122,6 +140,7 @@ function ActiveTask ({tasks, today, onToggle, categories}: ActiveTaskProps) {
         totalTasksDurationMs={duration}
         pastCompletedDurationMs={pastCompletedDurationMs}
         categories={categories}
+        dayProgressGradient={dayProgressGradient}
         key={selectedTask?.id ?? 'no-active-task'}
       />
     </div>

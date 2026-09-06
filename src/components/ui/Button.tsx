@@ -27,7 +27,6 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button ({
         p-3
         rounded-4xl
         cursor-pointer
-        border
         ${className}
         focus:outline-none
         transition-colors

@@ -9,26 +9,29 @@ type TaskListProps = {
   onDelete: (id: string) => void,
   onEdit: (task: Task) => void,
   categories: Category[],
-  today: Date
+  now: Date
 }
 
-function TaskList({tasks, onToggle, onDelete, onEdit, today, categories } : TaskListProps) {
+function UpcomingTaskList({tasks, onToggle, onDelete, onEdit, now, categories } : TaskListProps) {
 
-  const filteredTodayTasks = tasks.filter((task: Task) => isSameDay(today, new Date(task.startAt)))
+  const filteredTodayTasks = tasks.filter((task: Task) => isSameDay(now, new Date(task.startAt)))
+
+  const filteredUpcomingTasks = filteredTodayTasks.filter((task: Task) => now.getTime() < new Date(task.startAt).getTime())
+
   return (
     <div className="mr-2">
-      {filteredTodayTasks.length === 0 ? (
-        <p className="text-foreground-secondary">Nothing Planned yet...</p>
+      {filteredUpcomingTasks.length === 0 ? (
+        <p className="text-foreground-secondary">Nothing coming up...</p>
       ) : (
-        <ul className="flex flex-col gap-2">
-          {filteredTodayTasks.map((task) => (
+        <ul className="flex flex-col gap-2 h-69 overflow-hidden overflow-y-auto dash-scrollbar mr-2">
+          {filteredUpcomingTasks.map((task) => (
             <TaskItem
               key = {task.id}
               task={task}
               onToggle={onToggle}
               onDelete={onDelete}
               onEdit={onEdit}
-              today={today}
+              today={now}
               categories={categories}
             />
           ))}
@@ -38,4 +41,4 @@ function TaskList({tasks, onToggle, onDelete, onEdit, today, categories } : Task
   )
 }
 
-export default TaskList;
+export default UpcomingTaskList;

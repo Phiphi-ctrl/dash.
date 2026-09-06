@@ -191,11 +191,12 @@
 
 .glass-surface {
   @apply
-  bg-canvas/70
+  bg-canvas/60
   backdrop-blur-xl
   shadow-xl
   rounded-4xl
-  border-white/20
+  border
+  border-white/2
 }
 
 
@@ -229,6 +230,34 @@
   border-white/10
   shadow-lg
   rounded-4xl;
+}
+
+.calendar-task-info-popover {
+  @apply shadow-xl;
+  position: relative;
+  overflow: visible;
+}
+
+.calendar-task-info-surface,
+.calendar-task-info-outline {
+  position: absolute;
+  top: calc(-1 * var(--task-info-surface-padding));
+  left: calc(-1 * var(--task-info-surface-padding));
+  width: calc(100% + 2 * var(--task-info-surface-padding));
+  height: calc(100% + 2 * var(--task-info-surface-padding));
+  z-index: -1;
+  pointer-events: none;
+}
+
+.calendar-task-info-surface {
+  border-radius: 0;
+  border: 0;
+  box-shadow: none;
+}
+
+.calendar-task-info-outline {
+  stroke: rgb(255 255 255 / 20%);
+  overflow: visible;
 }
 
 .note-actions-liquid-glass {

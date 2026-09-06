@@ -1,7 +1,7 @@
 import type { Task } from '../../../types/Task.ts'
 import Checkbox from '../../ui/Checkbox.tsx'
 import Button from '../../ui/Button.tsx'
-import { Trash2 } from 'lucide-react'
+import { ArrowRight, CheckCheck, Trash2 } from 'lucide-react'
 import { Clock2 } from 'lucide-react'
 import { getDuration, getTimeRange } from '../../../utils/Datetime.ts'
 import * as React from 'react'
@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react'
 import PulseDot from '../../ui/PulseDot.tsx'
 import type { Category } from '../../../types/Category.ts'
 import { getTaskColor } from '../../../utils/Category.ts'
+import Tooltip from '../../ui/Tooltip.tsx'
 
 type TaskItemProps = {
   task: Task,
@@ -58,7 +59,10 @@ function TaskItem ({task, onToggle, onDelete, onEdit, today, categories} : TaskI
         items-center
         border-b-2
         border-border/50
-        p-4
+        py-4
+        pl-4
+        pr-8
+        
       `}
     >
       <div>
@@ -93,34 +97,78 @@ function TaskItem ({task, onToggle, onDelete, onEdit, today, categories} : TaskI
       </button>
 
       <div
-        className="flex items-center gap-2 text-sm text-center cursor-default ml-auto"
+        className="flex items-center gap-1 text-sm text-center cursor-default ml-auto"
       >
-        <Checkbox
-          checked={task.completed}
-          onChange={() => onToggle(task.id)}
-          className={`
-          border
-        bg-surface
-        border-border
-        text-muted
-        hover:bg-accent-soft
-        hover:border-accent
-        hover:text-accent
-        `}
+        <Tooltip content={
+          <div className="flex items-center gap-1 text-xs text-muted">
+            <ArrowRight size={14}/>
+            <span>start task</span>
+            <span className="font-semibold text-foreground-secondary">now</span>
+          </div>
+        }
+        delay={800}
+        >
+          <button
+            className={`
+              shrink-0
+              p-3
+              cursor-pointer
+              focus:outline-none
+              transition-colors
+              duration-400
+              text-muted 
+              hover:scale-110 
+              hover:text-foreground
+              `}
+          >
+            <ArrowRight className=" size-4"/>
+          </button>
 
-        />
-        <Button
-          onClick={() => onDelete(task.id)}
-          Icon={Trash2}
-          className={`
-        bg-surface 
-        border-border 
-        text-muted 
-        hover:bg-danger-soft
-        hover:border-danger
-        hover:text-danger
-        `}
-        />
+        </Tooltip>
+
+        <Tooltip content={
+            <div className="flex items-center gap-1 text-xs text-muted">
+              <CheckCheck size={14}/>
+              <span>mark as</span>
+              <span className="font-semibold text-foreground-secondary">completed</span>
+            </div>
+          }
+          delay={800}
+        >
+          <Checkbox
+            checked={task.completed}
+            onChange={() => onToggle(task.id)}
+            className={`
+          text-muted
+          hover:scale-110
+          hover:text-foreground
+          `}
+
+          />
+        </Tooltip>
+
+        <Tooltip
+          content={
+            <div className="flex items-center gap-1 text-xs text-muted">
+              <Trash2 size={14}/>
+              <span className="font-semibold text-foreground-secondary">delete</span>
+              <span>task</span>
+            </div>
+          }
+          delay={800}
+        >
+          <Button
+            onClick={() => onDelete(task.id)}
+            Icon={Trash2}
+            className={`
+        
+          text-muted 
+          hover:scale-110
+          hover:text-danger
+          `}
+          />
+        </Tooltip>
+
       </div>
     </li>
   )

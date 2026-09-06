@@ -1,9 +1,8 @@
 import type { Task } from '../../../types/Task.ts'
 import Checkbox from '../../ui/Checkbox.tsx'
-import { ArrowDownUp, Calendar, SlidersHorizontal } from 'lucide-react'
+import { SlidersHorizontal } from 'lucide-react'
 import { useState } from 'react'
 import type { CSSProperties, MouseEvent } from 'react'
-import { getTimeRange } from '../../../utils/Datetime.ts'
 import type { Category } from '../../../types/Category.ts'
 import { getTaskColor } from '../../../utils/Category.ts'
 
@@ -15,6 +14,18 @@ type ActiveTaskCardProps = {
   totalTasksDurationMs: number
   pastCompletedDurationMs: number
   categories: Category[]
+  dayProgressGradient: DayProgressGradient
+}
+
+export type DayProgressGradient = {
+  id: string
+  glowColor: string
+  stops: DayProgressGradientStop[]
+}
+
+export type DayProgressGradientStop = {
+  offset: string
+  color: string
 }
 
 type ProgressTooltipKind =
@@ -28,7 +39,7 @@ type ProgressTooltipState = {
   y: number
 }
 
-function ActiveTaskCard({ activeTask, today, onToggle, now, totalTasksDurationMs, pastCompletedDurationMs, categories } : ActiveTaskCardProps) {
+function ActiveTaskCard({ activeTask, onToggle, now, totalTasksDurationMs, pastCompletedDurationMs, categories, dayProgressGradient } : ActiveTaskCardProps) {
 
 
 
@@ -49,6 +60,10 @@ function ActiveTaskCard({ activeTask, today, onToggle, now, totalTasksDurationMs
 
     const elapsedTask = task ? task.completed ? (currentTime.getTime() - new Date(task.startAt).getTime()) : 0 : 0
     const elapsedDay = pastCompletedDurationMs + elapsedTask
+    // guard against division by zero
+    if(totalTasksDurationMs === 0) {
+      return 0
+    }
     return Math.min(Math.max((elapsedDay / totalTasksDurationMs), 0), 1)
 
   }
@@ -107,6 +122,7 @@ function ActiveTaskCard({ activeTask, today, onToggle, now, totalTasksDurationMs
 
   const offsetTask = circumferenceTask * (1 - progressTask)
   const offsetDay = circumferenceDay * (1 - progressDay)
+  const dayProgressStroke = `url(#${dayProgressGradient.id})`
 
   function formatProgressDay (progress: number) {
     const percentProgress = Math.round(progress * 100)
@@ -194,38 +210,33 @@ function ActiveTaskCard({ activeTask, today, onToggle, now, totalTasksDurationMs
     )
   }
 
+  function renderDayProgressGradient() {
+    return (
+      <defs>
+        <linearGradient
+          id={dayProgressGradient.id}
+          x1="0"
+          y1="0"
+          x2="1"
+          y2="1"
+        >
+          {dayProgressGradient.stops.map((stop) => (
+            <stop
+              key={`${stop.offset}-${stop.color}`}
+              offset={stop.offset}
+              stopColor={stop.color}
+            />
+          ))}
+        </linearGradient>
+      </defs>
+    )
+  }
+
   return (
     <div>
       {activeTask ? (
-        <div className="grid grid-cols-1 rounded-lg gap-4 pt-8">
-          {/*Functionality Buttons*/}
-          <div className="flex gap-2 text-foreground-secondary">
-            <div className="flex items-center justify-center">
-              <div className="flex">
-                <Checkbox
-                  checked={activeTask.completed}
-                  onChange={() => onToggle(activeTask.id)}
-                  className={`
-                text-muted
-                hover:border-accent
-                hover:text-accent
-                `}
-
-                />
-              </div>
-              <div className="">
-                {'Pending'}
-              </div>
-            </div>
-            <div className="flex ml-auto gap-2 items-center justify-center">
-              <div className="flex">
-                <SlidersHorizontal className="size-4"/>
-              </div>
-              <div>
-                Details
-              </div>
-            </div>
-          </div>
+        <div className="grid grid-cols-1 rounded-lg gap-4">
+          {/*If there is a task*/}
           {/*Progress Circles*/}
           <div className="flex justify-center items-center p-6">
             <div
@@ -237,6 +248,7 @@ function ActiveTaskCard({ activeTask, today, onToggle, now, totalTasksDurationMs
                 height={viewBoxSize}
                 viewBox={`0 0 ${viewBoxSize} ${viewBoxSize}`}
               >
+                {renderDayProgressGradient()}
                 {/*TaskProgress*/}
                 {/* background track Task*/}
                 {progressTask === 0 ? (
@@ -331,7 +343,7 @@ function ActiveTaskCard({ activeTask, today, onToggle, now, totalTasksDurationMs
                     r={radiusDay}
                     fill="none"
                     stroke="currentColor"
-                    strokeWidth="15"
+                    strokeWidth="10"
                     onMouseMove={(event) => {
                       handleProgressTooltipMouseMove(
                         'day',
@@ -359,20 +371,19 @@ function ActiveTaskCard({ activeTask, today, onToggle, now, totalTasksDurationMs
                     style={{
                       '--progress-start': circumferenceDay,
                       '--progress-end': offsetDay,
-                      '--task-active-color': color,
+                      '--task-active-color': dayProgressGradient.glowColor,
                     } as CSSProperties}
                     cx={viewBoxSize / 2}
                     cy={viewBoxSize / 2}
                     r={radiusDay}
                     fill="none"
-                    stroke="currentColor"
+                    stroke={dayProgressStroke}
                     strokeWidth="10"
                     strokeDasharray={circumferenceDay}
                     strokeDashoffset={offsetDay}
                     strokeLinecap={'round'}
                     className="
                     active-task-progress-circle
-                    stroke-[var(--task-active-color)]/50
                     "
                     onMouseMove={(event) => {
                       handleProgressTooltipMouseMove(
@@ -388,20 +399,19 @@ function ActiveTaskCard({ activeTask, today, onToggle, now, totalTasksDurationMs
                     style={{
                       '--progress-start': circumferenceDay,
                       '--progress-end': offsetDay,
-                      '--task-active-color': color,
+                      '--task-active-color': dayProgressGradient.glowColor,
                     } as CSSProperties}
                     cx={viewBoxSize / 2}
                     cy={viewBoxSize / 2}
                     r={radiusDay}
                     fill="none"
-                    stroke="currentColor"
+                    stroke={dayProgressStroke}
                     strokeWidth="10"
                     strokeDasharray={circumferenceDay}
                     strokeDashoffset={offsetDay}
                     strokeLinecap={'round'}
                     className="
                     active-task-progress-circle
-                    stroke-[var(--task-active-color)]/50
                     "
                     transform={`rotate(-90 ${viewBoxSize / 2} ${viewBoxSize / 2})`}
                   />
@@ -419,29 +429,10 @@ function ActiveTaskCard({ activeTask, today, onToggle, now, totalTasksDurationMs
               </div>
             </div>
           </div>
-
-          <div className="flex gap-2 p-6 text-foreground-secondary">
-            <div className="flex gap-2">
-              <div className="flex items-center justify-center">
-                <Calendar className="size-4"/>
-              </div>
-              <div>
-                {getTimeRange(activeTask.startAt, activeTask.endAt, today)}
-              </div>
-            </div>
-            <div className="flex ml-auto gap-2">
-              <div className="flex items-center justify-center">
-                <ArrowDownUp className="size-4"/>
-              </div>
-              <div>
-                {activeTask.priority}
-              </div>
-            </div>
-          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 rounded-lg gap-4 pt-8">
-          {/*Functionality Buttons*/}
+          {/*If there is no task*/}
           <div className="flex gap-2 text-foreground-secondary">
             <div className="flex items-center justify-center">
               <div className="flex">
@@ -487,6 +478,7 @@ function ActiveTaskCard({ activeTask, today, onToggle, now, totalTasksDurationMs
                 height={viewBoxSize}
                 viewBox={`0 0 ${viewBoxSize} ${viewBoxSize}`}
               >
+                {renderDayProgressGradient()}
                 {/* background track */}
                 <circle
                   className="text-border stroke-surface"
@@ -495,7 +487,7 @@ function ActiveTaskCard({ activeTask, today, onToggle, now, totalTasksDurationMs
                   r={radiusTask}
                   fill="none"
                   stroke="currentColor"
-                  strokeWidth="25"
+                  strokeWidth="10"
                 />
                 {/*DayProgress*/}
                 {/*Background track DayProgress*/}
@@ -507,7 +499,7 @@ function ActiveTaskCard({ activeTask, today, onToggle, now, totalTasksDurationMs
                     r={radiusDay}
                     fill="none"
                     stroke="currentColor"
-                    strokeWidth="15"
+                    strokeWidth="10"
                     onMouseMove={(event) => {
                       handleProgressTooltipMouseMove(
                         'daily',
@@ -524,7 +516,7 @@ function ActiveTaskCard({ activeTask, today, onToggle, now, totalTasksDurationMs
                     r={radiusDay}
                     fill="none"
                     stroke="currentColor"
-                    strokeWidth="15"
+                    strokeWidth="10"
                   />
                 )}
 
@@ -534,20 +526,19 @@ function ActiveTaskCard({ activeTask, today, onToggle, now, totalTasksDurationMs
                     style={{
                       '--progress-start': circumferenceDay,
                       '--progress-end': offsetDay,
-                      '--task-active-color': '#CC7E85',
+                      '--task-active-color': dayProgressGradient.glowColor,
                     } as CSSProperties}
                     cx={viewBoxSize / 2}
                     cy={viewBoxSize / 2}
                     r={radiusDay}
                     fill="none"
-                    stroke="currentColor"
-                    strokeWidth="15"
+                    stroke={dayProgressStroke}
+                    strokeWidth="10"
                     strokeDasharray={circumferenceDay}
                     strokeDashoffset={offsetDay}
                     strokeLinecap={'round'}
                     className="
                     active-task-progress-circle
-                    stroke-[var(--task-active-color)]
                     "
                     onMouseMove={(event) => {
                       handleProgressTooltipMouseMove(
@@ -563,20 +554,19 @@ function ActiveTaskCard({ activeTask, today, onToggle, now, totalTasksDurationMs
                     style={{
                       '--progress-start': circumferenceDay,
                       '--progress-end': offsetDay,
-                      '--task-active-color': '#CC7E85',
+                      '--task-active-color': dayProgressGradient.glowColor,
                     } as CSSProperties}
                     cx={viewBoxSize / 2}
                     cy={viewBoxSize / 2}
                     r={radiusDay}
                     fill="none"
-                    stroke="currentColor"
-                    strokeWidth="15"
+                    stroke={dayProgressStroke}
+                    strokeWidth="10"
                     strokeDasharray={circumferenceDay}
                     strokeDashoffset={offsetDay}
                     strokeLinecap={'round'}
                     className="
                     active-task-progress-circle
-                    stroke-[var(--task-active-color)]
                     "
                     transform={`rotate(-90 ${viewBoxSize / 2} ${viewBoxSize / 2})`}
                   />
@@ -586,30 +576,11 @@ function ActiveTaskCard({ activeTask, today, onToggle, now, totalTasksDurationMs
               {/* center content */}
               <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
                 <span className="font-semibold text-3xl text-foreground">
-                  {Math.round(progressDay * 100)}%
+                  {progressDay !== 0 ? Math.round(progressDay * 100) : 0}%
                 </span>
                 <span className="text-xs text-foreground-secondary">
                   {'completed'}
                 </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex gap-2 p-6 text-foreground-secondary">
-            <div className="flex gap-2">
-              <div className="flex items-center justify-center">
-                <Calendar className="size-4"/>
-              </div>
-              <div>
-                {'. . .'}
-              </div>
-            </div>
-            <div className="flex ml-auto gap-2">
-              <div className="flex items-center justify-center">
-                <ArrowDownUp className="size-4"/>
-              </div>
-              <div>
-                {'. . .'}
               </div>
             </div>
           </div>
