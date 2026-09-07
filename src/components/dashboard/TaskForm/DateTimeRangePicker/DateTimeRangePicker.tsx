@@ -1,6 +1,11 @@
 import SelectionCalendar from './SelectionCalendar.tsx'
-import { useState, useRef, type FocusEvent } from 'react'
-import { parseDateTimeInput, formatDateTimeInput } from '../../../../utils/Datetime.ts'
+import { useState, type FocusEvent } from 'react'
+import {
+  formatDateTimeFields,
+  isValidDateTimeRange,
+  parseDateTimeFields,
+  type DateTimeFields,
+} from './dateTimeFields.ts'
 
 export type ActiveField = 'start' | 'end'
 
@@ -13,197 +18,118 @@ type DateTimeRangePickerProps = {
   today: Date
 }
 
+const fields = ['start', 'end'] as const
 
-function DateTimeRangePicker ({newStartAt, setNewStartAt, newEndAt, setNewEndAt, onCanCloseChange, today}: DateTimeRangePickerProps) {
+function DateTimeRangePicker({newStartAt, setNewStartAt, newEndAt, setNewEndAt, onCanCloseChange, today}: DateTimeRangePickerProps) {
+  const [activeField, setActiveField] = useState<ActiveField>('start')
+  const [inputs, setInputs] = useState(() => ({
+    start: formatDateTimeFields(newStartAt),
+    end: formatDateTimeFields(newEndAt),
+  }))
+  const [errors, setErrors] = useState({ start: false, end: false })
 
-  const calendarRef = useRef<HTMLDivElement>(null)
+  const parsedStart = parseDateTimeFields(inputs.start)
+  const parsedEnd = parseDateTimeFields(inputs.end)
+  const rangeError = parsedStart !== null && parsedEnd !== null
+    && !isValidDateTimeRange(parsedStart, parsedEnd)
 
-  const isPointerDownInCalendar = useRef(false)
+  function commitField(field: ActiveField, draft: DateTimeFields = inputs[field]) {
+    const parsed = parseDateTimeFields(draft)
+    const nextInputs = { ...inputs, [field]: parsed === null ? draft : formatDateTimeFields(parsed) }
+    setInputs(nextInputs)
+    setErrors((current) => ({ ...current, [field]: parsed === null }))
 
-  const [activeField, setActiveField] =
-    useState<ActiveField>('start')
-  const [startInput, setStartInput] = useState(
-    formatDateTimeInput(newStartAt)
-  )
-  const [endInput, setEndInput] = useState(
-    formatDateTimeInput(newEndAt)
-  )
-  const [startError, setStartError] = useState<boolean>(false)
-  const [endError, setEndError] = useState<boolean>(false)
-  //calendar picking changes startInput
-
-  function commitStartInput() {
-    const parsedValue = parseDateTimeInput(startInput)
-
-    if (parsedValue === null) {
-      console.log(`Reached unparsable value while trying to commit User Start Input: commitStartInput()`)
-      setStartError(true)
-      return
+    if (parsed !== null) {
+      if (field === 'start') setNewStartAt(parsed)
+      else setNewEndAt(parsed)
     }
 
-    setStartError(false)
-    setNewStartAt(parsedValue)
-    setStartInput(formatDateTimeInput(parsedValue))
-
-    onCanCloseChange(!endError)
+    onCanCloseChange(isValidDateTimeRange(
+      parseDateTimeFields(nextInputs.start),
+      parseDateTimeFields(nextInputs.end),
+    ))
+    return parsed !== null
   }
 
-  function commitEndInput() {
-    const parsedValue = parseDateTimeInput(endInput)
-
-    if (parsedValue === null) {
-      console.log(`Reached unparsable value while trying to commit User End Input: commitEndInput()`)
-      setEndError(true)
-      return
-    }
-
-    setEndError(false)
-    setNewEndAt(parsedValue)
-    setEndInput(formatDateTimeInput(parsedValue))
-
-    onCanCloseChange(!startError)
+  function handleRowBlur(field: ActiveField, event: FocusEvent<HTMLDivElement>) {
+    if (event.currentTarget.contains(event.relatedTarget as Node | null)) return
+    commitField(field)
   }
 
-  function handleStartBlur(
-    event: FocusEvent<HTMLInputElement>,
-  ) {
-    const nextFocusedElement =
-      event.relatedTarget as HTMLElement | null
-
-    const pointerInCalendar = isPointerDownInCalendar.current
-
-    const movedIntoCalendar =
-      nextFocusedElement !== null &&
-      calendarRef.current?.contains(nextFocusedElement)
-
-    if (movedIntoCalendar || pointerInCalendar) {
-      return
-    }
-
-    commitStartInput()
+  function changeInput(field: ActiveField, part: keyof DateTimeFields, value: string) {
+    setInputs((current) => ({ ...current, [field]: { ...current[field], [part]: value } }))
+    setErrors((current) => ({ ...current, [field]: false }))
+    onCanCloseChange(false)
   }
 
-  function handleEndBlur(
-    event: FocusEvent<HTMLInputElement>,
-  ) {
-    const nextFocusedElement =
-      event.relatedTarget as HTMLElement | null
-
-    const movedIntoCalendar =
-      nextFocusedElement !== null &&
-      calendarRef.current?.contains(nextFocusedElement)
-
-    const pointerInCalendar = isPointerDownInCalendar.current
-
-    if (movedIntoCalendar || pointerInCalendar) {
-      return
-    }
-    commitEndInput()
-  }
-
-  function handleStartCalendarChange(value: string) {
-    setStartError(false)
-    setNewStartAt(value)
-    setStartInput(formatDateTimeInput(value))
-
-    onCanCloseChange(!endError)
-    setActiveField('end')
-  }
-
-  function handleEndCalendarChange(value: string) {
-    setEndError(false)
-    setNewEndAt(value)
-    setEndInput(formatDateTimeInput(value))
-
-    onCanCloseChange(!startError)
-    setActiveField('start')
-  }
-
-  function handleCalendarPointerDown() {
-    isPointerDownInCalendar.current = true
-
-    requestAnimationFrame(() => {
-      isPointerDownInCalendar.current = false
-    })
-  }
-
-  function getInputFieldStartStyle () {
-    if(startError) {
-      return 'border-error bg-error-soft'
-    }
-    if(activeField === 'start') {
-      return 'border-accent bg-accent-soft'
-    }
-    return 'border-transparent'
-  }
-
-  function getInputFieldEndStyle () {
-    if(endError) {
-      return 'border-error bg-error-soft'
-    }
-    if(activeField === 'end') {
-      return 'border-accent bg-accent-soft'
-    }
-    return 'border-transparent'
+  function handleCalendarChange(field: ActiveField, value: string) {
+    // The calendar supplies a date; keep the time from the current text draft.
+    const draft = { ...inputs[field], date: formatDateTimeFields(value).date }
+    if (commitField(field, draft)) setActiveField(field === 'start' ? 'end' : 'start')
   }
 
   return (
     <div className="flex flex-col gap-2">
-      <input
-        type="text"
-        onBlur={handleStartBlur}
-        value={startInput}
-        placeholder="Start date"
-        onFocus={() => setActiveField('start')}
-        onChange={(event) => {
-          setStartInput(event.target.value)
-          setStartError(false)
-        }}
-        className={`
-        border ${
-          getInputFieldStartStyle()
-        }
-        flex-1 
-        rounded-lg
-        p-1 
-        outline-none
-        `}
-      />
-      <input
-        type="text"
-        onBlur={handleEndBlur}
-        value={endInput}
-        placeholder="End date"
-        onFocus={() => setActiveField('end')}
-        onChange={(event) => {
-          setEndInput(event.target.value)
-          setEndError(false)
-        }}
-        className={`
-        border ${
-          getInputFieldEndStyle()
-        }
-        flex-1 
-        rounded-lg 
-        p-1 
-        outline-none
-        `}
-      />
-      <div
-        ref={calendarRef}
-        onPointerDownCapture={handleCalendarPointerDown}
-      >
-        <SelectionCalendar
-          newStartAt={newStartAt}
-          newEndAt={newEndAt}
-          today={today}
-          activeField={activeField}
-          handleStartCalenderChange={handleStartCalendarChange}
-          handleEndCalenderChange={handleEndCalendarChange}
-        />
-      </div>
-    </div>
+      {fields.map((field) => {
+        const label = field === 'start' ? 'Start' : 'End'
+        const hasError = errors[field] || (field === 'end' && rangeError)
+        const rowStyle = hasError
+          ? 'border-error bg-error-soft'
+          : activeField === field ? 'border-accent bg-accent-soft' : 'border-transparent'
 
+        return (
+          <div
+            key={field}
+            role="group"
+            aria-label={`${label} date and time`}
+            onFocus={() => setActiveField(field)}
+            onBlur={(event) => handleRowBlur(field, event)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault()
+                event.stopPropagation()
+                commitField(field)
+              }
+            }}
+            className={`flex justify-start min-w-0 items-center gap-3 rounded-lg border p-1 ${rowStyle}`}
+          >
+            <input
+              type="text"
+              aria-label={`${label} date`}
+              aria-invalid={hasError}
+              value={inputs[field].date}
+              placeholder={`${label} date`}
+              onChange={(event) => changeInput(field, 'date', event.target.value)}
+              autoComplete="off"
+              spellCheck={false}
+              className="flex-1 w-[10ch] min-w-0 bg-transparent outline-none"
+            />
+
+            <span aria-hidden="true" className="h-4 w-px shrink-0 bg-current opacity-20" />
+
+            <input
+              type="text"
+              aria-label={`${label} time`}
+              aria-invalid={hasError}
+              value={inputs[field].time}
+              placeholder="HH:mm"
+              onChange={(event) => changeInput(field, 'time', event.target.value)}
+              autoComplete="off"
+              spellCheck={false}
+              className="flex-1 w-[5ch] min-w-0 shrink-0 bg-transparent tabular-nums outline-none"
+            />
+          </div>
+        )
+      })}
+      <SelectionCalendar
+        newStartAt={newStartAt}
+        newEndAt={newEndAt}
+        today={today}
+        activeField={activeField}
+        handleStartCalenderChange={(value) => handleCalendarChange('start', value)}
+        handleEndCalenderChange={(value) => handleCalendarChange('end', value)}
+      />
+    </div>
   )
 }
 

@@ -90,7 +90,7 @@
   color-scheme: dark;
   --theme-browser-chrome: #1a1a1a;
   --theme-canvas: #1a1a1a;
-  --theme-surface: #2c2c2c;
+  --theme-surface: #232323;
   --theme-surface-hover: #3a3a3a;
 
   --theme-foreground: #f1f1f1;
@@ -182,8 +182,7 @@
   inset-0
   pointer-events-none
   rounded-3xl
-  bg-transparent
-  backdrop-blur-lg
+  bg-surface
   border
   border-white/10
   shadow-2xl;

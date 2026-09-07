@@ -3,6 +3,7 @@ import type { NewTask, TaskPriority, TaskTemplate } from '../../../types/Task.ts
 import SubmitButton from '../../ui/SubmitButton.tsx'
 import CancelButton from '../../ui/CancelButton.tsx'
 import DateTimeRangePicker from './DateTimeRangePicker/DateTimeRangePicker.tsx'
+import { getInitialTaskDateRange } from './DateTimeRangePicker/dateTimeFields.ts'
 import {
   ArrowDownUpIcon,
   Calendar,
@@ -32,12 +33,8 @@ function TaskForm ({initialValues, onClose, onSubmit, categories, today}: TaskFo
   const [newTitle, setNewTitle] = useState(initialValues.title)
   const [newPriority, setNewPriority] = useState<TaskPriority>(initialValues.priority)
   const [newEmoji, setNewEmoji] = useState<string | null>(initialValues.emoji)
-  const [newStartAt, setNewStartAt] = useState(
-      initialValues.startAt ?? '',
-  )
-  const [newEndAt, setNewEndAt] = useState(
-      initialValues.endAt ?? '',
-  )
+  const [dateRange, setDateRange] = useState(() => getInitialTaskDateRange(initialValues, new Date()))
+  const { startAt: newStartAt, endAt: newEndAt } = dateRange
   const [newCompleted, setNewCompleted] = useState(initialValues.completed)
   const [newCategoryId, setNewCategoryId] = useState(initialValues.categoryId)
 
@@ -74,6 +71,14 @@ function TaskForm ({initialValues, onClose, onSubmit, categories, today}: TaskFo
 
   function handleCanCloseChange(canClose: boolean) {
     canCloseDatePickerRef.current = canClose
+  }
+
+  function setNewStartAt(startAt: string) {
+    setDateRange((current) => ({ ...current, startAt }))
+  }
+
+  function setNewEndAt(endAt: string) {
+    setDateRange((current) => ({ ...current, endAt }))
   }
 
   function constructTaskValues(): NewTask {
@@ -218,6 +223,7 @@ function TaskForm ({initialValues, onClose, onSubmit, categories, today}: TaskFo
       className="flex flex-col gap-15 p-12 will-change-contents"
       onSubmit={(event) => {
         event.preventDefault()
+        if (!canCloseDatePickerRef.current) return
         const values = constructTaskValues()
         onSubmit(values)
       }}

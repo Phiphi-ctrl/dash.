@@ -129,7 +129,7 @@ function TaskItem ({task, onToggle, onDelete, onEdit, today, categories} : TaskI
             <div className="flex items-center gap-1 text-xs text-muted">
               <CheckCheck size={14}/>
               <span>mark as</span>
-              <span className="font-semibold text-foreground-secondary">completed</span>
+              <span className="font-semibold text-foreground-secondary">{task.completed ? 'incomplete' : 'completed'}</span>
             </div>
           }
           delay={800}

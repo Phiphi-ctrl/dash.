@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react"
-import UpcomingTaskList from '../components/dashboard/TodoList/TaskList'
+import TaskList from '../components/dashboard/TodoList/TaskList'
+import type { TaskListView } from '../components/dashboard/TodoList/taskListViews.ts'
+import ViewSelector from '../components/dashboard/ViewSelector.tsx'
 import type { Task } from '../types/Task'
 import Button from '../components/ui/Button.tsx'
 import {
   PlusIcon,
-  LoaderCircle,
-  ChevronDown,
-  ChevronUp,
   Dot,
   UserRound,
   SquareArrowRight,
@@ -45,6 +44,11 @@ type DashboardTimeOfDayTheme = {
   dayProgressGradient: DashboardDayProgressGradient
 }
 
+const taskListViewOptions = [
+  { value: 'upcoming', label: 'Upcoming' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'overdue', label: 'Overdue' },
+] as const
 
 function Dashboard({
                      today,
@@ -56,9 +60,7 @@ function Dashboard({
                      handleEditTaskItem,
                      categories }: DashboardProps) {
 
-  const [isActiveOpen, setIsActiveOpen] = useState(true)
-
-  const [isToDoOpen, setIsToDoOpen] = useState(true)
+  const [taskListView, setTaskListView] = useState<TaskListView>('upcoming')
 
   function useCurrentTime() {
     const [now, setNow] = useState(() => new Date())
@@ -186,51 +188,25 @@ function Dashboard({
 
       <section className="grid grid-cols-2">
         {/*Active Section*/}
-        <div className="flex flex-col gap-1">
-          <div className="flex justify-between mb-4 p-2">
-            <div className="flex justify-center items-center p-2 gap-3 text-foreground">
-              <LoaderCircle className="size-5" />
-              <h3 className="text-xl font-semibold">day-status.</h3>
-              <button
-                className="cursor-pointer"
-                type="button"
-                onClick={() => setIsActiveOpen((current) => !current)}
-              >
-                {isActiveOpen ? (
-                  <ChevronUp className="size-6"/>
-                ) : (
-                  <ChevronDown className="size-6"/>
-                )}
-              </button>
-            </div>
-          </div>
-          {isActiveOpen && (
-            <ActiveTask
-              tasks={tasks}
-              today={today}
-              onToggle={handleToggleTaskItem}
-              categories={categories}
-              dayProgressGradient={timeOfDay.dayProgressGradient}
-            />
-          )}
-        </div>
+        <ActiveTask
+          tasks={tasks}
+          today={today}
+          onToggle={handleToggleTaskItem}
+          categories={categories}
+          dayProgressGradient={timeOfDay.dayProgressGradient}
+        />
         {/*To-do section*/}
         <div className="flex flex-col gap-1">
           <div className="flex justify-between mb-4 p-2">
             <div className="flex justify-center items-center p-2 gap-3 text-foreground">
               <SquareArrowRight className="size-5" />
-              <h3 className="text-xl font-semibold">upcoming.</h3>
-              <button
-                className="cursor-pointer"
-                type="button"
-                onClick={() => setIsToDoOpen((current) => !current)}
-              >
-                {isToDoOpen ? (
-                  <ChevronUp className="size-6"/>
-                ) : (
-                  <ChevronDown className="size-6"/>
-                )}
-              </button>
+              <h3 className="text-xl font-semibold">task-list.</h3>
+              <ViewSelector
+                label="Task list"
+                view={taskListView}
+                options={taskListViewOptions}
+                onSelect={setTaskListView}
+              />
             </div>
             <Tooltip
               content={
@@ -260,16 +236,14 @@ function Dashboard({
             </Tooltip>
 
           </div>
-          {isToDoOpen && (
-            <UpcomingTaskList
-              tasks={tasks}
-              onToggle={handleToggleTaskItem}
-              onDelete={handleDeleteTaskItem}
-              onEdit={handleEditTaskItem}
-              categories={categories}
-              now={now}
-            />
-          )}
+          <TaskList
+            tasks={tasks}
+            onToggle={handleToggleTaskItem}
+            onDelete={handleDeleteTaskItem}
+            onEdit={handleEditTaskItem}
+            categories={categories}
+            view={taskListView}
+          />
         </div>
       </section>
     </main>
