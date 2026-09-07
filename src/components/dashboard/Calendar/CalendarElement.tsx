@@ -9,10 +9,9 @@ import {
   useFloating,
 } from '@floating-ui/react'
 import {
-  getStartOfWeek,
   dayFormatter,
   monthFormatter,
-  getDayRange, getHourRange, getTimeRange, isSameDay, getDuration,
+  getDayRange, getHourRange, getTimeRange, isSameDay, getDuration, timeFormatter,
 } from '../../../utils/Datetime.ts'
 import {
   Fragment,
@@ -27,6 +26,16 @@ import type { Task } from '../../../types/Task.ts'
 import * as React from 'react'
 import type { Category } from '../../../types/Category.ts'
 import { getTaskCategory, getTaskColor } from '../../../utils/Category.ts'
+import ViewSelector from '../ViewSelector.tsx'
+import {
+  buildTaskSegments,
+  getCalendarDays,
+  getDateFromTimeSlot,
+  layoutTaskSegments,
+  shiftCalendarDate,
+  type PositionedCalendarTaskSegment,
+  type CalendarView,
+} from './calendarLayout.ts'
 
 type CalendarProps = {
   today: Date
@@ -39,18 +48,6 @@ type CalendarProps = {
   onEdit: (task: Task ) => void,
   onDelete: (id: string) => void,
   categories: Category[]
-}
-
-type CalendarTaskSegment = {
-  task: Task
-  dayIndex: number
-  startSlot: number
-  endSlot: number
-}
-
-type PositionedCalendarTaskSegment = CalendarTaskSegment & {
-  laneIndex: number
-  laneCount: number
 }
 
 export type DragState =
@@ -88,6 +85,10 @@ type MovePreview = {
 }
 
 const taskSegmentDragThresholdPx = 5
+const calendarViewOptions = [
+  { value: 'day', label: 'Day' },
+  { value: 'week', label: 'Week' },
+] as const
 const calendarSlotDurationMs = 15 * 60 * 1000
 const taskInfoArrowWidthPx = 18
 const taskInfoArrowHeightPx = 9
@@ -181,8 +182,9 @@ function getCalendarMovePreviewAtPoint(
 }
 
 function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, onDelete, categories} : CalendarProps) {
-  const [visibleWeekStart, setVisibleWeekStart] = useState(
-    () => getStartOfWeek(today)
+  const [view, setView] = useState<CalendarView>('week')
+  const [visibleDate, setVisibleDate] = useState(
+    () => getCalendarDays(today, 'day')[0]
   )
 
   const [now, setNow] = useState(() => new Date())
@@ -190,7 +192,7 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
       setNow(new Date())
-    }, 30000)
+    }, 10000)
 
     return () => {
       window.clearInterval(intervalId)
@@ -673,33 +675,27 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
     }
   }
 
-  function getVisibleWeekEnd (date: Date) {
-    const end = new Date(date)
-    end.setDate(end.getDate() + 6)
-    return end
+  function resetCalendarInteraction() {
+    closeTaskInfo()
+    pendingSegmentInteractionRef.current = null
+    setDragState(null)
   }
 
-  function nextWeek (current: Date) {
-    const nextWeek = new Date(current)
-    nextWeek.setDate(nextWeek.getDate() + 7)
-    return nextWeek
+  function changeView(nextView: CalendarView) {
+    if (nextView === view) return
+    resetCalendarInteraction()
+    setView(nextView)
   }
 
-  function prevWeek (current: Date) {
-    const prevWeek = new Date(current)
-    prevWeek.setDate(prevWeek.getDate() - 7)
-    return prevWeek
+  function navigateCalendar(direction: -1 | 1) {
+    resetCalendarInteraction()
+    setVisibleDate((current) => shiftCalendarDate(current, view, direction))
   }
 
-  const days = Array.from(
-    { length: 7 },
-    (_, index) =>
-      new Date(
-        visibleWeekStart.getFullYear(),
-        visibleWeekStart.getMonth(),
-        visibleWeekStart.getDate() + index,
-      )
-  )
+  const days = getCalendarDays(visibleDate, view)
+  const visibleStart = days[0]
+  const visibleEnd = days[days.length - 1]
+  const gridTemplateColumns = `4rem repeat(${days.length}, minmax(0, 1fr))`
 
   const timeSlots = Array.from(
     { length: 96 },
@@ -708,24 +704,6 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
 
   function isFullHour (timeSlot: number) {
     return timeSlot % 4 === 0
-  }
-
-  function getDateFromTimeSlot(day: Date, timeSlot: number) {
-    const date = new Date(day)
-
-    const hour = Math.floor(timeSlot / 4)
-    const minute = (timeSlot % 4) * 15
-
-    date.setHours(hour, minute, 0, 0)
-
-    return date
-  }
-
-  function getTimeSlotFromDate(date: Date) {
-    return (
-      date.getHours() * 4 +
-      Math.floor(date.getMinutes() / 15)
-    )
   }
 
   const currentDayIndex = days.findIndex((day) => isSameDay(day, now))
@@ -904,12 +882,13 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
             className={`
             h-full
             w-full
-            border-r-2
-            border-border/30
+            border-r-1
+            border-border/40
             transition-[border-radius,background-color,color]
             duration-600
             ease-out
             ${isFullHour(timeSlot) ? 'border-t-2' : ''}
+            ${dayIndex === days.length - 1 ? '!border-r-0' : ''}
           `}
           />
         ))}
@@ -932,145 +911,10 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
     }
   })
 
-  function buildTaskSegments (taskList: Task[]) {
-    const taskSegments: CalendarTaskSegment[] = []
-    days.forEach((day, dayIndex) => {
-      taskList.forEach((task) => {
-        const dayStart = new Date(day)
-
-        const dayEnd = new Date(day)
-        dayEnd.setDate(dayEnd.getDate() + 1)
-
-        const overlap = new Date(task.startAt) < dayEnd && new Date(task.endAt) > dayStart
-
-        if(overlap) {
-          const segmentStart = new Date(
-            Math.max(new Date(task.startAt).getTime(), dayStart.getTime())
-          )
-
-          const segmentEnd = new Date(
-            Math.min(new Date(task.endAt).getTime(), dayEnd.getTime())
-          )
-
-          const endSlot =
-            segmentEnd.getTime() === dayEnd.getTime()
-              ? 96
-              : getTimeSlotFromDate(segmentEnd)
-
-          const segment = {
-            task: task,
-            dayIndex: dayIndex,
-            startSlot: getTimeSlotFromDate(segmentStart),
-            endSlot: endSlot,
-          }
-          taskSegments.push(segment)
-        }
-      })
-    })
-    return taskSegments
-  }
-
-  function buildCollisionGroups(
-      segments: CalendarTaskSegment[]
-  ) {
-    const sorted = [...segments].sort(
-        (a, b) => a.startSlot - b.startSlot
-    )
-
-    const groups: CalendarTaskSegment[][] = []
-
-    let currentGroup: CalendarTaskSegment[] = []
-    let currentGroupEnd = -1
-
-    sorted.forEach((segment) => {
-      if (currentGroup.length === 0) {
-        currentGroup.push(segment)
-        currentGroupEnd = segment.endSlot
-        return
-      }
-
-      if (segment.startSlot < currentGroupEnd) {
-        currentGroup.push(segment)
-
-        currentGroupEnd = Math.max(
-            currentGroupEnd,
-            segment.endSlot
-        )
-      } else {
-        groups.push(currentGroup)
-
-        currentGroup = [segment]
-        currentGroupEnd = segment.endSlot
-      }
-    })
-
-    if (currentGroup.length > 0) {
-      groups.push(currentGroup)
-    }
-
-    return groups
-  }
-
-  function layoutCollisionGroup(
-      group: CalendarTaskSegment[]
-  ): PositionedCalendarTaskSegment[] {
-    const laneEnds: number[] = []
-
-    const assigned = group.map((segment) => {
-      let laneIndex = laneEnds.findIndex(
-          (laneEnd) => laneEnd <= segment.startSlot
-      )
-
-      if (laneIndex === -1) {
-        laneIndex = laneEnds.length
-        laneEnds.push(segment.endSlot)
-      } else {
-        laneEnds[laneIndex] = segment.endSlot
-      }
-
-      return {
-        segment,
-        laneIndex,
-      }
-    })
-
-    const laneCount = laneEnds.length
-
-    return assigned.map(({ segment, laneIndex }) => ({
-      ...segment,
-      laneIndex,
-      laneCount,
-    }))
-  }
-
-  function layoutTaskSegments(
-      segments: CalendarTaskSegment[]
-  ): PositionedCalendarTaskSegment[] {
-    const positionedSegments: PositionedCalendarTaskSegment[] = []
-
-    for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
-      const daySegments = segments.filter(
-          (segment) => segment.dayIndex === dayIndex
-      )
-
-      const collisionGroups =
-          buildCollisionGroups(daySegments)
-
-      collisionGroups.forEach((group) => {
-        const positionedGroup =
-            layoutCollisionGroup(group)
-
-        positionedSegments.push(...positionedGroup)
-      })
-    }
-
-    return positionedSegments
-  }
-
-  const taskSegments = buildTaskSegments(displayTasks)
+  const taskSegments = buildTaskSegments(displayTasks, days)
 
   const positionedTaskSegments =
-      layoutTaskSegments(taskSegments)
+      layoutTaskSegments(taskSegments, days.length)
 
   const infoTask =
     infoTaskId === null
@@ -1191,27 +1035,37 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
 
   return (
     <div className="flex min-h-0 flex-1 flex-col w-full gap-8">
-      <div className="flex">
-        <div className="text-3xl font-bold text-foreground">
-          {monthFormatter.format(visibleWeekStart)}
+      <div className="flex flex-wrap gap-3 mt-5">
+        <div className="flex items-center gap-3">
+          <div className="text-3xl font-bold text-foreground">
+            {monthFormatter.format(visibleStart)}
+          </div>
+          <ViewSelector
+            view={view}
+            options={calendarViewOptions}
+            label="Calendar view"
+            onSelect={changeView}
+          />
         </div>
-        <div className="flex gap-4 text-foreground-secondary ml-auto">
+        <div className="flex gap-4 text-foreground-secondary ml-auto glass-surface justify-between w-60 max-w-full shrink-0">
           <button
             type="button"
-            className="cursor-pointer"
-            onClick={() => setVisibleWeekStart((current) => prevWeek(current))}
+            aria-label={`Previous ${view}`}
+            className="cursor-pointer hover:scale-110 hover:text-foreground tranistion-transform"
+            onClick={() => navigateCalendar(-1)}
           >
             <ChevronLeft className="size-6" />
           </button>
-          <span className="flex items-center justify-center">{getDayRange(
-            visibleWeekStart.toDateString(),
-            getVisibleWeekEnd(visibleWeekStart).toDateString()
-          )}
+          <span className="flex items-center justify-center">
+            {view === 'day'
+              ? dayFormatter.format(visibleStart)
+              : getDayRange(visibleStart.toISOString(), visibleEnd.toISOString())}
           </span>
           <button
             type="button"
-            className="cursor-pointer"
-            onClick={() => setVisibleWeekStart((current) => nextWeek(current))}
+            aria-label={`Next ${view}`}
+            className="cursor-pointer hover:scale-110 hover:text-foreground tranistion-transform"
+            onClick={() => navigateCalendar(1)}
           >
             <ChevronRight className="size-6" />
           </button>
@@ -1219,13 +1073,12 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
       </div>
       {/*Day grid*/}
       <div className="flex min-h-0 flex-1 flex-col w-full">
-        <div className="grid grid-cols-[4rem_repeat(7,minmax(0,1fr))] place-items-center">
+        <div className="grid place-items-center pr-6" style={{ gridTemplateColumns }}>
           <time></time>
           {days.map((day) => (
             <button
               className={`
               flex 
-              border-border 
               text-foreground-secondary 
               w-full 
               h-8 
@@ -1236,7 +1089,11 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
               <div
                 className={`
                 flex items-center justify-center
-                rounded-lg
+                cursor-pointer
+                rounded-4xl
+                ${isSameDay(day, now) ? 'bg-calendar-today/30' : 'bg-transparent'}
+                hover:bg-accent-soft/50
+                transition-colors
                 p-3
                 `}>
                 {dayFormatter.format(day)}
@@ -1247,14 +1104,16 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
         {/*Calendar grid*/}
         <div className="relative flex min-h-0 flex-1">
         <div className={`
+          py-8
+          pr-6
           grid
-          grid-cols-[4rem_repeat(7,minmax(0,1fr))]
           grid-rows-[repeat(96,1.25rem)]
           w-full
           h-full min-h-0 flex-1 overflow-y-auto
           ${dragState !== null ? 'select-none' : ''}
           `}
           ref={calendarGridRef}
+          style={{ gridTemplateColumns }}
         >
           {/*time slots which are all the buttons for each 15 min slot*/}
           {timeSlots.map((timeSlot) => (
@@ -1271,16 +1130,20 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
                 marginTop: `${currentTimeOffsetRem}rem`
               }}
               className="
-              relative
-              z-30
-              self-start
-              h-0.5
-              w-full
-              bg-calendar-today
-              pointer-events-none
+                relative
+                z-30
+                self-start
+                h-0
+                w-full
+                border-t-2
+                border-dashed
+                border-calendar-today
+                pointer-events-none
               "
-            >
-              <span className="absolute left-0 top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-calendar-today"/>
+                        >
+              <span className="absolute left-0 top-1/2 rounded-4xl -translate-x-11/12 -translate-y-1/2 bg-calendar-today text-[10px] p-1">
+                {timeFormatter.format(now)}
+              </span>
             </div>
 
 

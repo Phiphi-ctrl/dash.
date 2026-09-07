@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useId, useState } from "react"
 import TaskList from '../components/dashboard/TodoList/TaskList'
 import type { TaskListView } from '../components/dashboard/TodoList/taskListViews.ts'
 import ViewSelector from '../components/dashboard/ViewSelector.tsx'
@@ -49,6 +49,52 @@ const taskListViewOptions = [
   { value: 'completed', label: 'Completed' },
   { value: 'overdue', label: 'Overdue' },
 ] as const
+
+function GradientPlusIcon({
+                            gradient,
+                            className = "size-5",
+                          }: {
+  gradient: DashboardDayProgressGradient
+  className?: string
+}) {
+  const gradientId = useId().replace(/:/g, "")
+
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      className={className}
+      aria-hidden="true"
+    >
+      <defs>
+        <linearGradient
+          id={gradientId}
+          x1="0"
+          y1="0"
+          x2="24"
+          y2="0"
+          gradientUnits="userSpaceOnUse"
+        >
+          {gradient.stops.map((stop) => (
+            <stop
+              key={stop.offset}
+              offset={stop.offset}
+              stopColor={stop.color}
+            />
+          ))}
+        </linearGradient>
+      </defs>
+
+      <path
+        d="M5 12h14M12 5v14"
+        stroke={`url(#${gradientId})`}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
 
 function Dashboard({
                      today,
@@ -150,16 +196,28 @@ function Dashboard({
 
   const timeOfDay = getTimeOfDay(now)
 
-  function renderGreeting () {
+  function renderGreeting() {
     return (
-      <h1 className="text-8xl font-bold tracking-tight">
-        <span className="text-foreground">Good{" "}</span>
-        <span
-          className={`${timeOfDay.gradient} bg-clip-text text-transparent`}
-        >
+      <div className="flex items-center gap-6">
+        <h1 className="text-8xl font-bold tracking-tight">
+        <span className="text-foreground">
+          Good{" "}
+        </span>
+
+          <span
+            className={`${timeOfDay.gradient} bg-clip-text text-transparent`}
+          >
           {timeOfDay.label}
         </span>
-      </h1>
+        </h1>
+
+        <div className="flex  gap-2 glass-surface items-center py-2 px-4 w-40 cursor-pointer">
+          <GradientPlusIcon
+            gradient={timeOfDay.dayProgressGradient}
+            className="size-20 flex-start"
+          />
+        </div>
+      </div>
     )
   }
 
@@ -179,10 +237,13 @@ function Dashboard({
 
   return (
     <main className="flex min-h-full min-w-0 flex-1 z-0 flex-col px-10 gap-8 pb-10">
-      <header className="flex-start flex-col gap-1 items-center justify-start pt-10">
-        {renderGreeting()}
-        {renderGreetingUnderline("Philipp Saboi")}
+      <header>
+        <div className="flex-start flex-col gap-1 items-center justify-start pt-10">
+          {renderGreeting()}
+          {renderGreetingUnderline("Philipp Saboi")}
+        </div>
       </header>
+
 
       <TimelineBar tasks={tasks} categories={categories} now={now} onEdit={handleEditTaskItem} onToggle={handleToggleTaskItem} />
 

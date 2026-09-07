@@ -25,7 +25,7 @@ export function getDurationMins (start: string, end: string) {
   return (endDate.getTime() - startDate.getTime()) / 1000 / 60
 }
 
-const timeFormatter = new Intl.DateTimeFormat(undefined, {
+export const timeFormatter = new Intl.DateTimeFormat(undefined, {
   hour: '2-digit',
   minute: '2-digit',
 })
