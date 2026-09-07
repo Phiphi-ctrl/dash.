@@ -1,13 +1,13 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import SubmitButton from '../../ui/SubmitButton.tsx'
 import CancelButton from '../../ui/CancelButton.tsx'
 import {
   Palette,
 } from 'lucide-react'
-import { createPortal } from 'react-dom'
 import * as React from 'react'
 import ColorPicker from '../TaskForm/ColorPicker/ColorPicker.tsx'
 import type { NewCategory } from '../../../types/Category.ts'
+import FormPopover from '../forms/FormPopover.tsx'
 
 type CategoryFormProps = {
   initialValues: NewCategory
@@ -20,60 +20,12 @@ function CategoryForm ({initialValues, onClose, onSubmit }: CategoryFormProps) {
   const [newColor, setNewColor] = useState<string>(initialValues.color)
   const [isColorPickerOpen, setIsColorPickerOpen] = useState(false)
 
-  const [colorPopoverPosition, setColorPopoverPosition] =
-    useState<PopoverPosition | null>(null)
-  const colorAnchorRef =
-    useRef<HTMLDivElement>(null)
-  const colorPopoverRef =
-    useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if(!isColorPickerOpen) {
-      return
-    }
-
-    function handleDocumentClickCP(event: MouseEvent) {
-      if(!(event.target instanceof Node)) {
-        return
-      }
-
-      const clickedAnchor =
-        colorAnchorRef.current?.contains(event.target)
-
-      const clickedPopover =
-        colorPopoverRef.current?.contains(event.target)
-
-      if (!clickedAnchor && !clickedPopover) {
-
-        setIsColorPickerOpen(false)
-      }
-    }
-
-    document.addEventListener('click', handleDocumentClickCP)
-
-    return () => {
-      document.removeEventListener('click', handleDocumentClickCP)
-    }
-  }, [isColorPickerOpen])
-
   function handleColorPickerToggle () {
     if(isColorPickerOpen) {
       setIsColorPickerOpen(false)
       return
     }
     if(!isColorPickerOpen) {
-      const rect =
-        colorAnchorRef.current?.getBoundingClientRect()
-
-      if (rect === undefined) {
-        return
-      }
-
-      setColorPopoverPosition({
-        left: rect.left,
-        top: rect.bottom + 10,
-      })
-
       setIsColorPickerOpen(true)
     }
     return
@@ -143,8 +95,10 @@ function CategoryForm ({initialValues, onClose, onSubmit }: CategoryFormProps) {
           </span>
         </div>
         <div className="flex items-center relative -ml-20">
-          <div ref={colorAnchorRef}>
-            <button
+          <div>
+            <FormPopover open={isColorPickerOpen} onOpenChange={setIsColorPickerOpen} label="Choose color"
+              trigger={({ ref, props }) => (
+            <button ref={ref} {...props}
               type="button"
               onClick={handleColorPickerToggle}
               className="text-foreground-secondary cursor-pointer"
@@ -157,27 +111,9 @@ function CategoryForm ({initialValues, onClose, onSubmit }: CategoryFormProps) {
               />
             </button>
 
-            {isColorPickerOpen && colorPopoverPosition !== null && createPortal(
-              <div
-                ref={colorPopoverRef}
-                className="
-                fixed
-                z-[100]
-                p-4
-                "
-                style={{
-                  top: colorPopoverPosition.top,
-                  left: colorPopoverPosition.left,
-                }}
-              >
-                <div className="glass-panel-bg"/>
-                <div className="relative z-10">
-                  <ColorPicker onClick={handleColorSelect} />
-                </div>
-              </div>,
-
-              document.body
-            )}
+              )}>
+              <ColorPicker onClick={handleColorSelect} />
+            </FormPopover>
           </div>
         </div>
       </div>

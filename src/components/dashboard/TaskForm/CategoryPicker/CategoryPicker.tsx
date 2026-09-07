@@ -11,10 +11,11 @@ function CategoryPicker({
                           onSelect,
                         }: CategoryPickerProps) {
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-2">
       <button
         type="button"
         onClick={() => onSelect(null)}
+        className="text-muted hover:scale-110 hover:text-foreground-secondary transition-transform"
       >
         No Workspace
       </button>
@@ -24,7 +25,7 @@ function CategoryPicker({
           key={category.id}
           type="button"
           onClick={() => onSelect(category.id)}
-          className="flex items-center gap-2"
+          className="flex items-center text-muted gap-4 hover:scale-110 hover:text-foreground-secondary transition-transform"
         >
           <span
             className="size-3 rounded-full"

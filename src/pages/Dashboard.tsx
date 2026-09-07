@@ -15,6 +15,7 @@ import LiveDateTime from '../components/dashboard/LiveDateTime.tsx'
 import ActiveTask from '../components/dashboard/Active/ActiveTask.tsx'
 import type { Category } from '../types/Category.ts'
 import Tooltip from '../components/ui/Tooltip.tsx'
+import TimelineBar from '../components/dashboard/TimelineBar/TimelineBar.tsx'
 
 type DashboardProps = {
   today: Date
@@ -175,20 +176,21 @@ function Dashboard({
 
 
   return (
-    <main className="flex min-h-full flex-1 z-0 flex-col px-10 gap-8 pb-10">
+    <main className="flex min-h-full min-w-0 flex-1 z-0 flex-col px-10 gap-8 pb-10">
       <header className="flex-start flex-col gap-1 items-center justify-start pt-10">
         {renderGreeting()}
         {renderGreetingUnderline("Philipp Saboi")}
       </header>
 
+      <TimelineBar tasks={tasks} categories={categories} now={now} onEdit={handleEditTaskItem} onToggle={handleToggleTaskItem} />
 
-      <section className="grid grid-cols-2 gap-10">
+      <section className="grid grid-cols-2">
         {/*Active Section*/}
         <div className="flex flex-col gap-1">
           <div className="flex justify-between mb-4 p-2">
             <div className="flex justify-center items-center p-2 gap-3 text-foreground">
               <LoaderCircle className="size-5" />
-              <h3 className="text-xl font-semibold">active.</h3>
+              <h3 className="text-xl font-semibold">day-status.</h3>
               <button
                 className="cursor-pointer"
                 type="button"

@@ -54,14 +54,13 @@ function TaskItem ({task, onToggle, onDelete, onEdit, today, categories} : TaskI
         relative
         flex
         w-full
-        bg-transparent
+        glass-surface
         gap-4
         items-center
-        border-b-2
-        border-border/50
         py-4
         pl-4
         pr-8
+        z-30
         
       `}
     >

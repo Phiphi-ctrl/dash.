@@ -10,13 +10,14 @@ function SaveTemplateButton ({onSave}: SaveTemplateButtonProps) {
       onClick={onSave}
       type="button"
       className="
-      group
       shrink-0
-      rounded-lg
       cursor-pointer
       p-3
-      text-text-secondary
       focus:outline-none
+      text-foreground-secondary
+      hover:scale-110
+      hover:text-foreground
+      transition-transform
      ">
       <SaveCheck
         className="

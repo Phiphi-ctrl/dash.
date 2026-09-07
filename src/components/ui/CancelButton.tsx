@@ -11,19 +11,18 @@ function CancelButton ({onCancel}: CancelButtonProps) {
       className="
       group
       shrink-0
-      rounded-lg
       cursor-pointer
       p-3
-      text-text-secondary
       focus:outline-none
-     ">
+      text-foreground-secondary
+      hover:scale-110
+      hover:text-foreground
+      transition-transform
+      "
+    >
       <ChevronsRight
         className="
         size-5
-        origin-center
-        transition-transform
-        duration-300
-        ease-out
       "/>
     </button>
   )

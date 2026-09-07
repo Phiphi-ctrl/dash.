@@ -12,6 +12,7 @@ import TaskForm from './components/dashboard/TaskForm/TaskForm.tsx'
 import Settings from './pages/Settings.tsx'
 import type { NewCategory, Category } from './types/Category.ts'
 import CategoryForm from './components/dashboard/CategoryForm/CategoryForm.tsx'
+import FormPanel from './components/dashboard/forms/FormPanel.tsx'
 import type { Note } from './types/Note.ts'
 import { createEmptyDashDocument } from './types/Block.ts'
 import type { NoteFolder } from './types/NoteFolder.ts'
@@ -691,10 +692,7 @@ function App() {
       </div>
       <div>
         {isAddTaskOpen && editingTask === null && (
-          <div className="fixed inset-0 z-50 flex justify-end p-2 overflow-hidden">
-            <div
-              className="w-full max-w-lg p-1 glass-surface"
-            >
+          <FormPanel label="New task">
               <TaskForm
                 onClose={() => {
                   setIsAddTaskOpen(false)
@@ -704,14 +702,10 @@ function App() {
                 categories={categories}
                 today={today}
               />
-            </div>
-          </div>
+          </FormPanel>
         )}
         {isAddTaskOpen && editingTask !== null && (
-          <div className="fixed inset-0 z-50 flex justify-end p-2 overflow-hidden">
-            <div
-              className="w-full max-w-lg p-1 glass-surface"
-            >
+          <FormPanel label="Edit task">
               <TaskForm
                 onClose={() => {
                   setIsAddTaskOpen(false)
@@ -731,14 +725,10 @@ function App() {
                 categories={categories}
                 today={today}
               />
-            </div>
-          </div>
+          </FormPanel>
         )}
         {isAddCategoryOpen && (
-          <div className="fixed inset-0 z-50 flex justify-end p-2 overflow-hidden">
-            <div
-              className="w-full max-w-lg p-1 glass-surface"
-            >
+          <FormPanel label="New category">
               <CategoryForm
                 onClose={() => {
                   setIsAddCategoryOpen(false)
@@ -749,8 +739,7 @@ function App() {
                   color: '#D38B5D',
                 }}
               />
-            </div>
-          </div>
+          </FormPanel>
         )}
       </div>
     </div>

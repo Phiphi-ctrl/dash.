@@ -191,7 +191,7 @@
 
 .glass-surface {
   @apply
-  bg-canvas/60
+  bg-surface/20
   backdrop-blur-xl
   shadow-xl
   rounded-4xl
@@ -258,22 +258,6 @@
 .calendar-task-info-outline {
   stroke: rgb(255 255 255 / 20%);
   overflow: visible;
-}
-
-.note-actions-liquid-glass {
-  background: rgba(0, 0, 0, 0.05);
-
-  backdrop-filter:
-          url(#note-actions-liquid-glass)
-          blur(1px)
-          saturate(150%);
-
-  border: 1px solid rgba(255, 255, 255, 0.16);
-
-  box-shadow:
-          inset 0 1px 0 rgba(255, 255, 255, 0.22),
-          inset 0 -1px 0 rgba(255, 255, 255, 0.06),
-          0 8px 30px rgba(0, 0, 0, 0.22);
 }
 
 @keyframes active-task-progress-enter {

@@ -1,8 +1,7 @@
 import type { Task } from '../../../types/Task.ts'
-import Checkbox from '../../ui/Checkbox.tsx'
-import { SlidersHorizontal } from 'lucide-react'
 import { useState } from 'react'
 import type { CSSProperties, MouseEvent } from 'react'
+import { autoUpdate, flip, FloatingPortal, offset, shift, useFloating } from '@floating-ui/react'
 import type { Category } from '../../../types/Category.ts'
 import { getTaskColor } from '../../../utils/Category.ts'
 
@@ -33,18 +32,19 @@ type ProgressTooltipKind =
   | 'day'
   | 'daily'
 
-type ProgressTooltipState = {
-  kind: ProgressTooltipKind
-  x: number
-  y: number
-}
-
-function ActiveTaskCard({ activeTask, onToggle, now, totalTasksDurationMs, pastCompletedDurationMs, categories, dayProgressGradient } : ActiveTaskCardProps) {
+function ActiveTaskCard({ activeTask, now, totalTasksDurationMs, pastCompletedDurationMs, categories, dayProgressGradient } : ActiveTaskCardProps) {
 
 
 
   const [progressTooltip, setProgressTooltip] =
-    useState<ProgressTooltipState | null>(null)
+    useState<ProgressTooltipKind | null>(null)
+  const { refs: tooltipRefs, floatingStyles: tooltipStyles, isPositioned: isTooltipPositioned } = useFloating({
+    open: progressTooltip !== null,
+    placement: 'right',
+    strategy: 'fixed',
+    whileElementsMounted: autoUpdate,
+    middleware: [offset(12), flip({ padding: 8 }), shift({ padding: 8 })],
+  })
 
   const color = getTaskColor(activeTask, categories)
 
@@ -133,13 +133,12 @@ function ActiveTaskCard({ activeTask, onToggle, now, totalTasksDurationMs, pastC
     kind: ProgressTooltipKind,
     event: MouseEvent<SVGCircleElement>,
   ) {
-    setProgressTooltip({
-      kind,
-      x:
-        event.clientX,
-      y:
-        event.clientY,
+    const { clientX, clientY, currentTarget } = event
+    tooltipRefs.setPositionReference({
+      contextElement: currentTarget,
+      getBoundingClientRect: () => new DOMRect(clientX, clientY, 0, 0),
     })
+    setProgressTooltip(kind)
   }
 
   function hideProgressTooltip() {
@@ -152,7 +151,7 @@ function ActiveTaskCard({ activeTask, onToggle, now, totalTasksDurationMs, pastC
     }
 
     const tooltipContent =
-      progressTooltip.kind === 'task'
+      progressTooltip === 'task'
         ? activeTask && (
           <div className="flex gap-1">
             {getMinutesSinceStart(activeTask, now)}
@@ -163,7 +162,7 @@ function ActiveTaskCard({ activeTask, onToggle, now, totalTasksDurationMs, pastC
           <div className="flex gap-1">
             {formatProgressDay(progressDay)}
             <span className="text-muted">
-              {progressTooltip.kind === 'daily'
+              {progressTooltip === 'daily'
                 ? 'of daily tasks completed'
                 : 'of day tasks completed'}
             </span>
@@ -175,38 +174,35 @@ function ActiveTaskCard({ activeTask, onToggle, now, totalTasksDurationMs, pastC
     }
 
     return (
-      <div
-        className="
-          pointer-events-none
-          fixed
-          z-[120]
+      <FloatingPortal>
+        <div
+          ref={tooltipRefs.setFloating}
+          role="tooltip"
+          className="
+            pointer-events-none
+            z-[120]
 
-          whitespace-nowrap
+            whitespace-nowrap
 
-          glass-surface
+            glass-surface
 
-          px-2
-          py-2
+            px-2
+            py-2
 
-          text-xs
-          font-medium
-          text-foreground-secondary
+            text-xs
+            font-medium
+            text-foreground-secondary
 
-          shadow-lg
-        "
-        style={{
-          left:
-            progressTooltip.x,
-
-          top:
-            progressTooltip.y,
-
-          transform:
-            'translate(12px, -50%)',
-        }}
-      >
-        {tooltipContent}
-      </div>
+            shadow-lg
+          "
+          style={{
+            ...tooltipStyles,
+            visibility: isTooltipPositioned ? 'visible' : 'hidden',
+          }}
+        >
+          {tooltipContent}
+        </div>
+      </FloatingPortal>
     )
   }
 
@@ -431,42 +427,8 @@ function ActiveTaskCard({ activeTask, onToggle, now, totalTasksDurationMs, pastC
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 rounded-lg gap-4 pt-8">
+        <div className="grid grid-cols-1 rounded-lg gap-4">
           {/*If there is no task*/}
-          <div className="flex gap-2 text-foreground-secondary">
-            <div className="flex items-center justify-center">
-              <div className="flex">
-                <Checkbox
-                  checked={false}
-                  onChange={() => onToggle('')}
-                  className={`
-                text-muted
-                `}
-
-                />
-              </div>
-              <div className="">
-                {'Pending'}
-              </div>
-            </div>
-            <div className="flex ml-auto gap-2 items-center justify-center">
-              <div className="flex">
-                <SlidersHorizontal className="size-4"/>
-              </div>
-              <div>
-                Details
-              </div>
-            </div>
-          </div>
-          {/*Task title*/}
-          <div className="flex flex-col gap-4 p-2">
-            <div className="flex h-9">
-              <div className="flex justify-center items-center gap-2">
-                <span className="text-5xl">{''}</span>
-                <span className="text-muted text-4xl font-bold">Tasks</span>
-              </div>
-            </div>
-          </div>
           {/*Progress Circle*/}
           <div className="flex justify-center items-center p-6">
             <div

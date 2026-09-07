@@ -16,6 +16,15 @@ export function getDuration(start: string, end: string) {
   return `${hours}h ${minutes}m`
 }
 
+export function getDurationMins (start: string, end: string) {
+  if(start === '' || end === '') {
+    return null
+  }
+  const startDate = new Date(start)
+  const endDate = new Date(end)
+  return (endDate.getTime() - startDate.getTime()) / 1000 / 60
+}
+
 const timeFormatter = new Intl.DateTimeFormat(undefined, {
   hour: '2-digit',
   minute: '2-digit',

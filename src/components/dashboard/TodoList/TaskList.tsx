@@ -23,7 +23,7 @@ function UpcomingTaskList({tasks, onToggle, onDelete, onEdit, now, categories } 
       {filteredUpcomingTasks.length === 0 ? (
         <p className="text-foreground-secondary">Nothing coming up...</p>
       ) : (
-        <ul className="flex flex-col gap-2 h-69 overflow-hidden overflow-y-auto dash-scrollbar mr-2">
+        <ul className="flex flex-col gap-2 h-69 overflow-hidden overflow-y-auto dash-scrollbar mr-2 px-4 pb-5">
           {filteredUpcomingTasks.map((task) => (
             <TaskItem
               key = {task.id}
