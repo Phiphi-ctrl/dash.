@@ -9,7 +9,7 @@ export type ParagraphBlock = {
 export type HeadingBlock = {
   id: string
   type: 'heading'
-  level: 1 | 2 | 3
+  level: 1 | 2 | 3 | 4
   content: string
 }
 

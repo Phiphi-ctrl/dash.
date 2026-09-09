@@ -134,7 +134,7 @@
 
 [data-theme='paper'] {
   color-scheme: light;
-  --theme-browser-chrome: #ffffff;
+  --theme-browser-chrome: #f3f2ee;
   --theme-canvas: #f3f2ee;
   --theme-surface: rgb(238, 238, 238);
   --theme-surface-hover: #e7e5df;
@@ -182,7 +182,8 @@
   inset-0
   pointer-events-none
   rounded-3xl
-  bg-surface
+  bg-surface/20
+  backdrop-blur-lg
   border
   border-white/10
   shadow-2xl;
@@ -192,6 +193,15 @@
   @apply
   bg-surface/20
   backdrop-blur-xl
+  shadow-xl
+  rounded-4xl
+  border
+  border-white/2
+}
+
+.solid-surface {
+  @apply
+  bg-surface/40
   shadow-xl
   rounded-4xl
   border
@@ -334,8 +344,8 @@
   mask-image: linear-gradient(
           to bottom,
           transparent 0,
-          black 1.5rem,
-          black calc(100% - 1.5rem),
+          black 1rem,
+          black calc(100% - 1rem),
           transparent 100%
   );
 }
@@ -368,6 +378,12 @@
 
 .dash-editor h3 {
   font-size: 1.25rem;
+  line-height: 1.75rem;
+  font-weight: 700;
+}
+
+.dash-editor h4 {
+  font-size: 1.125rem;
   line-height: 1.75rem;
   font-weight: 700;
 }
@@ -515,4 +531,28 @@
 
 .dash-code-block .hljs-meta {
   color: #abb2bf;
+}
+
+@keyframes task-form-enter {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes task-form-exit {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
 }

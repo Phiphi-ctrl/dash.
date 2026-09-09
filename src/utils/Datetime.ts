@@ -54,7 +54,7 @@ export function getTimeRange(startAt: string, endAt: string, today: Date) {
 
   // both today
   if(isSameDay(start, end) && isSameDay(today, start)) {
-    return `Today ${timeFormatter.format(start)} → ${timeFormatter.format(end)}`
+    return `Today, ${timeFormatter.format(start)} → ${timeFormatter.format(end)}`
   }
   if(isSameDay(start, end)) {
     return `${dateTimeFormatter.format(start)} → ${timeFormatter.format(end)}`

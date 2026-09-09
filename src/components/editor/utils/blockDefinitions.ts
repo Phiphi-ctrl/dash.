@@ -2,6 +2,7 @@ import {
   Heading1,
   Heading2,
   Heading3,
+  Heading4,
   Pilcrow,
   Sigma,
   Code2,
@@ -12,6 +13,7 @@ import {
   FileText,
   List,
   ListChecks,
+  Link2,
 } from 'lucide-react'
 
 export type BlockInsertCommand =
@@ -20,7 +22,7 @@ export type BlockInsertCommand =
 }
     | {
     type: 'heading'
-    level: 1 | 2 | 3
+    level: 1 | 2 | 3 | 4
 }
     | {
     type: 'blockMath'
@@ -51,6 +53,9 @@ export type SlashInsertCommand =
   | BlockInsertCommand
   | {
   type: 'inlineMath'
+}
+  | {
+  type: 'inlineLink'
 }
 
 export type SlashOption = {
@@ -140,6 +145,24 @@ export const blockOptions: BlockOption[] = [
         command: {
             type: 'heading',
             level: 3,
+        },
+    },
+
+    {
+        label: 'Heading 4',
+        description: 'Small subsection heading',
+        Icon: Heading4,
+
+        keywords: [
+            'heading',
+            'h4',
+            'small',
+            'subsection',
+        ],
+
+        command: {
+            type: 'heading',
+            level: 4,
         },
     },
 
@@ -339,6 +362,13 @@ const slashOnlyOptions: SlashOption[] = [
     command: {
       type: 'inlineMath',
     },
+  },
+  {
+    label: 'Inline Link',
+    description: 'Insert a website link within text',
+    Icon: Link2,
+    keywords: ['link', 'url', 'website', 'reference'],
+    command: { type: 'inlineLink' },
   },
 ]
 

@@ -5,20 +5,19 @@ import CancelButton from '../../ui/CancelButton.tsx'
 import DateTimeRangePicker from './DateTimeRangePicker/DateTimeRangePicker.tsx'
 import { getInitialTaskDateRange } from './DateTimeRangePicker/dateTimeFields.ts'
 import {
-  ArrowDownUpIcon,
   Calendar,
   ClockFading,
-  SmilePlus, SaveCheck, Check, Trash2, LayoutDashboard, PlusIcon, ChevronsRight,
+  SmilePlus, SaveCheck, Trash2, LayoutDashboard, PlusIcon, ChevronsRight,
 } from 'lucide-react'
 import TaskEmojiPicker from "./EmojiPicker/TaskEmojiPicker.tsx";
 import { getDuration, getTimeRange } from "../../../utils/Datetime.ts";
 import SaveTemplateButton from '../../ui/SaveTemplateButton.tsx'
 import Checkbox2 from '../../ui/Checkbox2.tsx'
-import PriorityPicker from './PriorityPicker/PriorityPicker.tsx'
 import CategoryPicker from './CategoryPicker/CategoryPicker.tsx'
 import type { Category } from '../../../types/Category.ts'
 import FormPopover from '../forms/FormPopover.tsx'
 import Tooltip from '../../ui/Tooltip.tsx'
+import { createId } from '../../../utils/CyptoID.ts'
 
 
 type TaskFormProps = {
@@ -40,7 +39,6 @@ function TaskForm ({initialValues, onClose, onSubmit, categories, today}: TaskFo
 
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false)
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false)
-  const [isPriorityPickerOpen, setIsPriorityPickerOpen] = useState(false)
   const [isCategoryPickerOpen, setIsCategoryPickerOpen] = useState(false)
 
   const selectedCategory =
@@ -130,17 +128,6 @@ function TaskForm ({initialValues, onClose, onSubmit, categories, today}: TaskFo
     return
   }
 
-  function handlePriorityPickerToggle () {
-    if(isPriorityPickerOpen) {
-      setIsPriorityPickerOpen(false)
-      return
-    }
-    if(!isPriorityPickerOpen) {
-      setIsPriorityPickerOpen(true)
-    }
-    return
-  }
-
   function handleCategoryPickerToggle() {
     if (isCategoryPickerOpen) {
       setIsCategoryPickerOpen(false)
@@ -148,11 +135,6 @@ function TaskForm ({initialValues, onClose, onSubmit, categories, today}: TaskFo
     }
 
     setIsCategoryPickerOpen(true)
-  }
-
-  function handlePrioritySelect (priority: TaskPriority) {
-    setNewPriority(priority)
-    setIsPriorityPickerOpen(false)
   }
 
   function handleCategorySelect(
@@ -186,7 +168,7 @@ function TaskForm ({initialValues, onClose, onSubmit, categories, today}: TaskFo
       return
     }
     const template: TaskTemplate = {
-      id: crypto.randomUUID(),
+      id: createId(),
       title,
       priority: newPriority,
       emoji: newEmoji,
@@ -220,7 +202,7 @@ function TaskForm ({initialValues, onClose, onSubmit, categories, today}: TaskFo
 
   return (
     <form
-      className="flex flex-col gap-15 p-12 will-change-contents"
+      className="flex flex-col gap-8 p-6 will-change-contents max-w-100"
       onSubmit={(event) => {
         event.preventDefault()
         if (!canCloseDatePickerRef.current) return
@@ -231,46 +213,7 @@ function TaskForm ({initialValues, onClose, onSubmit, categories, today}: TaskFo
     >
 
       {/*Top: Title and Cancel/Add button*/}
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-end ml-auto text-foreground">
-          <div className="flex-1 max-w-xs">
-            <Tooltip
-              content={
-                <div className="flex items-center gap-1 text-xs text-muted">
-                  <SaveCheck size={14}/>
-                  <span className="font-normal text-foreground-secondary">save as template</span>
-                </div>
-              }
-            >
-              <SaveTemplateButton onSave={handleSaveTemplate} />
-            </Tooltip>
-          </div>
-          <Tooltip
-            content={
-              <div className="flex items-center gap-1 text-xs text-muted">
-                <PlusIcon size={14}/>
-                <span className="font-normal text-foreground-secondary">add to tasks</span>
-              </div>
-            }
-          >
-            <div className="flex-1 max-w-xs">
-              <SubmitButton />
-            </div>
-          </Tooltip>
-          <Tooltip
-            content={
-              <div className="flex items-center gap-1 text-xs text-muted">
-                <ChevronsRight size={14}/>
-                <span className="font-normal text-foreground-secondary">close</span>
-              </div>
-            }
-          >
-            <div className="flex-1 max-w-xs">
-              <CancelButton onCancel={onClose} />
-            </div>
-          </Tooltip>
-
-        </div>
+      <div className="flex gap-2">
         {/*Icon and title*/}
         <div className="flex items-center justify-end gap-4">
           <div className="relative flex items-center text-foreground">
@@ -284,23 +227,23 @@ function TaskForm ({initialValues, onClose, onSubmit, categories, today}: TaskFo
               delay={500}
             >
               <FormPopover open={isEmojiPickerOpen} onOpenChange={setIsEmojiPickerOpen} label="Choose emoji"
-               trigger={({ ref, props }) => (
-                 <button ref={ref} {...props}
-                   type="button"
-                   onClick={handleEmojiPickerToggle}
-                   className="
+                           trigger={({ ref, props }) => (
+                             <button ref={ref} {...props}
+                                     type="button"
+                                     onClick={handleEmojiPickerToggle}
+                                     className="
                     min-w-8
                     cursor-pointer
                     text-4xl
                     size-10
                     text-foreground-secondary
                     "
-                 >
-                   {newEmoji ??
-                     <SmilePlus />
-                   }
-                 </button>
-               )}>
+                             >
+                               {newEmoji ??
+                                 <SmilePlus />
+                               }
+                             </button>
+                           )}>
                 <TaskEmojiPicker onSelect={handleEmojiSelect}/>
               </FormPopover>
             </Tooltip>
@@ -317,22 +260,54 @@ function TaskForm ({initialValues, onClose, onSubmit, categories, today}: TaskFo
           ${newTitle.trim() === '' ? 'text-muted' : 'text-foreground'}`}
           />
         </div>
-
+        {/*Header navigation buttons*/}
+        <div className="flex items-center text-foreground">
+          <Tooltip
+            content={
+              <div className="flex items-center gap-1 text-xs text-muted">
+                <SaveCheck size={14}/>
+                <span className="font-normal text-foreground-secondary">save as template</span>
+              </div>
+            }
+          >
+            <div className="flex flex-1 max-w-xs items-center p-2">
+              <SaveTemplateButton onSave={handleSaveTemplate} />
+            </div>
+          </Tooltip>
+          <Tooltip
+            content={
+              <div className="flex items-center gap-1 text-xs text-muted">
+                <PlusIcon size={14}/>
+                <span className="font-normal text-foreground-secondary">add to tasks</span>
+              </div>
+            }
+          >
+            <div className="flex flex-1 max-w-xs items-center p-2">
+              <SubmitButton />
+            </div>
+          </Tooltip>
+          <Tooltip
+            content={
+              <div className="flex items-center gap-1 text-xs text-muted">
+                <ChevronsRight size={14}/>
+                <span className="font-normal text-foreground-secondary">close</span>
+              </div>
+            }
+          >
+            <div className="flex items-center flex-1 max-w-xs p-2">
+              <CancelButton onCancel={onClose} />
+            </div>
+          </Tooltip>
+        </div>
       </div>
 
       {/*Main Property List*/}
       <div className="grid grid-cols-2 gap-4">
-
         {/*Calendar and date selection*/}
-        <div className="flex text-foreground">
-          <div className="grid size-8 place-items-center">
-            <Calendar className="size-4"/>
-          </div>
-          <span className="p-1">
-          Date
-          </span>
-        </div>
-        <div className="flex items-center relative -ml-20">
+        <div className="flex gap-6 text-foreground col-span-2 items-center justify-between solid-surface p-3">
+          {/*Calendar Icon*/}
+          <Calendar size={18} className="ml-2"/>
+          {/*Date Time button*/}
           <div>
             <Tooltip
               content={
@@ -343,17 +318,18 @@ function TaskForm ({initialValues, onClose, onSubmit, categories, today}: TaskFo
               }
               delay={500}
             >
-              <FormPopover open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen} label="Choose dates"
-                           canDismiss={() => canCloseDatePickerRef.current}
-                           trigger={({ ref, props }) => (
-                             <button ref={ref} {...props}
-                                     type="button"
-                                     onClick={handleDatePickerToggle}
-                                     className="text-foreground cursor-pointer"
-                             >
-                               {getTimeRange(newStartAt, newEndAt, today)}
-                             </button>
-                           )}>
+              <FormPopover
+                open={isDatePickerOpen}
+                onOpenChange={setIsDatePickerOpen}
+                label="Choose dates"
+                canDismiss={() => canCloseDatePickerRef.current}
+                trigger={({ ref, props }) => (
+                  <button ref={ref} {...props} type="button" onClick={handleDatePickerToggle} className="text-foreground-secondary cursor-pointer">
+                    {getTimeRange(newStartAt, newEndAt, today)}
+                  </button>
+                )
+                }
+              >
                 <DateTimeRangePicker
                   newStartAt={newStartAt}
                   newEndAt={newEndAt}
@@ -364,127 +340,66 @@ function TaskForm ({initialValues, onClose, onSubmit, categories, today}: TaskFo
                 />
               </FormPopover>
             </Tooltip>
-
           </div>
         </div>
 
         {/*Duration*/}
-        <div className="flex text-foreground">
-          <div className="grid size-8 place-items-center">
-            <ClockFading className="size-4"/>
-          </div>
-          <span className="p-1">
-          Duration
-          </span>
-        </div>
-        <div className="flex items-center text-foreground -ml-20">
-          {
-            getDuration(newStartAt, newEndAt)
-          }
-        </div>
-
-        {/*Priority*/}
-        <div className="flex text-foreground">
-          <div className="grid size-8 place-items-center">
-            <ArrowDownUpIcon className="size-4"/>
-          </div>
-          <span className="p-1">
-          Priority
-          </span>
-        </div>
-        <div className="flex items-center relative -ml-20">
-          <div>
-            <Tooltip
-              content={
-                <div className="flex items-center gap-1 text-xs text-muted">
-                  <ArrowDownUpIcon size={14}/>
-                  <span className="font-normal text-foreground-secondary">choose priority</span>
-                </div>
-              }
-              delay={500}
-            >
-              <FormPopover open={isPriorityPickerOpen} onOpenChange={setIsPriorityPickerOpen} label="Choose priority"
-                           trigger={({ ref, props }) => (
-                             <button ref={ref} {...props}
-                                     type="button"
-                                     onClick={handlePriorityPickerToggle}
-                                     className="text-foreground-secondary cursor-pointer"
-                             >
-                               {newPriority ? newPriority.charAt(0).toUpperCase() + newPriority.slice(1) : 'Priority'}
-                             </button>
-
-                           )}>
-                <PriorityPicker onClick={handlePrioritySelect} currentlySelected={newPriority} />
-              </FormPopover>
-            </Tooltip>
-
+        <div className="flex gap-2 text-foreground col-span-1 items-center justify-center solid-surface p-3">
+          <ClockFading size={18}/>
+          <div className="flex items-center text-foreground">
+            {
+              getDuration(newStartAt, newEndAt)
+            }
           </div>
         </div>
 
         {/*Completed*/}
-        <div className="flex text-foreground">
-          <div className="grid size-8 place-items-center">
-            <Check className="size-4"/>
-          </div>
-          <span className="p-1">
-          {newCompleted ? 'Done' : 'Pending'}
-          </span>
-        </div>
-        <div className="flex text-muted -ml-20">
-          <div
-            className="flex items-start justify-start">
-            <Checkbox2
-              checked={newCompleted}
-              onChange={handleCompleted}
-              classNameUnchecked={`
-                border
-              bg-surface
-              border-border
+        <div className="flex gap-2 text-foreground col-span-1 items-center justify-center solid-surface p-3">
+          <div className="flex text-muted">
+            <Tooltip content={'Complete task'}>
+              <Checkbox2
+                checked={newCompleted}
+                onChange={handleCompleted}
+                classNameUnchecked={`
               text-muted
-              hover:bg-accent-soft
-              hover:border-accent
               hover:text-accent
+              hover:scale-110
               `}
-              classNameChecked={`
-                border
-              bg-accent-soft
-              border-accent
+                classNameChecked={`
               text-accent
               `}
-            />
+              />
+            </Tooltip>
           </div>
         </div>
 
+
+
         {/*Category*/}
-        <div className="flex text-foreground items-center">
-          <div className="grid size-8 place-items-center">
-            <LayoutDashboard className="size-4"/>
-          </div>
-          <span className="p-1">
-          Workspace
-          </span>
-        </div>
-        <div className="flex items-center relative -ml-20">
-          <div>
-            <Tooltip
-              content={
-                <div className="flex items-center gap-1 text-xs text-muted">
-                  <LayoutDashboard size={14}/>
-                  <span className="font-normal text-foreground-secondary">choose workspace</span>
-                </div>
-              }
-              delay={500}
-            >
-              <FormPopover
-                open={isCategoryPickerOpen}
-                onOpenChange={setIsCategoryPickerOpen}
-                label="Choose workspace"
-                contentClassName="relative z-10 overflow-hidden h-50 overflow-y-auto scrollbar-none p-3"
-                trigger={({ ref, props }) => (
-                 <button ref={ref} {...props}
-                         type="button"
-                         onClick={handleCategoryPickerToggle}
-                         className="
+        <div className="flex gap-6 text-foreground col-span-2 items-center justify-between solid-surface p-3">
+
+          <LayoutDashboard size={18} className="ml-2"/>
+          <div className="flex items-center relative">
+            <div>
+              <Tooltip
+                content={
+                  <div className="flex items-center gap-1 text-xs text-muted">
+                    <LayoutDashboard size={14}/>
+                    <span className="font-normal text-foreground-secondary">choose workspace</span>
+                  </div>
+                }
+                delay={500}
+              >
+                <FormPopover
+                  open={isCategoryPickerOpen}
+                  onOpenChange={setIsCategoryPickerOpen}
+                  label="Choose workspace"
+                  contentClassName="relative z-10 overflow-hidden h-50 overflow-y-auto scrollbar-none p-3"
+                  trigger={({ ref, props }) => (
+                    <button ref={ref} {...props}
+                            type="button"
+                            onClick={handleCategoryPickerToggle}
+                            className="
                           flex
                           items-center
                           gap-2
@@ -493,32 +408,34 @@ function TaskForm ({initialValues, onClose, onSubmit, categories, today}: TaskFo
                           p-2
                           text-foreground-secondary
                         "
-                 >
-                   {selectedCategory !== null ? (
-                     <>
+                    >
+                      {selectedCategory !== null ? (
+                        <>
                       <span
                         className="size-3 rounded-full"
                         style={{
                           backgroundColor: selectedCategory.color,
                         }}
                       />
-                      <span>{selectedCategory.name}</span>
-                     </>
-                   ) : (
-                     <span>No Workspace</span>
-                   )}
-                 </button>
-                 )}>
-                <CategoryPicker
-                  categories={categories}
-                  currentlySelected={newCategoryId}
-                  onSelect={handleCategorySelect}
-                />
-              </FormPopover>
-            </Tooltip>
+                          <span>{selectedCategory.name}</span>
+                        </>
+                      ) : (
+                        <span>No Workspace</span>
+                      )}
+                    </button>
+                  )}>
+                  <CategoryPicker
+                    categories={categories}
+                    currentlySelected={newCategoryId}
+                    onSelect={handleCategorySelect}
+                  />
+                </FormPopover>
+              </Tooltip>
 
+            </div>
           </div>
         </div>
+
 
         {/*Templates*/}
         <div className="flex text-foreground">
@@ -531,10 +448,10 @@ function TaskForm ({initialValues, onClose, onSubmit, categories, today}: TaskFo
         </div>
         <div className="col-span-2">
           <div className="template-scroll-wrapper relative">
-            <div className="flex flex-wrap gap-4 h-42 overflow-y-auto overflow-x-hidden dash-scrollbar p-6 template-scroll-fade">
+            <div className="flex flex-wrap gap-4 h-42 overflow-y-auto overflow-x-hidden dash-scrollbar py-6 template-scroll-fade">
               {templates.map((template) => (
                 <div
-                  className="flex border glass-surface h-14 hover:-translate-y-1/12 transition-transform"
+                  className="flex border solid-surface h-14 hover:-translate-y-1/12 transition-transform"
                   key={template.id}
                 >
                   <button

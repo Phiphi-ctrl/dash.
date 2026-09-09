@@ -5,7 +5,7 @@ import Stats from './pages/Stats.tsx'
 import Notes from './pages/Notes.tsx'
 import { Routes, Route } from 'react-router'
 import CalendarPage from './pages/CalendarPage.tsx'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { NewTask, Task } from './types/Task.ts'
 import { inputFormatter } from './utils/Datetime.ts'
 import TaskForm from './components/dashboard/TaskForm/TaskForm.tsx'
@@ -13,6 +13,7 @@ import Settings from './pages/Settings.tsx'
 import type { NewCategory, Category } from './types/Category.ts'
 import CategoryForm from './components/dashboard/CategoryForm/CategoryForm.tsx'
 import FormPanel from './components/dashboard/forms/FormPanel.tsx'
+import { getTimeOfDay, TimeOfDayContext } from './context/TimeOfDayContext.ts'
 import type { Note } from './types/Note.ts'
 import { createEmptyDashDocument } from './types/Block.ts'
 import type { NoteFolder } from './types/NoteFolder.ts'
@@ -29,6 +30,7 @@ import {
   NOTES_TRASH_FOLDER_ID,
   resolveFolderCategoryId,
 } from './utils/noteTree.ts'
+import { createId } from './utils/CyptoID.ts'
 
 function readStoredArray(key: string) {
   const storedValue = localStorage.getItem(key)
@@ -59,6 +61,14 @@ function createEmptyTaskValues(): NewTask {
 }
 
 function App() {
+  const [now, setNow] = useState(() => new Date())
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setNow(new Date()), 60_000)
+    return () => window.clearInterval(interval)
+  }, [])
+
+  const timeOfDay = useMemo(() => ({ now, theme: getTimeOfDay(now) }), [now])
 
   const [categories, setCategories] = useState<Category[]>(() => {
     const storedCategories = localStorage.getItem("dash.categories")
@@ -77,6 +87,20 @@ function App() {
     }
     return JSON.parse(storedTasks)
   })
+
+  const [isTaskFormClosing, setIsTaskFormClosing] = useState(false)
+
+  function closeTaskForm() {
+    if (isTaskFormClosing) return
+
+    setIsTaskFormClosing(true)
+
+    window.setTimeout(() => {
+      setIsAddTaskOpen(false)
+      setEditingTask(null)
+      setIsTaskFormClosing(false)
+    }, 500)
+  }
 
   useEffect(() => {
     localStorage.setItem("dash.tasks", JSON.stringify(tasks))
@@ -496,7 +520,7 @@ function App() {
       return false
     }
     const task: Task = {
-      id: crypto.randomUUID(),
+      id: createId(),
       title: newTask.title.trim(),
       completed: false,
       priority: newTask.priority,
@@ -573,6 +597,12 @@ function App() {
     )
   }
 
+  function handleCreateTask() {
+    setEditingTask(null)
+    setNewTaskInitialValues(createEmptyTaskValues())
+    setIsAddTaskOpen(true)
+  }
+
   function handleCreateTaskAt(startAt: Date) {
     const endAt = new Date(
       startAt.getTime() + 60 * 60 * 1000
@@ -597,7 +627,7 @@ function App() {
   function submitTaskAdd(values: NewTask) { // here we are gonna have two different ones one for adding a new task and one for editing
     if(handleAddTask(values)) {
       setEditingTask(null)
-      setIsAddTaskOpen(false)
+      closeTaskForm()
     }
   }
 
@@ -613,24 +643,24 @@ function App() {
     }// here we are gonna have two different ones one for adding a new task and one for editing
     if(handleEditTaskForm(editingTask.id, values)) {
       setEditingTask(null)
-      setIsAddTaskOpen(false)
+      closeTaskForm()
     }
   }
 
   const today = new Date();
 
   return (
+    <TimeOfDayContext.Provider value={timeOfDay}>
     <div className="flex h-dvh text-white overflow-hidden">
       <Sidebar />
-      <div className="flex min-w-0 min-h-0 flex-1 overflow-y-auto dash-scrollbar">
+      <div className="flex min-w-0 min-h-0 flex-1 overflow-hidden overflow-y-auto scrollbar-none pb-[calc(5rem_+_env(safe-area-inset-bottom))] lg:pb-0 lg:dash-scrollbar">
         <Routes>
           <Route
             path="/"
             element={<Dashboard
               today={today}
               tasks={sortedTasks}
-              setEditingTask={setEditingTask}
-              setIsAddTaskOpen={setIsAddTaskOpen}
+              onAddTask={handleCreateTask}
               handleDeleteTaskItem={handleDeleteTaskItem}
               handleEditTaskItem={handleEditTaskItem}
               handleToggleTaskItem={handleToggleTaskItem}
@@ -644,6 +674,7 @@ function App() {
               tasks={sortedTasks}
               today={today}
               handleCreateTaskAt={handleCreateTaskAt}
+              onAddTask={handleCreateTask}
               handleUpdateTask={handleUpdateTask}
               onEdit={handleEditTaskItem}
               onDelete={handleDeleteTaskItem}
@@ -692,11 +723,9 @@ function App() {
       </div>
       <div>
         {isAddTaskOpen && editingTask === null && (
-          <FormPanel label="New task">
+          <FormPanel label="New task" isClosing={isTaskFormClosing}>
               <TaskForm
-                onClose={() => {
-                  setIsAddTaskOpen(false)
-                }}
+                onClose={closeTaskForm}
                 onSubmit={submitTaskAdd}
                 initialValues={newTaskInitialValues}
                 categories={categories}
@@ -705,12 +734,9 @@ function App() {
           </FormPanel>
         )}
         {isAddTaskOpen && editingTask !== null && (
-          <FormPanel label="Edit task">
+          <FormPanel label="Edit task" isClosing={isTaskFormClosing}>
               <TaskForm
-                onClose={() => {
-                  setIsAddTaskOpen(false)
-                  setEditingTask(null)
-                }}
+                onClose={closeTaskForm}
                 onSubmit={submitTaskEdit}
                 initialValues={{
                   title: editingTask.title,
@@ -743,6 +769,7 @@ function App() {
         )}
       </div>
     </div>
+    </TimeOfDayContext.Provider>
   )
 }
 

@@ -7,12 +7,15 @@ type SaveTemplateButtonProps = {
 function SaveTemplateButton ({onSave}: SaveTemplateButtonProps) {
   return (
     <button
+      onPointerDown={()=> console.log('pointerDown - save template')}
+      onPointerUp={()=> console.log('pointerUp - save template')}
       onClick={onSave}
       type="button"
       className="
+      flex
       shrink-0
       cursor-pointer
-      p-3
+      items-center
       focus:outline-none
       text-foreground-secondary
       hover:scale-110

@@ -1,10 +1,14 @@
 import { useEffect, useState } from 'react'
+import { Dot } from 'lucide-react'
 
-const dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
+const dateFormatter = new Intl.DateTimeFormat(undefined, {
   weekday: 'long',
   day: 'numeric',
   month: 'long',
   year: 'numeric',
+})
+
+const timeFormatter = new Intl.DateTimeFormat(undefined, {
   hour: '2-digit',
   minute: '2-digit',
   second: '2-digit',
@@ -24,8 +28,8 @@ function LiveDateTime() {
   }, [])
 
   return (
-    <p className="text-sm text-muted py-4">
-      @{dateTimeFormatter.format(now)}
+    <p className="flex items-center text-sm text-muted py-4 gap-2">
+      {dateFormatter.format(now)} <Dot size={14}/> {timeFormatter.format(now)}
     </p>
   )
 }

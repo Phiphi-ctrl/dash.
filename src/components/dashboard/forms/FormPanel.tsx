@@ -14,9 +14,10 @@ import {
 type FormPanelProps = {
   label: string
   children: ReactNode
+  isClosing?: boolean
 }
 
-function FormPanelContent({ label, children }: FormPanelProps) {
+function FormPanelContent({ label, children, isClosing = false }: FormPanelProps) {
   const nodeId = useFloatingNodeId()
   const [floatingElement, setFloatingElement] = useState<HTMLDivElement | null>(null)
   const { context } = useFloating({ nodeId, open: true, elements: { floating: floatingElement } })
@@ -32,8 +33,24 @@ function FormPanelContent({ label, children }: FormPanelProps) {
           style={{ overflow: 'hidden' }}
         >
           <FloatingFocusManager context={context} order={['floating', 'content']} closeOnFocusOut={false}>
-            <div ref={setFloatingElement} className="w-full max-w-lg p-1 glass-surface outline-none"
-              {...getFloatingProps({ 'aria-label': label })}>
+            <div
+              ref={setFloatingElement}
+              className={`
+              w-100
+              max-w-lg
+              p-1
+              glass-surface
+              outline-none
+              motion-reduce:animate-none
+          
+              ${
+                isClosing
+                  ? "animate-[task-form-exit_700ms_cubic-bezier(0.36,1,0.36,1)_both]"
+                  : "animate-[task-form-enter_700ms_cubic-bezier(0.36,1,0.36,1)_both]"
+              }
+              `}
+              {...getFloatingProps({ 'aria-label': label })}
+            >
               {children}
             </div>
           </FloatingFocusManager>

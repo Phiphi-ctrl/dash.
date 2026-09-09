@@ -142,14 +142,15 @@ function Notes({
     selectedNote !== null && isNoteFullscreen
 
   const toolbarButtonClass = `
-    !p-2
+    !p-3
     !rounded-4xl
     !border-transparent
     bg-transparent
     text-muted
-    hover:!border-transparent
-    hover:bg-surface-hover
     hover:text-foreground
+    hover:scale-110
+    transition-all
+    duration-300
     disabled:cursor-default
     disabled:opacity-35
     disabled:hover:!border-transparent
@@ -686,6 +687,7 @@ function Notes({
           items-center
           justify-between
           gap-2
+          py-3
         "
       >
         <div
@@ -693,41 +695,44 @@ function Notes({
             flex
             min-w-0
             items-center
-            gap-1
+            gap-2
             text-foreground
           "
         >
-          <Tooltip
-            content={
-              isNotesSidebarOpen
-                ? 'Collapse notes sidebar'
-                : 'Expand notes sidebar'
-            }
-            placement="bottom"
-          >
-            <Button
-              onClick={() => {
-                setIsNotesSidebarOpen(
-                  (current) => !current,
-                )
-              }}
-              Icon={
-                isNotesSidebarOpen
-                  ? PanelLeftClose
-                  : PanelLeftOpen
-              }
-              aria-label={
+          <div className="glass-surface">
+            <Tooltip
+              content={
                 isNotesSidebarOpen
                   ? 'Collapse notes sidebar'
                   : 'Expand notes sidebar'
               }
-              className={toolbarButtonClass}
-            />
-          </Tooltip>
+              placement="bottom"
+            >
+              <Button
+                onClick={() => {
+                  setIsNotesSidebarOpen(
+                    (current) => !current,
+                  )
+                }}
+                Icon={
+                  isNotesSidebarOpen
+                    ? PanelLeftClose
+                    : PanelLeftOpen
+                }
+                aria-label={
+                  isNotesSidebarOpen
+                    ? 'Collapse notes sidebar'
+                    : 'Expand notes sidebar'
+                }
+                className={toolbarButtonClass}
+              />
+            </Tooltip>
+          </div>
 
-          <div
-            aria-hidden={!isNotesSidebarOpen}
-            className={`
+          <div className="flex glass-surface">
+            <div
+              aria-hidden={!isNotesSidebarOpen}
+              className={`
               flex
               shrink-0
               overflow-hidden
@@ -741,40 +746,39 @@ function Notes({
                   : 'pointer-events-none w-0 -translate-x-2 opacity-0'
               }
             `}
-          >
+            >
+              <Tooltip
+                active={isNotesSidebarOpen}
+                content="Create folder"
+                placement="bottom"
+              >
+                <Button
+                  disabled={!canCreateInActiveFolder || !isNotesSidebarOpen}
+                  tabIndex={isNotesSidebarOpen ? 0 : -1}
+                  onClick={handleAddFolderToActiveFolder}
+                  Icon={FolderPlus}
+                  aria-label="New folder"
+                  className={toolbarButtonClass}
+                />
+              </Tooltip>
+            </div>
+
             <Tooltip
-              active={isNotesSidebarOpen}
-              content="Create folder"
+              content="Create note"
               placement="bottom"
             >
               <Button
-                disabled={!canCreateInActiveFolder || !isNotesSidebarOpen}
-                tabIndex={isNotesSidebarOpen ? 0 : -1}
-                onClick={handleAddFolderToActiveFolder}
-                Icon={FolderPlus}
-                aria-label="New folder"
+                disabled={!canCreateInActiveFolder}
+                onClick={handleAddNoteToActiveFolder}
+                Icon={FilePlus}
+                aria-label="New note"
                 className={toolbarButtonClass}
               />
             </Tooltip>
           </div>
-
-          <Tooltip
-            content="Create note"
-            placement="bottom"
-          >
-            <Button
-              disabled={!canCreateInActiveFolder}
-              onClick={handleAddNoteToActiveFolder}
-              Icon={FilePlus}
-              aria-label="New note"
-              className={toolbarButtonClass}
-            />
-          </Tooltip>
-
-
         </div>
 
-        <div className="flex shrink-0 items-center gap-1.5">
+        <div className="flex glass-surface shrink-0 items-center gap-1">
           <Tooltip
             content={
               isSelectedNoteFullscreen

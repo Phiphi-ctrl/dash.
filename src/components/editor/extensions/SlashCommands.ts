@@ -173,6 +173,11 @@ const SlashCommands =
               props.command,
               range,
             )
+            if (props.command.type === 'inlineLink') {
+              editor.chain().focus().insertContentAt(range, { type: 'inlineLink' }).run()
+              return
+            }
+
             if (props.command.type === 'inlineMath') {
               const inlinePos =
                 range.from

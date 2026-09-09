@@ -113,6 +113,7 @@ function collectDocumentText(value: unknown, parts: string[]) {
       attrs.alt,
       attrs.fileName,
       attrs.name,
+      attrs.href,
     ]
 
     searchableAttrValues.forEach((attrValue) => {
@@ -941,6 +942,7 @@ const NotesTreeSidebar = forwardRef<NotesTreeSidebarHandle, NotesTreeSidebarProp
             relative
             flex
             items-center
+            glass-surface
           "
         >
           <Search
@@ -1184,13 +1186,6 @@ const NotesTreeSidebar = forwardRef<NotesTreeSidebarHandle, NotesTreeSidebarProp
       "
     >
       {renderSearchBar()}
-      <div
-        className="
-        h-[2px]
-        bg-surface-hover
-        mx-5
-        "
-      />
 
       <div
         className="

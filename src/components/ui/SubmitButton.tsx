@@ -9,7 +9,6 @@ function SubmitButton() {
       type="submit"
       className="
         shrink-0
-        p-3
         cursor-pointer
         focus:outline-none
         text-foreground-secondary

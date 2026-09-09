@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from "react"
+import { useState } from "react"
 import TaskList from '../components/dashboard/TodoList/TaskList'
 import type { TaskListView } from '../components/dashboard/TodoList/taskListViews.ts'
 import ViewSelector from '../components/dashboard/ViewSelector.tsx'
@@ -8,40 +8,24 @@ import {
   PlusIcon,
   Dot,
   UserRound,
-  SquareArrowRight,
+  ListSortDescending,
 } from 'lucide-react'
 import LiveDateTime from '../components/dashboard/LiveDateTime.tsx'
 import ActiveTask from '../components/dashboard/Active/ActiveTask.tsx'
 import type { Category } from '../types/Category.ts'
 import Tooltip from '../components/ui/Tooltip.tsx'
 import TimelineBar from '../components/dashboard/TimelineBar/TimelineBar.tsx'
+import { useTimeOfDay } from '../context/TimeOfDayContext.ts'
+import GradientTaskButton from '../components/ui/GradientTaskButton.tsx'
 
 type DashboardProps = {
   today: Date
   tasks: Task[]
   handleToggleTaskItem: (id: string) => void
   handleDeleteTaskItem: (id: string) => void
-  setEditingTask: (task: Task | null) => void
-  setIsAddTaskOpen: (isOpen: boolean) => void
+  onAddTask: () => void
   handleEditTaskItem: (task: Task) => void
   categories: Category[]
-}
-
-type DashboardGradientStop = {
-  offset: string
-  color: string
-}
-
-type DashboardDayProgressGradient = {
-  id: string
-  glowColor: string
-  stops: DashboardGradientStop[]
-}
-
-type DashboardTimeOfDayTheme = {
-  label: string
-  gradient: string
-  dayProgressGradient: DashboardDayProgressGradient
 }
 
 const taskListViewOptions = [
@@ -50,155 +34,22 @@ const taskListViewOptions = [
   { value: 'overdue', label: 'Overdue' },
 ] as const
 
-function GradientPlusIcon({
-                            gradient,
-                            className = "size-5",
-                          }: {
-  gradient: DashboardDayProgressGradient
-  className?: string
-}) {
-  const gradientId = useId().replace(/:/g, "")
-
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      className={className}
-      aria-hidden="true"
-    >
-      <defs>
-        <linearGradient
-          id={gradientId}
-          x1="0"
-          y1="0"
-          x2="24"
-          y2="0"
-          gradientUnits="userSpaceOnUse"
-        >
-          {gradient.stops.map((stop) => (
-            <stop
-              key={stop.offset}
-              offset={stop.offset}
-              stopColor={stop.color}
-            />
-          ))}
-        </linearGradient>
-      </defs>
-
-      <path
-        d="M5 12h14M12 5v14"
-        stroke={`url(#${gradientId})`}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
-
 function Dashboard({
                      today,
                      tasks,
                      handleToggleTaskItem,
-                     setEditingTask,
-                     setIsAddTaskOpen,
+                     onAddTask,
                      handleDeleteTaskItem,
                      handleEditTaskItem,
                      categories }: DashboardProps) {
 
   const [taskListView, setTaskListView] = useState<TaskListView>('upcoming')
 
-  function useCurrentTime() {
-    const [now, setNow] = useState(() => new Date())
-
-    useEffect(() => {
-      const interval = setInterval(() => {
-        setNow(new Date())
-      }, 60_000)
-
-      return () => clearInterval(interval)
-    }, [])
-
-    return now
-  }
-
-  const now = useCurrentTime()
-
-  function getTimeOfDay(now: Date): DashboardTimeOfDayTheme {
-    const hour = now.getHours()
-
-    if (hour >= 5 && hour < 12) {
-      return {
-        label: "Morning",
-        gradient:
-          "bg-linear-to-r from-amber-300 via-orange-400 to-rose-400",
-        dayProgressGradient: {
-          id: 'dashboard-day-progress-morning',
-          glowColor: '#fb923c',
-          stops: [
-            { offset: '0%', color: '#fcd34d' },
-            { offset: '50%', color: '#fb923c' },
-            { offset: '100%', color: '#fb7185' },
-          ],
-        },
-      }
-    }
-
-    if (hour >= 12 && hour < 17) {
-      return {
-        label: "Afternoon",
-        gradient:
-          "bg-linear-to-r from-sky-400 via-cyan-400 to-blue-500",
-        dayProgressGradient: {
-          id: 'dashboard-day-progress-afternoon',
-          glowColor: '#22d3ee',
-          stops: [
-            { offset: '0%', color: '#38bdf8' },
-            { offset: '50%', color: '#22d3ee' },
-            { offset: '100%', color: '#3b82f6' },
-          ],
-        },
-      }
-    }
-
-    if (hour >= 17 && hour < 22) {
-      return {
-        label: "Evening",
-        gradient:
-          "bg-linear-to-r from-orange-500 via-rose-500 to-purple-500",
-        dayProgressGradient: {
-          id: 'dashboard-day-progress-evening',
-          glowColor: '#f43f5e',
-          stops: [
-            { offset: '0%', color: '#f97316' },
-            { offset: '50%', color: '#f43f5e' },
-            { offset: '100%', color: '#a855f7' },
-          ],
-        },
-      }
-    }
-
-    return {
-      label: "Night",
-      gradient:
-        "bg-linear-to-r from-indigo-400 via-violet-500 to-purple-600",
-      dayProgressGradient: {
-        id: 'dashboard-day-progress-night',
-        glowColor: '#8b5cf6',
-        stops: [
-          { offset: '0%', color: '#818cf8' },
-          { offset: '50%', color: '#8b5cf6' },
-          { offset: '100%', color: '#9333ea' },
-        ],
-      },
-    }
-  }
-
-  const timeOfDay = getTimeOfDay(now)
+  const { now, theme: timeOfDay } = useTimeOfDay()
 
   function renderGreeting() {
     return (
-      <div className="flex items-center gap-6">
+      <div className="flex flex-wrap items-center gap-6">
         <h1 className="text-8xl font-bold tracking-tight">
         <span className="text-foreground">
           Good{" "}
@@ -211,12 +62,9 @@ function Dashboard({
         </span>
         </h1>
 
-        <div className="flex  gap-2 glass-surface items-center py-2 px-4 w-40 cursor-pointer">
-          <GradientPlusIcon
-            gradient={timeOfDay.dayProgressGradient}
-            className="size-20 flex-start"
-          />
-        </div>
+
+        <GradientTaskButton onClick={onAddTask} />
+
       </div>
     )
   }
@@ -260,7 +108,7 @@ function Dashboard({
         <div className="flex flex-col gap-1">
           <div className="flex justify-between mb-4 p-2">
             <div className="flex justify-center items-center p-2 gap-3 text-foreground">
-              <SquareArrowRight className="size-5" />
+              <ListSortDescending className="size-5" />
               <h3 className="text-xl font-semibold">task-list.</h3>
               <ViewSelector
                 label="Task list"
@@ -281,10 +129,7 @@ function Dashboard({
               placement="top"
             >
               <Button
-                onClick={() => {
-                  setEditingTask(null)
-                  setIsAddTaskOpen(true)
-                }}
+                onClick={onAddTask}
                 Icon={PlusIcon}
                 className={`
                 bg-app-surface 

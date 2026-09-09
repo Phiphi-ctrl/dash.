@@ -1,0 +1,1 @@
+export { DashLogoLight } from "./DashLogoLight"

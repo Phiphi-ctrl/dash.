@@ -27,6 +27,8 @@ import * as React from 'react'
 import type { Category } from '../../../types/Category.ts'
 import { getTaskCategory, getTaskColor } from '../../../utils/Category.ts'
 import ViewSelector from '../ViewSelector.tsx'
+import GradientTaskButton from '../../ui/GradientTaskButton.tsx'
+import { useTimeOfDay } from '../../../context/TimeOfDayContext.ts'
 import {
   buildTaskSegments,
   getCalendarDays,
@@ -45,6 +47,7 @@ type CalendarProps = {
       changes: Partial<Task>
   ) => void
   onCreateTaskAt: ( startAt: Date ) => void
+  onAddTask: () => void
   onEdit: (task: Task ) => void,
   onDelete: (id: string) => void,
   categories: Category[]
@@ -181,7 +184,8 @@ function getCalendarMovePreviewAtPoint(
   }
 }
 
-function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, onDelete, categories} : CalendarProps) {
+function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTask, onEdit, onDelete, categories} : CalendarProps) {
+  const { theme: timeOfDay } = useTimeOfDay()
   const [view, setView] = useState<CalendarView>('week')
   const [visibleDate, setVisibleDate] = useState(
     () => getCalendarDays(today, 'day')[0]
@@ -1036,22 +1040,32 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
   return (
     <div className="flex min-h-0 flex-1 flex-col w-full gap-8">
       <div className="flex flex-wrap gap-3 mt-5">
-        <div className="flex items-center gap-3">
-          <div className="text-3xl font-bold text-foreground">
-            {monthFormatter.format(visibleStart)}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="text-3xl font-bold text-foreground whitespace-nowrap">
+            {monthFormatter.formatToParts(visibleStart).map((part, index) => (
+              <span
+                key={`${part.type}-${index}`}
+                className={part.type === 'year' ? `${timeOfDay.gradient} bg-clip-text text-transparent` : undefined}
+              >
+                {part.value}
+              </span>
+            ))}
           </div>
-          <ViewSelector
-            view={view}
-            options={calendarViewOptions}
-            label="Calendar view"
-            onSelect={changeView}
-          />
+          <div className="flex items-center gap-3">
+            <ViewSelector
+              view={view}
+              options={calendarViewOptions}
+              label="Calendar view"
+              onSelect={changeView}
+            />
+            <GradientTaskButton size="compact" onClick={onAddTask} />
+          </div>
         </div>
         <div className="flex gap-4 text-foreground-secondary ml-auto glass-surface justify-between w-60 max-w-full shrink-0">
           <button
             type="button"
             aria-label={`Previous ${view}`}
-            className="cursor-pointer hover:scale-110 hover:text-foreground tranistion-transform"
+            className="cursor-pointer hover:scale-110 hover:text-foreground tranistion-all duration-300"
             onClick={() => navigateCalendar(-1)}
           >
             <ChevronLeft className="size-6" />
@@ -1064,7 +1078,7 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
           <button
             type="button"
             aria-label={`Next ${view}`}
-            className="cursor-pointer hover:scale-110 hover:text-foreground tranistion-transform"
+            className="cursor-pointer hover:scale-110 hover:text-foreground tranistion-all duration-300"
             onClick={() => navigateCalendar(1)}
           >
             <ChevronRight className="size-6" />
@@ -1073,7 +1087,7 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
       </div>
       {/*Day grid*/}
       <div className="flex min-h-0 flex-1 flex-col w-full">
-        <div className="grid place-items-center pr-6" style={{ gridTemplateColumns }}>
+        <div className="grid place-items-center pr-6 mb-4" style={{ gridTemplateColumns }}>
           <time></time>
           {days.map((day) => (
             <button
@@ -1091,9 +1105,11 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onEdit, 
                 flex items-center justify-center
                 cursor-pointer
                 rounded-4xl
-                ${isSameDay(day, now) ? 'bg-calendar-today/30' : 'bg-transparent'}
-                hover:bg-accent-soft/50
-                transition-colors
+                ${isSameDay(day, now) ? '!text-calendar-today' : ''}
+                hover:scale-110
+                hover:text-foreground
+                transition-all
+                duration-300
                 p-3
                 `}>
                 {dayFormatter.format(day)}

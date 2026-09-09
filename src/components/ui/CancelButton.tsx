@@ -12,7 +12,6 @@ function CancelButton ({onCancel}: CancelButtonProps) {
       group
       shrink-0
       cursor-pointer
-      p-3
       focus:outline-none
       text-foreground-secondary
       hover:scale-110

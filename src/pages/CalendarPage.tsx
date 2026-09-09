@@ -7,12 +7,13 @@ type CalendarPageProps = {
   tasks: Task[]
   handleUpdateTask: (id: string, changes: Partial<Task>) => void
   handleCreateTaskAt: (startAt: Date) => void
+  onAddTask: () => void
   onEdit: (task: Task ) => void,
   onDelete: (id: string) => void,
   categories: Category[]
 }
 
-function CalendarPage( {today, tasks, handleUpdateTask, handleCreateTaskAt, onEdit, onDelete, categories}: CalendarPageProps ) {
+function CalendarPage( {today, tasks, handleUpdateTask, handleCreateTaskAt, onAddTask, onEdit, onDelete, categories}: CalendarPageProps ) {
 
   return (
     <main className="flex h-full min-h-0 flex-1 flex-col px-10 overflow-hidden">
@@ -24,6 +25,7 @@ function CalendarPage( {today, tasks, handleUpdateTask, handleCreateTaskAt, onEd
             tasks={tasks}
             onUpdateTask={handleUpdateTask}
             onCreateTaskAt={handleCreateTaskAt}
+            onAddTask={onAddTask}
             onEdit={onEdit}
             onDelete={onDelete}
             categories={categories}

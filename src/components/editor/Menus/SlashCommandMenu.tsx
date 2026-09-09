@@ -1,14 +1,14 @@
 import type {
-  BlockOption,
+  SlashOption,
 } from '../utils/blockDefinitions.ts'
 
 type SlashCommandMenuProps = {
-  items: BlockOption[]
+  items: SlashOption[]
 
   selectedIndex: number
 
   onSelect: (
-    item: BlockOption
+    item: SlashOption
   ) => void
 }
 

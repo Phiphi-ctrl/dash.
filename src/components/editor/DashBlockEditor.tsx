@@ -50,6 +50,7 @@ import CodeBlock from './extensions/CodeBlock.ts'
 import AudioBlock from "./extensions/AudioBlock.ts";
 import ImageBlock from './extensions/ImageBlock.ts'
 import PdfBlock from './extensions/PdfBlock.ts'
+import InlineLink from './extensions/InlineLink.ts'
 import {
   Mathematics,
 } from '@tiptap/extension-mathematics'
@@ -83,7 +84,7 @@ type HeadingOutlineItem = {
   key: string
   id: string | null
   pos: number
-  level: 1 | 2 | 3
+  level: 1 | 2 | 3 | 4
   title: string
 }
 
@@ -114,7 +115,8 @@ function getHeadingOutlineItems(
         if (
             level !== 1 &&
             level !== 2 &&
-            level !== 3
+            level !== 3 &&
+            level !== 4
         ) {
           return
         }
@@ -185,6 +187,9 @@ function getHeadingOutlineBarClassName(
 
     case 3:
       return 'w-1.5'
+
+    case 4:
+      return 'w-1'
   }
 }
 
@@ -200,6 +205,9 @@ function getHeadingOutlineTitleClassName(
 
     case 3:
       return 'pl-10 text-xs font-normal text-muted'
+
+    case 4:
+      return 'pl-15 text-xs font-normal text-muted'
   }
 }
 
@@ -1262,7 +1270,7 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
     extensions: [
       StarterKit.configure({
         heading: {
-          levels: [1, 2, 3],
+          levels: [1, 2, 3, 4],
         },
 
         bulletList: {
@@ -1319,6 +1327,7 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
       AudioBlock,
       ImageBlock,
       PdfBlock,
+      InlineLink,
 
       TextStyle,
       BlockStyle,
