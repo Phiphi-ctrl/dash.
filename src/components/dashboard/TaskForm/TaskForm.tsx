@@ -251,7 +251,7 @@ function TaskForm ({initialValues, onClose, onSubmit, categories, today}: TaskFo
               }
               delay={500}
             >
-              <FormPopover open={isEmojiPickerOpen} onOpenChange={setIsEmojiPickerOpen} label="Choose emoji"
+              <FormPopover open={isEmojiPickerOpen} onOpenChange={setIsEmojiPickerOpen} label="Choose emoji" placementInput="bottom-start" showArrow={true}
                            trigger={({ ref, props }) => (
                              <button ref={ref} {...props}
                                      type="button"
@@ -308,6 +308,7 @@ function TaskForm ({initialValues, onClose, onSubmit, categories, today}: TaskFo
                 open={isDatePickerOpen}
                 onOpenChange={setIsDatePickerOpen}
                 label="Choose dates"
+                placementInput="bottom-end"
                 canDismiss={() => canCloseDatePickerRef.current}
                 trigger={({ ref, props }) => (
                   <div className="flex-1">
@@ -384,6 +385,7 @@ function TaskForm ({initialValues, onClose, onSubmit, categories, today}: TaskFo
                   open={isCategoryPickerOpen}
                   onOpenChange={setIsCategoryPickerOpen}
                   label="Choose workspace"
+                  placementInput="bottom-end"
                   contentClassName="relative z-10 overflow-hidden h-50 overflow-y-auto scrollbar-none p-3"
                   trigger={({ ref, props }) => (
                     <div className="flex-1">
