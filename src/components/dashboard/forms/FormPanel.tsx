@@ -37,6 +37,7 @@ function FormPanelContent({ label, children, isClosing = false }: FormPanelProps
               ref={setFloatingElement}
               className={`
               w-100
+              lg:w-fit
               max-w-lg
               p-1
               glass-surface

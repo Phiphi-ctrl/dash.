@@ -201,7 +201,7 @@ function TaskForm ({initialValues, onClose, onSubmit, categories, today}: TaskFo
 
   return (
     <form
-      className="flex flex-col gap-8 p-6 will-change-contents max-w-100"
+      className="flex flex-col gap-8 p-6 lg:p-10 will-change-contents max-w-120"
       onSubmit={(event) => {
         event.preventDefault()
         if (!canCloseDatePickerRef.current) return
@@ -250,6 +250,7 @@ function TaskForm ({initialValues, onClose, onSubmit, categories, today}: TaskFo
                 </div>
               }
               delay={500}
+              active={!isEmojiPickerOpen}
             >
               <FormPopover open={isEmojiPickerOpen} onOpenChange={setIsEmojiPickerOpen} label="Choose emoji" placementInput="bottom-start" showArrow={true}
                            trigger={({ ref, props }) => (
@@ -265,7 +266,7 @@ function TaskForm ({initialValues, onClose, onSubmit, categories, today}: TaskFo
                     "
                              >
                                {newEmoji ??
-                                 <SmilePlus />
+                                 <SmilePlus size={35}/>
                                }
                              </button>
                            )}>
@@ -303,12 +304,14 @@ function TaskForm ({initialValues, onClose, onSubmit, categories, today}: TaskFo
                 </div>
               }
               delay={500}
+              active={!isDatePickerOpen}
             >
               <FormPopover
                 open={isDatePickerOpen}
                 onOpenChange={setIsDatePickerOpen}
                 label="Choose dates"
                 placementInput="bottom-end"
+                showArrow={false}
                 canDismiss={() => canCloseDatePickerRef.current}
                 trigger={({ ref, props }) => (
                   <div className="flex-1">
@@ -380,6 +383,7 @@ function TaskForm ({initialValues, onClose, onSubmit, categories, today}: TaskFo
                   </div>
                 }
                 delay={500}
+                active={isCategoryPickerOpen}
               >
                 <FormPopover
                   open={isCategoryPickerOpen}
