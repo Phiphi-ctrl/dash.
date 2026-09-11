@@ -14,7 +14,7 @@ import { getDuration, getTimeRange } from "../../../utils/Datetime.ts";
 import Checkbox2 from '../../ui/Checkbox2.tsx'
 import CategoryPicker from './CategoryPicker/CategoryPicker.tsx'
 import type { Category } from '../../../types/Category.ts'
-import FormPopover from '../forms/FormPopover.tsx'
+import Popover from '../../ui/Popover.tsx'
 import Tooltip from '../../ui/Tooltip.tsx'
 import { createId } from '../../../utils/CyptoID.ts'
 
@@ -252,7 +252,7 @@ function TaskForm ({initialValues, onClose, onSubmit, categories, today}: TaskFo
               delay={500}
               active={!isEmojiPickerOpen}
             >
-              <FormPopover open={isEmojiPickerOpen} onOpenChange={setIsEmojiPickerOpen} label="Choose emoji" placementInput="bottom-start" showArrow={true}
+              <Popover open={isEmojiPickerOpen} onOpenChange={setIsEmojiPickerOpen} label="Choose emoji" placementInput="bottom-start" showArrow={true}
                            trigger={({ ref, props }) => (
                              <button ref={ref} {...props}
                                      type="button"
@@ -271,7 +271,7 @@ function TaskForm ({initialValues, onClose, onSubmit, categories, today}: TaskFo
                              </button>
                            )}>
                 <TaskEmojiPicker onSelect={handleEmojiSelect}/>
-              </FormPopover>
+              </Popover>
             </Tooltip>
 
           </div>
@@ -306,7 +306,7 @@ function TaskForm ({initialValues, onClose, onSubmit, categories, today}: TaskFo
               delay={500}
               active={!isDatePickerOpen}
             >
-              <FormPopover
+              <Popover
                 open={isDatePickerOpen}
                 onOpenChange={setIsDatePickerOpen}
                 label="Choose dates"
@@ -332,7 +332,7 @@ function TaskForm ({initialValues, onClose, onSubmit, categories, today}: TaskFo
                   onCanCloseChange={handleCanCloseChange}
                   today={today}
                 />
-              </FormPopover>
+              </Popover>
             </Tooltip>
           </div>
         </div>
@@ -385,7 +385,7 @@ function TaskForm ({initialValues, onClose, onSubmit, categories, today}: TaskFo
                 delay={500}
                 active={isCategoryPickerOpen}
               >
-                <FormPopover
+                <Popover
                   open={isCategoryPickerOpen}
                   onOpenChange={setIsCategoryPickerOpen}
                   label="Choose workspace"
@@ -430,7 +430,7 @@ function TaskForm ({initialValues, onClose, onSubmit, categories, today}: TaskFo
                     currentlySelected={newCategoryId}
                     onSelect={handleCategorySelect}
                   />
-                </FormPopover>
+                </Popover>
               </Tooltip>
             </div>
           </div>

@@ -1,10 +1,8 @@
 import {
-  arrow,
   autoUpdate,
   flip,
   FloatingFocusManager,
   FloatingPortal,
-  hide,
   offset,
   shift,
   size,
@@ -22,6 +20,7 @@ import {
 import {
   Fragment,
   type PointerEvent as ReactPointerEvent,
+  useCallback,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -46,6 +45,7 @@ import {
   type CalendarView,
 } from './calendarLayout.ts'
 import MonthCalendarWrapper from './MonthCalendarWrapper.tsx'
+import Popover from '../../ui/Popover.tsx'
 
 type CalendarProps = {
   today: Date
@@ -64,12 +64,14 @@ type CalendarProps = {
 export type DragState =
   | {
   mode: 'resize-end'
+  pointerId?: number
   taskId: string
   previewStartAt: string
   previewEndAt: string
 }
   | {
   mode: 'move'
+  pointerId?: number
   taskId: string
   durationMs: number
   previewStartAt: string
@@ -95,68 +97,23 @@ type MovePreview = {
   previewEndAt: string
 }
 
+type MobileResizeInteraction = {
+  pointerId: number
+  taskId: string
+  grabOffsetY: number
+  initialSlotStartAt: string
+  startAt: string
+  endAt: string
+  previewEndAt: string
+}
+
 const taskSegmentDragThresholdPx = 5
 const calendarViewOptions = [
   { value: 'day', label: 'Day' },
   { value: 'week', label: 'Week' },
 ] as const
 const calendarSlotDurationMs = 15 * 60 * 1000
-const taskInfoArrowWidthPx = 18
-const taskInfoArrowHeightPx = 9
-const taskInfoArrowTipRadiusPx = 2
-const taskInfoArrowShoulderPx = 4
-const taskInfoCornerRadiusPx = 32
-const taskInfoSurfacePaddingPx = taskInfoArrowHeightPx + 3
-
-function getTaskInfoSurfacePath(
-    width: number,
-    height: number,
-    placementSide: string,
-    arrowX: number | undefined,
-    arrowY: number | undefined
-): string {
-  const padding = taskInfoSurfacePaddingPx
-  const left = padding + 0.5
-  const top = padding + 0.5
-  const right = padding + width - 0.5
-  const bottom = padding + height - 0.5
-  const radius = Math.min(taskInfoCornerRadiusPx, (width - 1) / 2, (height - 1) / 2)
-  const half = taskInfoArrowWidthPx / 2
-  const depth = taskInfoArrowHeightPx
-  const tip = taskInfoArrowTipRadiusPx
-  const shoulder = taskInfoArrowShoulderPx
-  const slope = shoulder / 2
-  const x = padding + (arrowX ?? 0) + half
-  const y = padding + (arrowY ?? 0) + half
-
-  // The same silhouette clips the glass and draws its border, leaving no join to cover.
-  return [
-    `M ${left + radius} ${top}`,
-    placementSide === 'bottom'
-      ? `H ${x - half - shoulder} Q ${x - half} ${top} ${x - half + slope} ${top - slope} L ${x - tip} ${top - depth + tip} Q ${x} ${top - depth} ${x + tip} ${top - depth + tip} L ${x + half - slope} ${top - slope} Q ${x + half} ${top} ${x + half + shoulder} ${top}`
-      : '',
-    `H ${right - radius} A ${radius} ${radius} 0 0 1 ${right} ${top + radius}`,
-    placementSide === 'left'
-      ? `V ${y - half - shoulder} Q ${right} ${y - half} ${right + slope} ${y - half + slope} L ${right + depth - tip} ${y - tip} Q ${right + depth} ${y} ${right + depth - tip} ${y + tip} L ${right + slope} ${y + half - slope} Q ${right} ${y + half} ${right} ${y + half + shoulder}`
-      : '',
-    `V ${bottom - radius} A ${radius} ${radius} 0 0 1 ${right - radius} ${bottom}`,
-    placementSide === 'top'
-      ? `H ${x + half + shoulder} Q ${x + half} ${bottom} ${x + half - slope} ${bottom + slope} L ${x + tip} ${bottom + depth - tip} Q ${x} ${bottom + depth} ${x - tip} ${bottom + depth - tip} L ${x - half + slope} ${bottom + slope} Q ${x - half} ${bottom} ${x - half - shoulder} ${bottom}`
-      : '',
-    `H ${left + radius} A ${radius} ${radius} 0 0 1 ${left} ${bottom - radius}`,
-    placementSide === 'right'
-      ? `V ${y + half + shoulder} Q ${left} ${y + half} ${left - slope} ${y + half - slope} L ${left - depth + tip} ${y + tip} Q ${left - depth} ${y} ${left - depth + tip} ${y - tip} L ${left - slope} ${y - half + slope} Q ${left} ${y - half} ${left} ${y - half - shoulder}`
-      : '',
-    `V ${top + radius} A ${radius} ${radius} 0 0 1 ${left + radius} ${top} Z`,
-  ].join(' ')
-}
-
-function getCalendarMovePreviewAtPoint(
-    clientX: number,
-    clientY: number,
-    durationMs: number,
-    grabOffsetSlots: number
-): MovePreview | null {
+function getCalendarSlotStartAtPoint(clientX: number, clientY: number): Date | null {
   const slotElement =
       document.elementsFromPoint(clientX, clientY).find(
           (element): element is HTMLElement =>
@@ -176,6 +133,18 @@ function getCalendarMovePreviewAtPoint(
   if (Number.isNaN(cursorSlotStart.getTime())) {
     return null
   }
+
+  return cursorSlotStart
+}
+
+function getCalendarMovePreviewAtPoint(
+    clientX: number,
+    clientY: number,
+    durationMs: number,
+    grabOffsetSlots: number
+): MovePreview | null {
+  const cursorSlotStart = getCalendarSlotStartAtPoint(clientX, clientY)
+  if (cursorSlotStart === null) return null
 
   const newStart =
       new Date(
@@ -219,6 +188,9 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
   const [dragState, setDragState] =
       useState<DragState>(null)
 
+  const mobileResizeInteractionRef =
+      useRef<MobileResizeInteraction | null>(null)
+
   const [infoTaskId, setInfoTaskId] = useState<string | null>(null)
 
   const [infoPortalElement, setInfoPortalElement] = useState<HTMLDivElement | null>(null)
@@ -228,18 +200,6 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
     setInfoAnchorElement,
   ] =
     useState<HTMLButtonElement | null>(null)
-
-  const [
-    infoFloatingElement,
-    setInfoFloatingElement,
-  ] =
-    useState<HTMLDivElement | null>(null)
-
-  const [
-    infoArrowElement,
-    setInfoArrowElement,
-  ] =
-    useState<HTMLSpanElement | null>(null)
 
   const isTaskInfoOpen =
     infoTaskId !== null &&
@@ -282,94 +242,29 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
     getFloatingProps: getSelectionCalendarFloatingProps,
   } = useInteractions([selectionCalendarClick, selectionCalendarDismiss, selectionCalendarRole])
 
-  const {
-    floatingStyles: taskInfoFloatingStyles,
-    isPositioned: isTaskInfoPositioned,
-    middlewareData: taskInfoMiddlewareData,
-    placement: taskInfoPlacement,
-  } = useFloating({
-    open:
-      isTaskInfoOpen,
-
-    elements: {
-      reference:
-        infoAnchorElement,
-
-      floating:
-        infoFloatingElement,
-    },
-
-    placement:
-      'right-start',
-
-    strategy:
-      'absolute',
-
-    whileElementsMounted:
-      autoUpdate,
-
-    middleware: [
-      offset(16),
-
-      flip({
-        padding:
-          12,
-
-        fallbackPlacements: [
-          'left-start',
-          'right-start',
-          'bottom-start',
-          'top-start',
-        ],
-      }),
-
-      shift({
-        padding:
-          12,
-      }),
-
-      arrow({
-        element:
-          infoArrowElement,
-
-        padding:
-          taskInfoCornerRadiusPx + taskInfoArrowShoulderPx + 1,
-      }),
-
-      hide({ strategy: 'referenceHidden' }),
-
-      {
-        name: 'surface',
-        fn: ({ rects, placement, middlewareData }) => ({
-          data: {
-            path: getTaskInfoSurfacePath(
-              rects.floating.width,
-              rects.floating.height,
-              placement.split('-')[0],
-              middlewareData.arrow?.x,
-              middlewareData.arrow?.y
-            ),
-          },
-        }),
-      },
-    ],
-  })
-
   useEffect(() => {
     if (dragState === null) return
 
-    function handlePointerUp() {
+    function handlePointerUp(event: PointerEvent) {
       if (dragState === null) return
+      if (isMobile && dragState.pointerId !== event.pointerId) return
+
+      const resize = mobileResizeInteractionRef.current
 
       onUpdateTask(dragState.taskId, {
         startAt: dragState.previewStartAt,
-        endAt: dragState.previewEndAt,
+        endAt: isMobile && resize?.pointerId === event.pointerId
+          ? resize.previewEndAt
+          : dragState.previewEndAt,
       })
 
+      mobileResizeInteractionRef.current = null
       setDragState(null)
     }
 
-    function handlePointerCancel() {
+    function handlePointerCancel(event: PointerEvent) {
+      if (isMobile && dragState?.pointerId !== event.pointerId) return
+      mobileResizeInteractionRef.current = null
       setDragState(null)
     }
 
@@ -394,7 +289,7 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
           handlePointerCancel
       )
     }
-  }, [dragState, onUpdateTask])
+  }, [dragState, isMobile, onUpdateTask])
 
   const draggedCardRef =
       useRef<HTMLDivElement | null>(null)
@@ -404,6 +299,12 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
 
   const flipAnimationRef =
       useRef<Animation | null>(null)
+
+  const mobileGripAnimationRef =
+      useRef<Animation | null>(null)
+
+  const draggedMobileGripRef =
+      useRef<HTMLDivElement | null>(null)
 
   const draggedLayoutRef =
       useRef<HTMLDivElement | null>(null)
@@ -423,11 +324,39 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
   const pendingSegmentInteractionRef =
       useRef<PendingSegmentInteraction | null>(null)
 
-  function captureFirstRect() {
-    firstRectRef.current =
-        draggedLayoutRef.current?.getBoundingClientRect()
-        ?? null
-  }
+  const captureFirstRect = useCallback(() => {
+    // Retarget mobile animations from the visible surface, not its already-snapped grid cell.
+    const element = isMobile
+      ? draggedSurfaceRef.current ?? draggedLayoutRef.current
+      : draggedLayoutRef.current
+    firstRectRef.current = element?.getBoundingClientRect() ?? null
+  }, [isMobile])
+
+  useEffect(() => {
+    if (!isMobile) return
+
+    function handleResizePointerMove(event: PointerEvent) {
+      const resize = mobileResizeInteractionRef.current
+      if (resize === null || resize.pointerId !== event.pointerId) return
+
+      const slotStart = getCalendarSlotStartAtPoint(event.clientX, event.clientY - resize.grabOffsetY)
+      if (slotStart === null) return
+
+      const endAt = slotStart.toISOString() === resize.initialSlotStartAt
+        ? resize.endAt
+        : new Date(slotStart.getTime() + calendarSlotDurationMs).toISOString()
+      if (new Date(endAt) <= new Date(resize.startAt) || endAt === resize.previewEndAt) return
+
+      resize.previewEndAt = endAt
+      captureFirstRect()
+      setDragState(current => current?.mode === 'resize-end' && current.taskId === resize.taskId
+        ? { ...current, previewEndAt: endAt }
+        : current)
+    }
+
+    window.addEventListener('pointermove', handleResizePointerMove)
+    return () => window.removeEventListener('pointermove', handleResizePointerMove)
+  }, [isMobile, captureFirstRect])
 
   useEffect(() => {
     function updateMovePreviewFromPointer(
@@ -446,9 +375,7 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
         return null
       }
 
-      firstRectRef.current =
-          draggedLayoutRef.current?.getBoundingClientRect()
-          ?? null
+      captureFirstRect()
 
       setDragState((current) => {
         if (
@@ -514,6 +441,7 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
 
       setDragState({
         mode: 'move',
+        ...(isMobile ? { pointerId: pending.pointerId } : {}),
         taskId: pending.taskId,
         durationMs: pending.durationMs,
         previewStartAt:
@@ -580,13 +508,19 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
       window.removeEventListener('pointerup', handlePointerUp)
       window.removeEventListener('pointercancel', handlePointerCancel)
     }
-  }, [infoAnchorElement, infoTaskId])
+  }, [infoAnchorElement, infoTaskId, isMobile, captureFirstRect])
 
   useLayoutEffect(() => {
     const layoutElement = draggedLayoutRef.current
     const cardElement = draggedCardRef.current
     const surfaceElement = draggedSurfaceRef.current
     const first = firstRectRef.current
+
+    if (isMobile && dragState === null) {
+      flipAnimationRef.current?.cancel()
+      mobileGripAnimationRef.current?.cancel()
+      firstRectRef.current = null
+    }
 
     if (
         layoutElement === null ||
@@ -597,6 +531,7 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
     }
 
     flipAnimationRef.current?.cancel()
+    mobileGripAnimationRef.current?.cancel()
 
     const last =
         layoutElement.getBoundingClientRect()
@@ -638,7 +573,9 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
               [
                 {
                   transform:
-                      `scale(${scaleX}, ${scaleY})`,
+                      isMobile
+                        ? `translate(${deltaX}px, ${deltaY}px) scale(${scaleX}, ${scaleY})`
+                        : `scale(${scaleX}, ${scaleY})`,
                   transformOrigin: 'top left',
                 },
                 {
@@ -652,11 +589,29 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
               }
           )
     }
+
+    if (isMobile && draggedMobileGripRef.current !== null) {
+      // Keep the lip's bottom-center anchor on the same timeline as the card, without stretching it.
+      const gripX = dragState.mode === 'resize-end'
+        ? deltaX + (first.width - last.width) / 2
+        : deltaX
+      const gripY = dragState.mode === 'resize-end'
+        ? first.bottom - last.bottom
+        : deltaY
+      mobileGripAnimationRef.current = draggedMobileGripRef.current.animate(
+        [{ transform: `translate(${gripX}px, ${gripY}px)` }, { transform: 'translate(0, 0)' }],
+        { duration: 120, easing: 'ease-out' }
+      )
+      const startTime = document.timeline.currentTime
+      if (flipAnimationRef.current !== null) flipAnimationRef.current.startTime = startTime
+      mobileGripAnimationRef.current.startTime = startTime
+    }
     firstRectRef.current = null
   }, [
       dragState?.previewStartAt,
       dragState?.previewEndAt,
-      dragState
+      dragState,
+      isMobile
   ])
 
   function closeTaskInfo() {
@@ -689,12 +644,13 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
       event: ReactPointerEvent<HTMLButtonElement>,
       segment: PositionedCalendarTaskSegment
   ) {
-    if (event.button !== 0) {
+    if (event.button !== 0 || (isMobile && !event.isPrimary)) {
       return
     }
 
     event.preventDefault()
     event.stopPropagation()
+    if (isMobile) calendarGridRef.current?.setPointerCapture(event.pointerId)
 
     const start = new Date(segment.task.startAt)
     const end = new Date(segment.task.endAt)
@@ -729,9 +685,48 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
     }
   }
 
+  function handleMobileResizePointerDown(
+      event: ReactPointerEvent<HTMLButtonElement>,
+      segment: PositionedCalendarTaskSegment
+  ) {
+    if (!isMobile || !event.isPrimary || event.button !== 0) return
+
+    const initialSlotStartAt = getDateFromTimeSlot(days[segment.dayIndex], segment.endSlot - 1).toISOString()
+    const slot = calendarGridRef.current?.querySelector<HTMLElement>(
+      `[data-calendar-slot-start-at="${initialSlotStartAt}"]`
+    )
+    if (!slot) return
+
+    event.preventDefault()
+    event.stopPropagation()
+    calendarGridRef.current?.setPointerCapture(event.pointerId)
+    closeTaskInfo()
+    pendingSegmentInteractionRef.current = null
+
+    // Map the external grip back to the last slot's center so grabbing it cannot jump the end.
+    const slotRect = slot.getBoundingClientRect()
+    mobileResizeInteractionRef.current = {
+      pointerId: event.pointerId,
+      taskId: segment.task.id,
+      grabOffsetY: event.clientY - (slotRect.top + slotRect.height / 2),
+      initialSlotStartAt,
+      startAt: segment.task.startAt,
+      endAt: segment.task.endAt,
+      previewEndAt: segment.task.endAt,
+    }
+    setDragState({
+      mode: 'resize-end',
+      pointerId: event.pointerId,
+      taskId: segment.task.id,
+      previewStartAt: segment.task.startAt,
+      previewEndAt: segment.task.endAt,
+    })
+  }
+
   function resetCalendarInteraction() {
     closeTaskInfo()
     pendingSegmentInteractionRef.current = null
+    mobileResizeInteractionRef.current = null
     setDragState(null)
   }
 
@@ -882,6 +877,7 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
             }}
             onPointerEnter={() => {
 
+              if (isMobile) return
               if (dragState === null) return
 
 
@@ -979,11 +975,6 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
   const infoTaskColor =
     getTaskColor(infoTask, categories)
 
-  const taskInfoPlacementSide =
-    taskInfoPlacement.split('-')[0]
-
-  const taskInfoSurfacePath = taskInfoMiddlewareData.surface?.path as string | undefined
-
   function renderTaskInfoPopover() {
     if (
       !isTaskInfoOpen ||
@@ -994,97 +985,74 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
     }
 
     return (
-      <FloatingPortal root={infoPortalElement}>
-        <div
-          ref={setInfoFloatingElement}
-          data-placement={taskInfoPlacementSide}
-          style={{
-            ...taskInfoFloatingStyles,
-            '--task-info-surface-padding': `${taskInfoSurfacePaddingPx}px`,
-            borderRadius: taskInfoCornerRadiusPx,
-            visibility:
-              isTaskInfoPositioned && taskInfoSurfacePath && !taskInfoMiddlewareData.hide?.referenceHidden
-                ? 'visible'
-                : 'hidden',
-          } as React.CSSProperties}
-          className="
-            z-50
-            pointer-events-auto
-            w-78
-            max-w-[calc(100%-1.5rem)]
-            calendar-task-info-popover
-            p-4
-            flex
-            flex-col
-            gap-8
-          "
-        >
-          <span
-            ref={setInfoArrowElement}
-            aria-hidden="true"
-            style={{ width: taskInfoArrowWidthPx, height: taskInfoArrowWidthPx }}
-            className="absolute invisible pointer-events-none"
-          />
-          <div
-            aria-hidden="true"
-            className="glass-surface calendar-task-info-surface"
-            style={{ clipPath: taskInfoSurfacePath ? `path('${taskInfoSurfacePath}')` : undefined }}
-          />
-          <svg aria-hidden="true" className="calendar-task-info-outline">
-            <path d={taskInfoSurfacePath} fill="none" strokeWidth={1} strokeLinejoin="round" />
-          </svg>
-          <div className="flex items-center justify-end gap-4 text-foreground">
-            <div className="flex gap-4">
-              <button
-                onClick={() => {onEdit(infoTask)}}
-              >
-                <Pen className="size-4"/>
-              </button>
-              <button
-                onClick={() => {
-                  onDelete(infoTask.id)
-                  closeTaskInfo()
-                }}
-              >
-                <Trash2 className="size-4"/>
-              </button>
-            </div>
+      <Popover
+        open={isTaskInfoOpen}
+        onOpenChange={(open) => { if (!open) closeTaskInfo() }}
+        referenceElement={infoAnchorElement}
+        portalRoot={infoPortalElement}
+        strategy="absolute"
+        placementInput="right-start"
+        fallbackPlacements={['left-start', 'right-start', 'bottom-start', 'top-start']}
+        offsetDistance={16}
+        viewportPadding={12}
+        hideWhenReferenceHidden
+        outsidePressEvent="pointerdown"
+        showArrow
+        label={`${infoTask.title} details`}
+        className="calendar-task-info-popover z-50 w-78 max-w-[calc(100%-1.5rem)]"
+        contentClassName="relative z-10 p-4 flex flex-col gap-8"
+      >
+        <div className="flex items-center justify-end gap-4 text-foreground">
+          <div className="flex gap-4">
             <button
-              onClick={closeTaskInfo}
+              onClick={() => {onEdit(infoTask)}}
             >
-              <X className="size-4"/>
+              <Pen className="size-4"/>
+            </button>
+            <button
+              onClick={() => {
+                onDelete(infoTask.id)
+                closeTaskInfo()
+              }}
+            >
+              <Trash2 className="size-4"/>
             </button>
           </div>
-          <div className="flex gap-2 text-foreground">
-            <span>{infoTask.emoji}</span>
-            <span>{infoTask.title}</span>
-          </div>
-          <div className="flex flex-col text-foreground-secondary gap-2">
-            <div className="flex gap-2 items-center">
-              <span
-                style={{
-                  '--task-color-task': infoTaskColor,
-                } as React.CSSProperties}
-                className="bg-[var(--task-color-task)] rounded-full size-4"
-              />
-              <span>{getTimeRange(infoTask.startAt, infoTask.endAt, today)}</span>
-            </div>
-            <div className="flex gap-2 items-center">
-              <LayoutDashboard className="size-4"/>
-              <span>{getTaskCategory(infoTask, categories)}</span>
-            </div>
-            <div className="flex gap-2 items-center">
-              <ClockFading className="size-4"/>
-              <span>{getDuration(infoTask.startAt, infoTask.endAt)}</span>
-            </div>
-            <div className="flex gap-2 items-center">
-              <CheckCheck className="size-4"/>
-              <span>{infoTask.completed ? 'Completed' : 'Pending'}</span>
-            </div>
-
-          </div>
+          <button
+            onClick={closeTaskInfo}
+          >
+            <X className="size-4"/>
+          </button>
         </div>
-      </FloatingPortal>
+        <div className="flex gap-2 text-foreground">
+          <span>{infoTask.emoji}</span>
+          <span>{infoTask.title}</span>
+        </div>
+        <div className="flex flex-col text-foreground-secondary gap-2">
+          <div className="flex gap-2 items-center">
+            <span
+              style={{
+                '--task-color-task': infoTaskColor,
+              } as React.CSSProperties}
+              className="bg-[var(--task-color-task)] rounded-full size-4"
+            />
+            <span>{getTimeRange(infoTask.startAt, infoTask.endAt, today)}</span>
+          </div>
+          <div className="flex gap-2 items-center">
+            <LayoutDashboard className="size-4"/>
+            <span>{getTaskCategory(infoTask, categories)}</span>
+          </div>
+          <div className="flex gap-2 items-center">
+            <ClockFading className="size-4"/>
+            <span>{getDuration(infoTask.startAt, infoTask.endAt)}</span>
+          </div>
+          <div className="flex gap-2 items-center">
+            <CheckCheck className="size-4"/>
+            <span>{infoTask.completed ? 'Completed' : 'Pending'}</span>
+          </div>
+
+        </div>
+      </Popover>
     )
   }
 
@@ -1209,7 +1177,8 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
           h-full min-h-0 flex-1 overflow-y-auto
           scrollbar-none
           lg:dash-scrollbar
-          ${dragState !== null ? 'select-none' : ''}
+          select-none lg:select-auto
+          ${dragState !== null ? 'lg:select-none' : ''}
           `}
           ref={calendarGridRef}
           style={{ gridTemplateColumns }}
@@ -1270,25 +1239,23 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
                   : isShortSegment
                     ? 'pl-4 pr-2 py-0.5'
                     : 'pl-4 pr-2 py-1'
+            const segmentPosition: React.CSSProperties = {
+              gridColumn: segment.dayIndex + 2,
+              gridRow: `${segment.startSlot + 1} / ${segment.endSlot + 1}`,
+              width: `${100 / segment.laneCount}%`,
+              transform: `translateX(${segment.laneIndex * 100}%)`,
+              justifySelf: 'start',
+            }
 
             return (
+              <Fragment key={`${segment.task.id}-${segment.dayIndex}`}>
               <div
                 ref={
                   segment.task.id === dragState?.taskId
                     ? draggedLayoutRef
                     : undefined
                 }
-                key={`${segment.task.id}-${segment.dayIndex}`}
-                style={{
-                  gridColumn: segment.dayIndex + 2,
-                  gridRow: `${segment.startSlot + 1} / ${segment.endSlot + 1}`,
-
-                  width: `${100 / segment.laneCount}%`,
-
-                  transform: `translateX(${segment.laneIndex * 100}%)`,
-
-                  justifySelf: 'start',
-                }}
+                style={segmentPosition}
                 className={`
                 relative
                 m-0.5
@@ -1352,6 +1319,9 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
                     inset-0
                     z-10
                     cursor-pointer
+                    select-none lg:select-auto
+                    touch-none lg:touch-auto
+                    [-webkit-touch-callout:none] lg:[-webkit-touch-callout:default]
                     
                     flex
                     flex-col
@@ -1368,6 +1338,9 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
                     onPointerDown={(event) =>
                       handleTaskSegmentPointerDown(event, segment)
                     }
+                    onContextMenu={(event) => {
+                      if (isMobile) event.preventDefault()
+                    }}
                     onClick={(event) => {
                       if (event.detail !== 0) {
                         return
@@ -1400,6 +1373,7 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
                 </div>
                 <div
                   className="
+                    hidden lg:block
                     absolute
                     bottom-0
                     left-0
@@ -1421,6 +1395,47 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
                   }}
                 />
               </div>
+              {isMobile && (
+                <div
+                  className="relative z-20 m-0.5 pointer-events-none lg:hidden"
+                  style={{ ...segmentPosition, '--task-color-calendar': color } as React.CSSProperties}
+                >
+                  <div
+                    ref={segment.task.id === dragState?.taskId ? draggedMobileGripRef : undefined}
+                    className="absolute inset-0"
+                  >
+                    <svg
+                      aria-hidden="true"
+                      viewBox="0 0 48 10"
+                      preserveAspectRatio="none"
+                      className="absolute top-full left-1/2 -translate-x-1/2 h-2.5 w-12 max-w-[max(0px,calc(100%_-_1.5rem))] fill-[var(--task-color-calendar)]/50"
+                    >
+                      <path d="M 0 0 C 8 0 8 10 18 10 H 30 C 40 10 40 0 48 0 Z" />
+                    </svg>
+                    <button
+                      type="button"
+                      aria-label={`Resize ${segment.task.title}`}
+                      data-calendar-resize-task-id={segment.task.id}
+                      className={`absolute top-full left-1/2 -translate-x-1/2 h-6 w-12 max-w-full cursor-ns-resize touch-none select-none [-webkit-touch-callout:none] ${dragState === null ? 'pointer-events-auto' : 'pointer-events-none'}`}
+                      onPointerDown={(event) => handleMobileResizePointerDown(event, segment)}
+                      onContextMenu={(event) => event.preventDefault()}
+                      onClick={(event) => {
+                        event.preventDefault()
+                        event.stopPropagation()
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
+                        event.preventDefault()
+                        const end = new Date(new Date(segment.task.endAt).getTime() + (event.key === 'ArrowDown' ? 1 : -1) * calendarSlotDurationMs)
+                        if (end > new Date(segment.task.startAt)) onUpdateTask(segment.task.id, { endAt: end.toISOString() })
+                      }}
+                    >
+                      <span aria-hidden="true" className="pointer-events-none absolute top-1 left-1/2 -translate-x-1/2 h-0.5 w-4 max-w-full rounded-full bg-white/60" />
+                    </button>
+                  </div>
+                </div>
+              )}
+              </Fragment>
             )
           })}
         </div>

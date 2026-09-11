@@ -7,7 +7,7 @@ import type { Category } from '../../../types/Category.ts'
 import PulseDot from '../../ui/PulseDot.tsx'
 import { Clock2, Hash, LoaderCircle } from 'lucide-react'
 import { getTaskColor } from '../../../utils/Category.ts'
-import FormPopover from '../forms/FormPopover.tsx'
+import Popover from '../../ui/Popover.tsx'
 import StatusSelectionMenu from './StatusSelectionMenu.tsx'
 import ViewSelector from '../ViewSelector.tsx'
 
@@ -250,7 +250,7 @@ function ActiveTask ({tasks, today, onToggle, categories, dayProgressGradient}: 
                   </div>
                 </div>
               </div>
-              <FormPopover
+              <Popover
                 open={isStatusMenuOpen}
                 onOpenChange={setIsStatusMenuOpen}
                 label={"Choose an option"}
@@ -274,7 +274,7 @@ function ActiveTask ({tasks, today, onToggle, categories, dayProgressGradient}: 
                 )}
               >
                 <StatusSelectionMenu onSelect={handleStatusSelection} />
-              </FormPopover>
+              </Popover>
 
             </div>
 

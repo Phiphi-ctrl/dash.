@@ -241,34 +241,6 @@
   rounded-4xl;
 }
 
-.calendar-task-info-popover {
-  @apply shadow-xl;
-  position: relative;
-  overflow: visible;
-}
-
-.calendar-task-info-surface,
-.calendar-task-info-outline {
-  position: absolute;
-  top: calc(-1 * var(--task-info-surface-padding));
-  left: calc(-1 * var(--task-info-surface-padding));
-  width: calc(100% + 2 * var(--task-info-surface-padding));
-  height: calc(100% + 2 * var(--task-info-surface-padding));
-  z-index: -1;
-  pointer-events: none;
-}
-
-.calendar-task-info-surface {
-  border-radius: 0;
-  border: 0;
-  box-shadow: none;
-}
-
-.calendar-task-info-outline {
-  stroke: rgb(255 255 255 / 20%);
-  overflow: visible;
-}
-
 @keyframes active-task-progress-enter {
   from {
     stroke-dashoffset: var(--progress-start);

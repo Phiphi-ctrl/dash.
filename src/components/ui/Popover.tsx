@@ -6,59 +6,82 @@ import {
   FloatingFocusManager,
   FloatingNode,
   FloatingPortal,
+  hide,
   offset,
+  safePolygon,
   shift,
+  useClick,
   useDismiss,
   useFloating,
   useFloatingNodeId,
+  useFocus,
+  useHover,
   useInteractions,
   useRole,
   useTransitionStyles,
+  type Placement,
+  type Strategy,
 } from '@floating-ui/react'
 import {
-  formPopoverArrowWidth,
-  formPopoverSurfacePadding,
-  getFormPopoverArrowPadding,
-  getFormPopoverSurfacePath,
-  type FormPopoverSurface,
-} from './formPopoverSurface.ts'
+  popoverArrowWidth,
+  popoverSurfacePadding,
+  getPopoverArrowPadding,
+  getPopoverSurfacePath,
+  type PopoverSurface,
+} from './popoverSurface.ts'
 
-type placementOptions = 'bottom-start' | 'bottom-end' | 'top-start' | 'top-end' | 'top' | 'bottom'
-
-type FormPopoverProps = {
+type PopoverProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   canDismiss?: () => boolean
   label: string
-  trigger: (reference: {
+  trigger?: (reference: {
     ref: (element: HTMLButtonElement | null) => void
     props: Record<string, unknown>
   }) => ReactNode
   children: ReactNode
-  placementInput?: placementOptions
+  referenceElement?: HTMLButtonElement | null
+  portalRoot?: HTMLElement | null
+  strategy?: Strategy
+  placementInput?: Placement
+  fallbackPlacements?: Placement[]
+  offsetDistance?: number
+  viewportPadding?: number
+  hideWhenReferenceHidden?: boolean
+  interaction?: 'manual' | 'click' | 'hover'
+  outsidePressEvent?: 'pointerdown' | 'mousedown' | 'click'
+  dismissOnScroll?: boolean
+  closeOnFocusOut?: boolean
+  className?: string
   showArrow?: boolean
   contentClassName?: string
 }
 
 function getTransitionStyles(scale: number, opacity: number, side: string) {
-  const verticalInset = (1 - scale) * 100
-  const horizontalInset = verticalInset / 2
-  const top = side === 'top' ? verticalInset : 0
-  const bottom = side === 'top' ? 0 : verticalInset
+  const inset = (1 - scale) * 100
+  const horizontal = side === 'left' || side === 'right'
+  const top = horizontal ? inset / 2 : side === 'top' ? inset : 0
+  const bottom = horizontal ? inset / 2 : side === 'top' ? 0 : inset
+  const left = horizontal ? side === 'left' ? inset : 0 : inset / 2
+  const right = horizontal ? side === 'left' ? 0 : inset : inset / 2
 
   return {
     opacity,
     transform: `scale(${scale})`,
-    clipPath: `inset(${top}% ${horizontalInset}% ${bottom}% ${horizontalInset}% round calc(var(--radius-3xl) * ${scale}))`,
+    clipPath: `inset(${top}% ${right}% ${bottom}% ${left}% round calc(var(--radius-3xl) * ${scale}))`,
   }
 }
 
-export default function FormPopover({
+export default function Popover({
   open, onOpenChange, canDismiss, label, trigger, children, placementInput, showArrow = false,
+  referenceElement, portalRoot, strategy = 'fixed', fallbackPlacements,
+  offsetDistance = 20, viewportPadding = 8, hideWhenReferenceHidden = false,
+  interaction = 'manual', outsidePressEvent = 'click', dismissOnScroll = false,
+  closeOnFocusOut = false, className = 'z-[100]',
   contentClassName = 'relative z-10 p-4',
-}: FormPopoverProps) {
+}: PopoverProps) {
   const nodeId = useFloatingNodeId()
-  const [referenceElement, setReferenceElement] = useState<HTMLButtonElement | null>(null)
+  const [triggerElement, setTriggerElement] = useState<HTMLButtonElement | null>(null)
   const [floatingElement, setFloatingElement] = useState<HTMLDivElement | null>(null)
   const [arrowElement, setArrowElement] = useState<HTMLSpanElement | null>(null)
   const [settledTransition, setSettledTransition] = useState<CSSProperties | null>(null)
@@ -66,22 +89,24 @@ export default function FormPopover({
     nodeId,
     open,
     onOpenChange,
-    elements: { reference: referenceElement, floating: floatingElement },
+    elements: { reference: referenceElement === undefined ? triggerElement : referenceElement, floating: floatingElement },
     placement: placementInput,
-    strategy: 'fixed',
+    strategy,
     whileElementsMounted: autoUpdate,
     middleware: [
-      offset({mainAxis: 20, crossAxis: 0}),
-      flip({ padding: 8 }),
-      shift({ padding: 8 }),
-      showArrow && arrow(({ rects }) => ({
+      offset({ mainAxis: offsetDistance, crossAxis: 0 }),
+      flip({ padding: viewportPadding, fallbackPlacements }),
+      shift({ padding: viewportPadding }),
+      showArrow && arrow(({ rects, placement }) => ({
         element: arrowElement,
-        padding: getFormPopoverArrowPadding(
+        padding: getPopoverArrowPadding(
           rects.floating.width,
           rects.floating.height,
           arrowElement ? parseFloat(getComputedStyle(arrowElement).borderTopLeftRadius) : 0,
+          placement.split('-')[0],
         ),
       }), [arrowElement]),
+      hideWhenReferenceHidden && hide({ strategy: 'referenceHidden' }),
       showArrow && {
         name: 'surface',
         fn: ({ rects, middlewareData }) => ({
@@ -90,6 +115,7 @@ export default function FormPopover({
             height: rects.floating.height,
             cornerRadius: arrowElement ? parseFloat(getComputedStyle(arrowElement).borderTopLeftRadius) : 0,
             arrowX: middlewareData.arrow?.x,
+            arrowY: middlewareData.arrow?.y,
           },
         }),
       },
@@ -102,10 +128,19 @@ export default function FormPopover({
 
   const dismiss = useDismiss(context, {
     // Commit date inputs on blur before evaluating the existing dismissal guard.
-    outsidePressEvent: 'click',
+    outsidePressEvent,
     outsidePress: () => canDismiss?.() ?? true,
     escapeKey: true,
+    ancestorScroll: dismissOnScroll,
   })
+  const hover = useHover(context, {
+    enabled: interaction === 'hover',
+    move: false,
+    delay: { open: 160, close: 120 },
+    handleClose: safePolygon({ buffer: 6 }),
+  })
+  const focus = useFocus(context, { enabled: interaction === 'hover' })
+  const click = useClick(context, { enabled: interaction !== 'manual' })
   const {
     isMounted,
     styles: transitionStyles,
@@ -136,46 +171,47 @@ export default function FormPopover({
   }, [floatingElement, showArrow, transitionStyles])
 
   const { clipPath, ...contentTransitionStyles } = transitionStyles
-  const surface = middlewareData.surface as FormPopoverSurface | undefined
-  const hasArrow = showArrow && surface?.arrowX !== undefined
+  const surface = middlewareData.surface as PopoverSurface | undefined
   const side = placement.split('-')[0]
-  const surfacePath = hasArrow ? getFormPopoverSurfacePath(surface, side) : undefined
+  const hasArrow = showArrow && surface !== undefined &&
+    (side === 'left' || side === 'right' ? surface.arrowY !== undefined : surface.arrowX !== undefined)
+  const surfacePath = hasArrow ? getPopoverSurfacePath(surface, side) : undefined
   const surfaceClip = hasArrow
-    ? `path('${getFormPopoverSurfacePath(surface, side, transitionStyles.opacity === 1 ? 1 : 0)}')`
+    ? `path('${getPopoverSurfacePath(surface, side, transitionStyles.opacity === 1 ? 1 : 0)}')`
     : clipPath
   const surfaceBounds: CSSProperties | undefined = hasArrow ? {
-    inset: -formPopoverSurfacePadding,
-    width: `calc(100% + ${2 * formPopoverSurfacePadding}px)`,
-    height: `calc(100% + ${2 * formPopoverSurfacePadding}px)`,
+    inset: -popoverSurfacePadding,
+    width: `calc(100% + ${2 * popoverSurfacePadding}px)`,
+    height: `calc(100% + ${2 * popoverSurfacePadding}px)`,
   } : undefined
-  const transformOrigin = placement.startsWith('top') ? 'bottom' : 'top'
+  const transformOrigin = side === 'left' ? 'right' : side === 'right' ? 'left' : side === 'top' ? 'bottom' : 'top'
   const role = useRole(context, { role: 'dialog' })
-  const { getReferenceProps, getFloatingProps } = useInteractions([dismiss, role])
+  const { getReferenceProps, getFloatingProps } = useInteractions([hover, focus, click, dismiss, role])
 
   return (
     <FloatingNode id={nodeId}>
-      {trigger({
-        ref: setReferenceElement,
+      {trigger?.({
+        ref: setTriggerElement,
         props: getReferenceProps(),
       })}
 
       {isMounted && (
-        <FloatingPortal>
+        <FloatingPortal root={portalRoot}>
           <FloatingFocusManager
             context={context}
             modal={false}
             initialFocus={-1}
             returnFocus={false}
-            closeOnFocusOut={false}
+            closeOnFocusOut={closeOnFocusOut}
           >
             <div
               ref={setFloatingElement}
-              className="fixed z-[100]"
+              className={`pointer-events-auto ${className}`}
               data-placement={placement}
               style={{
                 ...floatingStyles,
                 visibility:
-                  (open && !isPositioned) || (showArrow && !hasArrow)
+                  (open && !isPositioned) || (showArrow && !hasArrow) || middlewareData.hide?.referenceHidden
                     ? 'hidden'
                     : 'visible',
               }}
@@ -234,7 +270,7 @@ export default function FormPopover({
                   ref={setArrowElement}
                   aria-hidden="true"
                   className="absolute invisible pointer-events-none rounded-3xl"
-                  style={{ top: 0, left: 0, width: formPopoverArrowWidth, height: formPopoverArrowWidth }}
+                  style={{ top: 0, left: 0, width: popoverArrowWidth, height: popoverArrowWidth }}
                 />
               )}
             </div>

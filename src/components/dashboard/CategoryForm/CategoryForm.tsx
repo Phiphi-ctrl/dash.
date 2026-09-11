@@ -7,7 +7,7 @@ import {
 import * as React from 'react'
 import ColorPicker from '../TaskForm/ColorPicker/ColorPicker.tsx'
 import type { NewCategory } from '../../../types/Category.ts'
-import FormPopover from '../forms/FormPopover.tsx'
+import Popover from '../../ui/Popover.tsx'
 
 type CategoryFormProps = {
   initialValues: NewCategory
@@ -96,7 +96,7 @@ function CategoryForm ({initialValues, onClose, onSubmit }: CategoryFormProps) {
         </div>
         <div className="flex items-center relative -ml-20">
           <div>
-            <FormPopover open={isColorPickerOpen} onOpenChange={setIsColorPickerOpen} label="Choose color"
+            <Popover open={isColorPickerOpen} onOpenChange={setIsColorPickerOpen} label="Choose color"
               trigger={({ ref, props }) => (
             <button ref={ref} {...props}
               type="button"
@@ -113,7 +113,7 @@ function CategoryForm ({initialValues, onClose, onSubmit }: CategoryFormProps) {
 
               )}>
               <ColorPicker onClick={handleColorSelect} />
-            </FormPopover>
+            </Popover>
           </div>
         </div>
       </div>
