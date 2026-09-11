@@ -290,11 +290,11 @@ function TaskForm ({initialValues, onClose, onSubmit, categories, today}: TaskFo
       {/*Main Property List*/}
       <div className="grid grid-cols-2 gap-4">
         {/*Calendar and date selection*/}
-        <div className="flex text-foreground col-span-2 items-center justify-between solid-surface h-14 px-4">
+        <div className="flex text-foreground col-span-2 items-center justify-between solid-surface h-14 pl-4">
           {/*Calendar Icon*/}
           <Calendar size={18} className="ml-2"/>
           {/*Date Time button*/}
-          <div>
+          <div className="flex-1">
             <Tooltip
               content={
                 <div className="flex items-center gap-1 text-xs text-muted">
@@ -310,10 +310,13 @@ function TaskForm ({initialValues, onClose, onSubmit, categories, today}: TaskFo
                 label="Choose dates"
                 canDismiss={() => canCloseDatePickerRef.current}
                 trigger={({ ref, props }) => (
-                  <button ref={ref} {...props} type="button" onClick={handleDatePickerToggle} className="flex items-center gap-2 text-foreground-secondary cursor-pointer">
-                    {getTimeRange(newStartAt, newEndAt, today)}
-                    <ChevronRight size={16} className={`${isDatePickerOpen ? 'rotate-90' : ''} transition-all duration-300`}/>
-                  </button>
+                  <div className="flex-1">
+                    <button ref={ref} {...props} type="button" onClick={handleDatePickerToggle} className="flex w-full justify-end items-center gap-2 text-foreground-secondary cursor-pointer min-w-0 pr-4">
+                      {getTimeRange(newStartAt, newEndAt, today)}
+                      <ChevronRight size={16} className={`${isDatePickerOpen ? 'rotate-90' : ''} transition-all duration-300`}/>
+                    </button>
+                  </div>
+
                 )
                 }
               >
@@ -363,11 +366,11 @@ function TaskForm ({initialValues, onClose, onSubmit, categories, today}: TaskFo
 
 
         {/*Category*/}
-        <div className="flex gap-6 text-foreground col-span-2 items-center justify-between solid-surface h-14 px-4">
+        <div className="flex gap-6 text-foreground col-span-2 items-center justify-between solid-surface h-14 pl-4">
 
           <LayoutDashboard size={18} className="ml-2"/>
-          <div className="flex items-center relative">
-            <div>
+          <div className="flex flex-1 items-center relative">
+            <div className="flex-1">
               <Tooltip
                 content={
                   <div className="flex items-center gap-1 text-xs text-muted">
@@ -383,34 +386,38 @@ function TaskForm ({initialValues, onClose, onSubmit, categories, today}: TaskFo
                   label="Choose workspace"
                   contentClassName="relative z-10 overflow-hidden h-50 overflow-y-auto scrollbar-none p-3"
                   trigger={({ ref, props }) => (
-                    <button ref={ref} {...props}
-                            type="button"
-                            onClick={handleCategoryPickerToggle}
-                            className="
+                    <div className="flex-1">
+                      <button ref={ref} {...props}
+                              type="button"
+                              onClick={handleCategoryPickerToggle}
+                              className="
                           flex
+                          w-full
+                          justify-end
                           items-center
                           gap-2
                           cursor-pointer
                           rounded-4xl
-                          p-2
+                          pr-4
                           text-foreground-secondary
                         "
-                    >
-                      {selectedCategory !== null ? (
-                        <>
+                      >
+                        {selectedCategory !== null ? (
+                          <>
                       <span
                         className="size-3 rounded-full"
                         style={{
                           backgroundColor: selectedCategory.color,
                         }}
                       />
-                          <span>{selectedCategory.name}</span>
-                        </>
-                      ) : (
-                        <span>No Workspace</span>
-                      )}
-                      <ChevronRight size={16} className={`${isCategoryPickerOpen ? 'rotate-90' : ''} transition-all duration-300`}/>
-                    </button>
+                            <span>{selectedCategory.name}</span>
+                          </>
+                        ) : (
+                          <span>No Workspace</span>
+                        )}
+                        <ChevronRight size={16} className={`${isCategoryPickerOpen ? 'rotate-90' : ''} transition-all duration-300`}/>
+                      </button>
+                    </div>
                   )}>
                   <CategoryPicker
                     categories={categories}

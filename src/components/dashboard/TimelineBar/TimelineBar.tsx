@@ -48,7 +48,8 @@ export default function TimelineBar({ tasks, categories, now, onEdit, onToggle, 
               <circle cx={nowPosition * width} cy={3} r={2.5} fill="var(--theme-calendar-today)" />
             </svg>
             {layout.entries.map((entry) => (
-              <TimelineTask key={entry.task.id} entry={entry} categories={categories} now={now} onEdit={onEdit} onToggle={onToggle} onDelete={onDelete} />
+              <TimelineTask key={entry.task.id} entry={entry} categories={categories} now={now} onEdit={onEdit} onToggle={onToggle} onDelete={onDelete}
+              />
             ))}
           </>
         )}

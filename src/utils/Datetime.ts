@@ -53,21 +53,35 @@ export function isSameDay(first: Date, second: Date) {
   )
 }
 
-export function getTimeRange(startAt: string, endAt: string, today: Date) {
-  if(startAt === '' || endAt === '') {
+const compactDateFormatter = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  day: 'numeric',
+})
+
+export function getTimeRange(
+  startAt: string,
+  endAt: string,
+  today: Date
+) {
+  if (startAt === '' || endAt === '') {
     return '. . .'
   }
+
   const start = new Date(startAt)
   const end = new Date(endAt)
 
   // both today
-  if(isSameDay(start, end) && isSameDay(today, start)) {
+  if (isSameDay(start, end) && isSameDay(today, start)) {
     return `Today, ${timeFormatter.format(start)} → ${timeFormatter.format(end)}`
   }
-  if(isSameDay(start, end)) {
-    return `${dateTimeFormatter.format(start)} → ${timeFormatter.format(end)}`
+
+  // same day, but not today
+  if (isSameDay(start, end)) {
+    return `${compactDateFormatter.format(start)}, ${timeFormatter.format(start)} → ${timeFormatter.format(end)}`
   }
-  return `${dateTimeFormatter.format(start)} → ${dateTimeFormatter.format(end)}`
+
+  // different days
+  return `${compactDateFormatter.format(start)}, ${timeFormatter.format(start)} → ${compactDateFormatter.format(end)}, ${timeFormatter.format(end)}`
 }
 
 // Selection Calendar
