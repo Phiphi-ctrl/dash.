@@ -3,7 +3,7 @@ import {
   autoUpdate, flip, FloatingFocusManager, FloatingPortal, offset, safePolygon, shift,
   useClick, useDismiss, useFloating, useFocus, useHover, useInteractions, useRole,
 } from '@floating-ui/react'
-import { Check, CheckCheck, Clock3, ClockFading, Pen} from 'lucide-react'
+import { Check, CheckCheck, Clock3, ClockFading, Pen, Trash2 } from 'lucide-react'
 import type { Task } from '../../../types/Task.ts'
 import type { Category } from '../../../types/Category.ts'
 import { getTaskCategory, getTaskColor } from '../../../utils/Category.ts'
@@ -18,6 +18,7 @@ type TimelineTaskProps = {
   now: Date
   onEdit: (task: Task) => void
   onToggle: (id: string) => void
+  onDelete: (id: string) => void
 }
 
 const actionClassName = `
@@ -27,7 +28,7 @@ const actionClassName = `
 `
 const detailClassName = 'mt-1.5 flex items-center gap-2 text-foreground-secondary wrap-anywhere'
 
-export default function TimelineTask({ entry, categories, now, onEdit, onToggle }: TimelineTaskProps) {
+export default function TimelineTask({ entry, categories, now, onEdit, onToggle, onDelete }: TimelineTaskProps) {
   const { task } = entry
   const [isOpen, setIsOpen] = useState(false)
   const [referenceElement, setReferenceElement] = useState<HTMLButtonElement | null>(null)
@@ -92,10 +93,17 @@ export default function TimelineTask({ entry, categories, now, onEdit, onToggle 
                   {task.emoji && <span aria-hidden="true">{task.emoji}</span>}
                   <span>{task.title}</span>
                 </h3>
-                <Tooltip content="Edit task" delay={400}>
-                  <Button Icon={Pen} className={actionClassName} aria-label="Edit task"
-                    onClick={() => { setIsOpen(false); onEdit(task) }} />
-                </Tooltip>
+                <div className="flex gap-2">
+                  <Tooltip content="Edit task" delay={400}>
+                    <Button Icon={Pen} className={actionClassName} aria-label="Edit task"
+                            onClick={() => { setIsOpen(false); onEdit(task) }} />
+                  </Tooltip>
+                  <Tooltip content="Delete task" delay={400}>
+                    <Button Icon={Trash2} className={actionClassName} aria-label="Delete task"
+                            onClick={() => { setIsOpen(false); onDelete(task.id) }} />
+                  </Tooltip>
+                </div>
+
               </div>
               <div className={detailClassName}><Clock3 className="size-3.5 shrink-0" aria-hidden="true" /><span>{timeRange}</span></div>
               <div className={detailClassName}><ClockFading className="size-3.5 shrink-0" aria-hidden="true" /><span>{getDuration(task.startAt, task.endAt)}</span></div>

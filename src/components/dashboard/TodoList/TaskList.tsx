@@ -31,7 +31,7 @@ function TaskList({tasks, onToggle, onDelete, onEdit, view, categories} : TaskLi
   const dayGroups = groupTasksByDueDay(visibleTasks)
 
   return (
-    <div className="relative mr-4 rounded-3xl">
+    <div className="relative rounded-3xl">
       <span
         aria-hidden="true"
         className={`pointer-events-none absolute inset-0 z-40 rounded-[inherit] p-px opacity-25`}
@@ -45,7 +45,7 @@ function TaskList({tasks, onToggle, onDelete, onEdit, view, categories} : TaskLi
         <p className="p-4 text-muted">{emptyMessages[view]}</p>
       ) : (
         <div className="template-scroll-fade">
-          <ul key={view} className="flex flex-col gap-2 h-69 overflow-hidden overflow-y-auto dash-scrollbar rounded-[inherit] px-4 pt-3 pb-5">
+          <ul key={view} className="flex flex-col gap-2 h-69 overflow-hidden overflow-y-auto scrollbar-none lg:dash-scrollbar overscroll-y-contain rounded-[inherit] px-4 pt-3 pb-5">
             {dayGroups.map(({ date, tasks: dayTasks }) => (
               <Fragment key={date.getTime()}>
                 <li className="flex shrink-0 justify-center pt-3 pb-1 first:pt-0">

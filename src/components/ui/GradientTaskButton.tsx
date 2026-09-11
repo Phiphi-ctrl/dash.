@@ -1,9 +1,9 @@
-import { useId, type CSSProperties } from 'react'
+import { useId } from 'react'
 import { useTimeOfDay, type TimeOfDayTheme } from '../../context/TimeOfDayContext.ts'
 
 type GradientTaskButtonProps = {
   onClick: () => void
-  size?: 'large' | 'compact'
+  size?: 'large' | 'compact' | 'responsive'
 }
 
 function GradientPlusIcon({
@@ -64,29 +64,74 @@ function GradientPlusIcon({
   )
 }
 
-export default function GradientTaskButton({ onClick, size = 'large' }: GradientTaskButtonProps) {
+export default function GradientTaskButton({
+                                             onClick,
+                                             size = 'large',
+                                           }: GradientTaskButtonProps) {
   const { theme } = useTimeOfDay()
-  const isCompact = size === 'compact'
 
-  // The dialog also keeps this visual state in sync with other add buttons and save/cancel.
+  const sizeClasses = {
+    compact: `
+      h-8
+      w-14
+      px-1
+      [--task-icon-size:1.5rem]
+    `,
+
+    large: `
+      w-40
+      px-4
+      py-2
+      [--task-icon-size:5rem]
+    `,
+
+    responsive: `
+      h-8
+      w-14
+      px-1
+      [--task-icon-size:1.5rem]
+
+      lg:h-auto
+      lg:w-40
+      lg:px-4
+      lg:py-2
+      lg:[--task-icon-size:5rem]
+    `,
+  }
+  
   return (
     <button
       type="button"
       aria-label="Add new task"
       aria-haspopup="dialog"
       onClick={onClick}
-      className={`flex glass-surface items-center shrink-0 cursor-pointer focus-visible:outline-2 focus-visible:outline-foreground focus-visible:outline-offset-4 [--task-form-open:0] [:root:has([role=dialog][aria-label='New_task'])_&]:[--task-form-open:1] ${isCompact ? 'h-8 w-14 px-1' : 'py-2 px-4 w-40'}`}
-      style={{ '--task-icon-size': isCompact ? '1.5rem' : '5rem' } as CSSProperties}
+      className={`
+      flex
+      glass-surface
+      items-center
+      shrink-0
+      cursor-pointer
+  
+      focus-visible:outline-2
+      focus-visible:outline-foreground
+      focus-visible:outline-offset-4
+  
+      [--task-form-open:0]
+  
+      [:root:has([role=dialog][aria-label='New_task'])_&]:[--task-form-open:1]
+  
+      ${sizeClasses[size]}
+    `}
     >
       <span
         className="block w-full transition-transform duration-[900ms] ease-[cubic-bezier(0.36,1,0.36,1)] motion-reduce:transition-none"
         style={{ transform: 'translateX(calc((100% - var(--task-icon-size)) * var(--task-form-open)))' }}
       >
-        <GradientPlusIcon
-          gradient={theme.dayProgressGradient}
-          className="size-[var(--task-icon-size)]"
-        />
-      </span>
+          <GradientPlusIcon
+            gradient={theme.dayProgressGradient}
+            className="size-[var(--task-icon-size)]"
+          />
+        </span>
     </button>
   )
 }

@@ -202,7 +202,7 @@
 .solid-surface {
   @apply
   bg-surface/40
-  shadow-xl
+  shadow-md
   rounded-4xl
   border
   border-white/2
@@ -322,23 +322,29 @@
   }
 }
 
-.dash-scrollbar {
+@utility dash-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: var(--color-surface-hover) transparent;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 9999px;
+  }
 }
 
-.dash-scrollbar::-webkit-scrollbar {
-  width: 6px;
-}
 
-.dash-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
 
-.dash-scrollbar::-webkit-scrollbar-thumb {
-  background: var(--color-border);
-  border-radius: 9999px;
-}
+
+
+
 
 .template-scroll-fade {
   mask-image: linear-gradient(

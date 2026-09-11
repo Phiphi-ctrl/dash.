@@ -16,7 +16,7 @@ type CalendarPageProps = {
 function CalendarPage( {today, tasks, handleUpdateTask, handleCreateTaskAt, onAddTask, onEdit, onDelete, categories}: CalendarPageProps ) {
 
   return (
-    <main className="flex h-full min-h-0 flex-1 flex-col px-10 overflow-hidden">
+    <main className="flex h-full min-h-0 flex-1 flex-col px-5 lg:px-10 overflow-hidden select-text">
       {/*calendar section*/}
       <section className="flex min-h-0 flex-1 mt-4">
         <div className="flex min-h-0 flex-1 flex-col gap-1 w-full">

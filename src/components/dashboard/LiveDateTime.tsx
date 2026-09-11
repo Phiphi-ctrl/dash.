@@ -1,18 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Dot } from 'lucide-react'
-
-const dateFormatter = new Intl.DateTimeFormat(undefined, {
-  weekday: 'long',
-  day: 'numeric',
-  month: 'long',
-  year: 'numeric',
-})
-
-const timeFormatter = new Intl.DateTimeFormat(undefined, {
-  hour: '2-digit',
-  minute: '2-digit',
-  second: '2-digit',
-})
+import { dateTimeFormatterSec } from '../../utils/Datetime.ts'
 
 function LiveDateTime() {
   const [now, setNow] = useState(() => new Date())
@@ -29,7 +16,7 @@ function LiveDateTime() {
 
   return (
     <p className="flex items-center text-sm text-muted py-4 gap-2">
-      {dateFormatter.format(now)} <Dot size={14}/> {timeFormatter.format(now)}
+      {dateTimeFormatterSec.format(now)}
     </p>
   )
 }

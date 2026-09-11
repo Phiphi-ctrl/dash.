@@ -37,6 +37,14 @@ export const dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
   minute: '2-digit',
 })
 
+export const dateTimeFormatterSec = new Intl.DateTimeFormat(undefined, {
+  day: 'numeric',
+  month: 'short',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+})
+
 export function isSameDay(first: Date, second: Date) {
   return (
     first.getFullYear() === second.getFullYear() &&

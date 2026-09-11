@@ -59,14 +59,15 @@ function TaskItem ({task, onToggle, onDelete, onEdit, today, categories} : TaskI
         items-center
         py-4
         pl-4
-        pr-8
+        pr-2
+        lg:pr-8
         z-30
         
       `}
     >
       <div>
         {task.emoji !== null && (
-            <span className="text-3xl size-9 pl-2 pr-2 cursor-default">
+            <span className="text-xl lg:text-3xl pl-2 pr-2 cursor-default">
               {task.emoji}
             </span>
           )}
@@ -80,7 +81,7 @@ function TaskItem ({task, onToggle, onDelete, onEdit, today, categories} : TaskI
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <div className="flex gap-2 items-center">
             <PulseDot color={color} pulse={taskIsActive}/>
-            <span className={`min-w-0 truncate max-w-50 ${task.completed ? 'text-foreground-secondary line-through' : 'text-foreground'}`}>
+            <span className={`text-sm min-w-0 truncate max-w-15 lg:max-w-50 ${task.completed ? 'text-foreground-secondary line-through' : 'text-foreground'}`}>
               {task.title}
             </span>
           </div>
@@ -88,7 +89,7 @@ function TaskItem ({task, onToggle, onDelete, onEdit, today, categories} : TaskI
             <span className="flex items-center gap-2">
               <Clock2 className="size-4"/> {getDuration(task.startAt, task.endAt)}
             </span>
-            <span>
+            <span className="hidden lg:flex">
               {getTimeRange(task.startAt, task.endAt, today)}
             </span>
           </div>

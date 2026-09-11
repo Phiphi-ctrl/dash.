@@ -1,4 +1,5 @@
 import type { JSONContent } from '@tiptap/core'
+import { createId } from '../utils/CyptoID.ts'
 
 export type ParagraphBlock = {
   id: string
@@ -29,7 +30,7 @@ export function createEmptyDashDocument(): DashDocument {
       {
         type: 'paragraph',
         attrs: {
-          id: crypto.randomUUID(),
+          id: createId(),
         },
       },
     ],

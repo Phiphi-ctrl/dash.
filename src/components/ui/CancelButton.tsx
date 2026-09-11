@@ -19,10 +19,13 @@ function CancelButton ({onCancel}: CancelButtonProps) {
       transition-transform
       "
     >
-      <ChevronsRight
-        className="
+      <div className="rounded-4xl solid-surface p-1.5">
+        <ChevronsRight
+          className="
         size-5
       "/>
+      </div>
+
     </button>
   )
 }

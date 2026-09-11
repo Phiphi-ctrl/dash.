@@ -17,7 +17,11 @@ function SubmitButton() {
         transition-transform
         "
     >
-      <PlusIcon className="size-4"/>
+      <div className="flex items-center gap-2 solid-surface py-2 px-3">
+        <PlusIcon className="size-4"/>
+        <span className="text-xs">Add task</span>
+      </div>
+
     </button>
   )
 }

@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import TaskList from '../components/dashboard/TodoList/TaskList'
 import type { TaskListView } from '../components/dashboard/TodoList/taskListViews.ts'
 import ViewSelector from '../components/dashboard/ViewSelector.tsx'
@@ -47,10 +47,38 @@ function Dashboard({
 
   const { now, theme: timeOfDay } = useTimeOfDay()
 
+  const timelineScrollRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const container = timelineScrollRef.current
+    if (!container) return
+
+    if (window.innerWidth >= 1024) return
+    if (container.scrollWidth <= container.clientWidth) return
+
+    const currentTime = new Date()
+
+    const minutesSinceMidnight =
+      currentTime.getHours() * 60 + currentTime.getMinutes()
+
+    const dayProgress = minutesSinceMidnight / (24 * 60)
+
+    const currentTimeX =
+      container.scrollWidth * dayProgress
+
+    const targetScroll =
+      currentTimeX - container.clientWidth * 0.4
+
+    container.scrollTo({
+      left: targetScroll,
+      behavior: 'smooth',
+    })
+  }, [])
+
   function renderGreeting() {
     return (
       <div className="flex flex-wrap items-center gap-6">
-        <h1 className="text-8xl font-bold tracking-tight">
+        <h1 className="text-7xl lg:text-8xl font-bold tracking-tight">
         <span className="text-foreground">
           Good{" "}
         </span>
@@ -63,7 +91,7 @@ function Dashboard({
         </h1>
 
 
-        <GradientTaskButton onClick={onAddTask} />
+        <GradientTaskButton onClick={onAddTask} size={'responsive'}/>
 
       </div>
     )
@@ -84,18 +112,65 @@ function Dashboard({
 
 
   return (
-    <main className="flex min-h-full min-w-0 flex-1 z-0 flex-col px-10 gap-8 pb-10">
-      <header>
-        <div className="flex-start flex-col gap-1 items-center justify-start pt-10">
+    <main
+      className="
+        self-start
+        min-h-full
+        grid
+        grid-cols-1
+        lg:grid-cols-12
+        min-w-0
+        flex-1
+        z-0
+        px-5
+        lg:px-10
+        gap-8
+        pb-10
+      "
+    >
+      <header className="flex col-span-1 lg:col-span-12">
+        <div className="flex-col gap-1 items-center justify-start pt-10">
           {renderGreeting()}
           {renderGreetingUnderline("Philipp Saboi")}
         </div>
       </header>
 
+      <div
+        ref={timelineScrollRef}
+        className="
+          col-span-1
+          min-w-0
+          w-full
 
-      <TimelineBar tasks={tasks} categories={categories} now={now} onEdit={handleEditTaskItem} onToggle={handleToggleTaskItem} />
+          overflow-x-auto
+          overscroll-x-contain
+          scrollbar-none
 
-      <section className="grid grid-cols-2">
+          lg:col-span-12
+          lg:overflow-x-visible
+        "
+      >
+        <div
+          className="
+            w-full
+            min-w-[900px]
+            shrink-0
+
+            lg:min-w-0
+          "
+        >
+          <TimelineBar
+            tasks={tasks}
+            categories={categories}
+            now={now}
+            onEdit={handleEditTaskItem}
+            onToggle={handleToggleTaskItem}
+            onDelete={handleDeleteTaskItem}
+          />
+        </div>
+      </div>
+
+      <section className="col-span-1 grid grid-cols-1 gap-8 lg:col-span-12 lg:grid-cols-2">
         {/*Active Section*/}
         <ActiveTask
           tasks={tasks}

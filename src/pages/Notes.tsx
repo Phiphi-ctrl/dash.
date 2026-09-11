@@ -872,7 +872,7 @@ function Notes({
             className="
               w-full
 
-              pl-8
+              pl-4
 
               bg-transparent
               text-6xl
@@ -881,7 +881,7 @@ function Notes({
               outline-none
             "
           />
-          <div className="flex pl-8 text-muted text-xs items-center">
+          <div className="flex pl-4 text-muted text-xs items-center">
               <span className="flex">
                   {dateTimeFormatter.format(Date.parse(selectedNote.createdAt))}
               </span>
@@ -953,7 +953,7 @@ function Notes({
   }
 
   return (
-    <main className="flex flex-1 flex-col px-10">
+    <main className="flex flex-1 flex-col px-4 lg:px-10">
       {renderBreadcrumb()}
 
       <section className="flex flex-1 min-h-0 flex-col">

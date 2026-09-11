@@ -62,6 +62,7 @@ import {removeSourceForMove} from "../../utils/blockMovement.ts";
 import type {
   NestedOptions,
 } from '@tiptap/extension-drag-handle'
+import { createId } from '../../utils/CyptoID.ts'
 
 type DashBlockEditorProps = {
   value: DashDocument
@@ -1394,7 +1395,7 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
         ],
 
         generateID: () =>
-          crypto.randomUUID(),
+          createId(),
       }),
 
       Mathematics.configure({
@@ -1445,7 +1446,7 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
     editorProps: {
       attributes: {
         class:
-            'dash-editor outline-none text-foreground px-8',
+            'dash-editor outline-none text-foreground px-4 lg:px-8',
       },
 
       handleKeyDown: (

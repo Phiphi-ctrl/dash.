@@ -31,6 +31,7 @@ import {
   resolveFolderCategoryId,
 } from './utils/noteTree.ts'
 import { createId } from './utils/CyptoID.ts'
+import { ResponsiveContext } from './context/ResponsiveContext.ts'
 
 function readStoredArray(key: string) {
   const storedValue = localStorage.getItem(key)
@@ -60,12 +61,36 @@ function createEmptyTaskValues(): NewTask {
   }
 }
 
+
+
 function App() {
   const [now, setNow] = useState(() => new Date())
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(new Date()), 60_000)
     return () => window.clearInterval(interval)
+  }, [])
+
+  const [isMobile, setIsMobile] = useState(
+    () => !window.matchMedia('(min-width: 1024px)').matches
+  )
+
+  useEffect(() => {
+    const mediaQuery =
+      window.matchMedia('(min-width: 1024px)')
+
+    const handleChange = () => {
+      setIsMobile(!mediaQuery.matches)
+    }
+
+    mediaQuery.addEventListener('change', handleChange)
+
+    return () => {
+      mediaQuery.removeEventListener(
+        'change',
+        handleChange
+      )
+    }
   }, [])
 
   const timeOfDay = useMemo(() => ({ now, theme: getTimeOfDay(now) }), [now])
@@ -143,7 +168,7 @@ function App() {
       )
 
     const note: Note = {
-      id: crypto.randomUUID(),
+      id: createId(),
       title: 'Untitled',
 
       document:
@@ -259,7 +284,7 @@ function App() {
 
     const folder: NoteFolder = {
       id:
-        crypto.randomUUID(),
+        createId(),
       name:
         'New folder',
       parentId:
@@ -472,7 +497,7 @@ function App() {
       return false
     }
     const category: Category = {
-      id: crypto.randomUUID(),
+      id: createId(),
       name: newCategory.name,
       color: newCategory.color,
       createdAt: new Date().toISOString(),
@@ -650,126 +675,129 @@ function App() {
   const today = new Date();
 
   return (
-    <TimeOfDayContext.Provider value={timeOfDay}>
-    <div className="flex h-dvh text-white overflow-hidden">
-      <Sidebar />
-      <div className="flex min-w-0 min-h-0 flex-1 overflow-hidden overflow-y-auto scrollbar-none pb-[calc(5rem_+_env(safe-area-inset-bottom))] lg:pb-0 lg:dash-scrollbar">
-        <Routes>
-          <Route
-            path="/"
-            element={<Dashboard
-              today={today}
-              tasks={sortedTasks}
-              onAddTask={handleCreateTask}
-              handleDeleteTaskItem={handleDeleteTaskItem}
-              handleEditTaskItem={handleEditTaskItem}
-              handleToggleTaskItem={handleToggleTaskItem}
-              categories={categories}
-            />}
-          />
-
-          <Route
-            path="/calendar"
-            element={<CalendarPage
-              tasks={sortedTasks}
-              today={today}
-              handleCreateTaskAt={handleCreateTaskAt}
-              onAddTask={handleCreateTask}
-              handleUpdateTask={handleUpdateTask}
-              onEdit={handleEditTaskItem}
-              onDelete={handleDeleteTaskItem}
-              categories={categories}
-            />}
-          />
-
-          <Route
-            path="/categories"
-            element={<Categories
-              categories={categories}
-              tasks={tasks}
-              setIsAddCategoryOpen={setIsAddCategoryOpen}
-              handleDeleteCategory={handleDeleteCategory}
-            />}
-          />
-
-          <Route
-            path="/stats"
-            element={<Stats />}
-          />
-
-          <Route
-            path="/notes"
-            element={<Notes
-              notes={notes}
-              categories={categories}
-              noteFolders={noteFolders}
-              onAddNote={handleAddNote}
-              onAddFolder={handleAddNoteFolder}
-              onRenameFolder={handleRenameNoteFolder}
-              onDeleteFolder={handleDeleteNoteFolder}
-              onEmptyTrash={handleEmptyNoteTrash}
-              onMoveNote={handleMoveNote}
-              onMoveFolder={handleMoveNoteFolder}
-              onUpdateNote={handleUpdateNote}
-              onDeleteNote={handleDeleteNote}
-            />}
-          />
-
-          <Route
-            path="/settings"
-            element={<Settings />}
-          />
-        </Routes>
-      </div>
-      <div>
-        {isAddTaskOpen && editingTask === null && (
-          <FormPanel label="New task" isClosing={isTaskFormClosing}>
-              <TaskForm
-                onClose={closeTaskForm}
-                onSubmit={submitTaskAdd}
-                initialValues={newTaskInitialValues}
-                categories={categories}
-                today={today}
+    <ResponsiveContext.Provider value={{ isMobile }}>
+      <TimeOfDayContext.Provider value={timeOfDay}>
+        <div className="flex h-dvh text-white overflow-hidden">
+          <Sidebar />
+          <div className="flex min-w-0 min-h-0 flex-1 overflow-hidden overflow-y-auto scrollbar-none pb-[calc(4rem_+_env(safe-area-inset-bottom))] lg:pb-0 lg:dash-scrollbar">
+            <Routes>
+              <Route
+                path="/"
+                element={<Dashboard
+                  today={today}
+                  tasks={sortedTasks}
+                  onAddTask={handleCreateTask}
+                  handleDeleteTaskItem={handleDeleteTaskItem}
+                  handleEditTaskItem={handleEditTaskItem}
+                  handleToggleTaskItem={handleToggleTaskItem}
+                  categories={categories}
+                />}
               />
-          </FormPanel>
-        )}
-        {isAddTaskOpen && editingTask !== null && (
-          <FormPanel label="Edit task" isClosing={isTaskFormClosing}>
-              <TaskForm
-                onClose={closeTaskForm}
-                onSubmit={submitTaskEdit}
-                initialValues={{
-                  title: editingTask.title,
-                  priority: editingTask.priority,
-                  startAt: editingTask.startAt,
-                  endAt: editingTask.endAt,
-                  emoji: editingTask.emoji,
-                  completed: editingTask.completed,
 
-                  categoryId: editingTask.categoryId,
-                }}
-                categories={categories}
-                today={today}
+              <Route
+                path="/calendar"
+                element={<CalendarPage
+                  tasks={sortedTasks}
+                  today={today}
+                  handleCreateTaskAt={handleCreateTaskAt}
+                  onAddTask={handleCreateTask}
+                  handleUpdateTask={handleUpdateTask}
+                  onEdit={handleEditTaskItem}
+                  onDelete={handleDeleteTaskItem}
+                  categories={categories}
+                />}
               />
-          </FormPanel>
-        )}
-        {isAddCategoryOpen && (
-          <FormPanel label="New category">
-              <CategoryForm
-                onClose={() => {
-                  setIsAddCategoryOpen(false)
-                }}
-                onSubmit={submitCategoryAdd}
-                initialValues={{
-                  name: '',
-                  color: '#D38B5D',
-                }}
+
+              <Route
+                path="/categories"
+                element={<Categories
+                  categories={categories}
+                  tasks={tasks}
+                  setIsAddCategoryOpen={setIsAddCategoryOpen}
+                  handleDeleteCategory={handleDeleteCategory}
+                />}
               />
-          </FormPanel>
-        )}
-      </div>
-    </div>
-    </TimeOfDayContext.Provider>
+
+              <Route
+                path="/stats"
+                element={<Stats />}
+              />
+
+              <Route
+                path="/notes"
+                element={<Notes
+                  notes={notes}
+                  categories={categories}
+                  noteFolders={noteFolders}
+                  onAddNote={handleAddNote}
+                  onAddFolder={handleAddNoteFolder}
+                  onRenameFolder={handleRenameNoteFolder}
+                  onDeleteFolder={handleDeleteNoteFolder}
+                  onEmptyTrash={handleEmptyNoteTrash}
+                  onMoveNote={handleMoveNote}
+                  onMoveFolder={handleMoveNoteFolder}
+                  onUpdateNote={handleUpdateNote}
+                  onDeleteNote={handleDeleteNote}
+                />}
+              />
+
+              <Route
+                path="/settings"
+                element={<Settings />}
+              />
+            </Routes>
+          </div>
+          <div>
+            {isAddTaskOpen && editingTask === null && (
+              <FormPanel label="New task" isClosing={isTaskFormClosing}>
+                <TaskForm
+                  onClose={closeTaskForm}
+                  onSubmit={submitTaskAdd}
+                  initialValues={newTaskInitialValues}
+                  categories={categories}
+                  today={today}
+                />
+              </FormPanel>
+            )}
+            {isAddTaskOpen && editingTask !== null && (
+              <FormPanel label="Edit task" isClosing={isTaskFormClosing}>
+                <TaskForm
+                  onClose={closeTaskForm}
+                  onSubmit={submitTaskEdit}
+                  initialValues={{
+                    title: editingTask.title,
+                    priority: editingTask.priority,
+                    startAt: editingTask.startAt,
+                    endAt: editingTask.endAt,
+                    emoji: editingTask.emoji,
+                    completed: editingTask.completed,
+
+                    categoryId: editingTask.categoryId,
+                  }}
+                  categories={categories}
+                  today={today}
+                />
+              </FormPanel>
+            )}
+            {isAddCategoryOpen && (
+              <FormPanel label="New category">
+                <CategoryForm
+                  onClose={() => {
+                    setIsAddCategoryOpen(false)
+                  }}
+                  onSubmit={submitCategoryAdd}
+                  initialValues={{
+                    name: '',
+                    color: '#D38B5D',
+                  }}
+                />
+              </FormPanel>
+            )}
+          </div>
+        </div>
+      </TimeOfDayContext.Provider>
+    </ResponsiveContext.Provider>
+
   )
 }
 

@@ -14,6 +14,7 @@ type ActiveTaskCardProps = {
   pastCompletedDurationMs: number
   categories: Category[]
   dayProgressGradient: DayProgressGradient
+  size: number
 }
 
 export type DayProgressGradient = {
@@ -32,7 +33,7 @@ type ProgressTooltipKind =
   | 'day'
   | 'daily'
 
-function ActiveTaskCard({ activeTask, now, totalTasksDurationMs, pastCompletedDurationMs, categories, dayProgressGradient } : ActiveTaskCardProps) {
+function ActiveTaskCard({ activeTask, now, totalTasksDurationMs, pastCompletedDurationMs, categories, dayProgressGradient, size } : ActiveTaskCardProps) {
 
 
 
@@ -108,10 +109,10 @@ function ActiveTaskCard({ activeTask, now, totalTasksDurationMs, pastCompletedDu
     return formatMinutesToString(m)
   }
 
-  const viewBoxSize = 180
+  const viewBoxSize = size
 
-  const radiusTask = 60
-  const radiusDay = 80
+  const radiusDay = size - 20
+  const radiusTask = size - 40
 
   const circumferenceTask = 2 * Math.PI * radiusTask
   const circumferenceDay = 2 * Math.PI * radiusDay
@@ -229,7 +230,7 @@ function ActiveTaskCard({ activeTask, now, totalTasksDurationMs, pastCompletedDu
   }
 
   return (
-    <div>
+    <div className="p-5">
       {activeTask ? (
         <div className="grid grid-cols-1 rounded-lg gap-4">
           {/*If there is a task*/}

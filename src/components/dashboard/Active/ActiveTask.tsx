@@ -1,5 +1,5 @@
 import type { Task } from '../../../types/Task.ts'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import ActiveTaskCard from './ActiveTaskCard.tsx'
 import type { DayProgressGradient } from './ActiveTaskCard.tsx'
 import { getDuration, getDurationMins, getTimeRange, isSameDay } from '../../../utils/Datetime.ts'
@@ -35,6 +35,8 @@ function ActiveTask ({tasks, today, onToggle, categories, dayProgressGradient}: 
   const [activeStatus, setActiveStatus] = useState<ActiveStatus>("Time")
   const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false)
   const [preferredView, setPreferredView] = useState<ActiveView>('task')
+
+  const taskScrollRef = useRef<HTMLDivElement>(null)
 
   //filter only tasks that are today
   const filteredTodayTasks = tasks.filter((task: Task) => isSameDay(today, new Date(task.startAt)))
@@ -168,10 +170,46 @@ function ActiveTask ({tasks, today, onToggle, categories, dayProgressGradient}: 
     setIsStatusMenuOpen(false)
   }
 
+  function handleTaskScroll() {
+    const container = taskScrollRef.current
+    if (!container) return
+
+    // Only do this below lg
+    if (window.innerWidth >= 1024) return
+
+    const containerRect = container.getBoundingClientRect()
+    const containerCenter =
+      containerRect.top + containerRect.height / 2
+
+    const taskElements =
+      container.querySelectorAll<HTMLElement>('[data-task-id]')
+
+    let closestTaskId: string | null = null
+    let closestDistance = Infinity
+
+    taskElements.forEach((element) => {
+      const rect = element.getBoundingClientRect()
+      const elementCenter = rect.top + rect.height / 2
+
+      const distance =
+        Math.abs(elementCenter - containerCenter)
+
+      if (distance < closestDistance) {
+        closestDistance = distance
+        closestTaskId = element.dataset.taskId ?? null
+      }
+    })
+
+    if (closestTaskId) {
+      setSelectedTaskId(closestTaskId)
+    }
+  }
+
 
 
   return (
     <div className="flex flex-col gap-1">
+      {/*Header*/}
       <div className="flex justify-between mb-4 p-2">
         <div className="flex justify-center items-center p-2 gap-3 text-foreground">
           <LoaderCircle className="size-5" />
@@ -189,169 +227,202 @@ function ActiveTask ({tasks, today, onToggle, categories, dayProgressGradient}: 
           />
         </div>
       </div>
-    <div className="flex justify-between gap-4 glass-surface max-h-69 max-w-135 p-6">
-      <div className="flex flex-col">
-        {!showTaskView && (
-          <div className="flex justify-between py-3">
-            <div className={`
-                  flex 
-                  items-center
-                  gap-2 
-                  px-3
-                  text-xs
-                `}
-            >
-              <div className="flex min-w-0 flex-1 flex-col gap-1">
-                <div className="flex gap-2 items-center">
-                  <PulseDot color={dayProgressGradient.glowColor} pulse={false} />
-                  <span className={`min-w-0 truncate max-w-50 text-foreground font-normal`}>
-                    {'Completed'}
-                  </span>
-                </div>
-              </div>
-            </div>
-            <FormPopover
-              open={isStatusMenuOpen}
-              onOpenChange={setIsStatusMenuOpen}
-              label={"Choose an option"}
-              trigger={({ref, props}) => (
-                <button
-                  ref={ref} {...props}
-                  type="button"
-                  className="
-                  flex
-                  glass-surface
-                  text-xs
-                  items-center
-                  text-foreground
-                  p-2
-                  cursor-pointer
-                  "
-                  onClick={handleStatusButtonToggle}
-                >
-                  {renderStatusButtonContent()}
-                </button>
-              )}
-            >
-              <StatusSelectionMenu onSelect={handleStatusSelection} />
-            </FormPopover>
-
-          </div>
-
-        )}
-        <div className="flex flex-col gap-2 overflow-hidden overflow-y-auto scrollbar-none">
-          {showTaskView && (
-            activeTasks.map((task) => (
-              <button
-                type="button"
-                key={task.id}
-                onClick={() => {
-                  setSelectedTaskId(task.id)
-                }}
-                className={`
-                  flex 
-                  items-center
-                  gap-2 
-                  cursor-pointer 
-                  p-3
-                  rounded-4xl
-                  text-xs
-                  ${selectedTask?.id === task.id ? 'bg-muted/10' : 'bg-transparent'}
-                  transition-colors duration-300
-                `}
+      {/*Component*/}
+      <div className="grid grid-cols-1 lg:grid-cols-2 justify-between gap-4 glass-surface max-w-135 p-6">
+        {/*Status at the side*/}
+        <div className="flex flex-col">
+          {!showTaskView && (
+            <div className="flex justify-between py-3">
+              <div className={`
+                    flex 
+                    items-center
+                    gap-2 
+                    px-3
+                    text-xs
+                  `}
               >
-                <div>
-                  {task.emoji !== null && (
-                    <span className={`text-3xl size-9 pl-2 pr-2 cursor-default ${selectedTask?.id === task.id ? 'opacity-100' : 'opacity-20'} transition-opacity duration-300`}>
-                      {task.emoji}
-                    </span>
-                  )}
-                </div>
                 <div className="flex min-w-0 flex-1 flex-col gap-1">
                   <div className="flex gap-2 items-center">
-                    <PulseDot color={getTaskColor(task, categories)} pulse={selectedTask?.id === task.id} />
-                    <span className={`min-w-0 truncate max-w-50 ${selectedTask?.id === task.id ? 'text-foreground font-normal' : 'text-muted font-normal'} transition-colors duration-300`}>
-                  {task.title}
-                </span>
-                  </div>
-                  <div className={`flex items-center gap-2 text-xs ${selectedTask?.id === task.id ? 'text-foreground-secondary' : 'text-muted'} transition-colors duration-300`}>
-                <span className="flex items-center gap-2 shrink-0">
-                  <Clock2 className="size-3"/> {getDuration(task.startAt, task.endAt)}
-                </span>
-                    <span className="max-w-40 truncate">
-                  {getTimeRange(task.startAt, task.endAt, today)}
-                </span>
+                    <PulseDot color={dayProgressGradient.glowColor} pulse={false} />
+                    <span className={`min-w-0 truncate max-w-50 text-foreground font-normal`}>
+                      {'Completed'}
+                    </span>
                   </div>
                 </div>
-              </button>
-            ))
+              </div>
+              <FormPopover
+                open={isStatusMenuOpen}
+                onOpenChange={setIsStatusMenuOpen}
+                label={"Choose an option"}
+                trigger={({ref, props}) => (
+                  <button
+                    ref={ref} {...props}
+                    type="button"
+                    className="
+                    flex
+                    glass-surface
+                    text-xs
+                    items-center
+                    text-foreground
+                    p-2
+                    cursor-pointer
+                    "
+                    onClick={handleStatusButtonToggle}
+                  >
+                    {renderStatusButtonContent()}
+                  </button>
+                )}
+              >
+                <StatusSelectionMenu onSelect={handleStatusSelection} />
+              </FormPopover>
+
+            </div>
+
           )}
-          {!showTaskView && (
-            <>
-              <div className="flex flex-col gap-2 text-foreground-secondary">
-                {Object.entries(getDayStats()).map(([categoryName, stats]) => {
-                  if (stats.numTasks !== 0) {
-                    return (
-                      <div
-                        key={categoryName}
-                        className="
-                      flex
-                      flex-col
-                      gap-2
-                      p-3
-                      rounded-4xl
-                      text-xs
-                      bg-muted/10
-                      "
-                      >
-                        <div className="grid grid-cols-3 gap-4">
-                          {/*Color dot and name*/}
-                          <div className="flex gap-2 items-center">
-                            <PulseDot color={stats.color} pulse={false} />
-                            <span>{categoryName}</span>
-                          </div>
-                          {/*Divider*/}
-                          <span className="bg-muted/20 w-[2px]"/>
+          <div
+            ref={taskScrollRef}
+            onScroll={handleTaskScroll}
+            className={`
+              flex
+              flex-col
+              gap-2
+              overflow-hidden
+              overflow-y-auto
+              overscroll-y-contain
+              ${showTaskView ? 'max-h-17 lg:max-h-50' : 'max-h-22 lg:max-h-50'}
+              
+              scrollbar-none
 
-                          {/*Num tasks and total time spent*/}
-                          <div className="flex text-muted gap-2">
-                            {activeStatus === "Time" && (
-                              <>
-                                <Clock2 size={14}/>
-                                <span> {stats.duration}m</span>
-                              </>
-                            )}
-                            {activeStatus === "Completed" && (
-                              <>
-                                <Hash size={14}/>
-                                <span> {stats.numTasks}</span>
-                              </>
-                            )}
+              snap-y
+              snap-mandatory
+              lg:snap-none
+            `}
+          >
+            {showTaskView && (
+              activeTasks.map((task) => (
+                <button
+                  data-task-id={task.id}
+                  type="button"
+                  key={task.id}
+                  onClick={() => {
+                    setSelectedTaskId(task.id)
+                  }}
+                  className={`
+                    flex
+                    items-center
+                    gap-2
+                    cursor-pointer
+                    p-3
+                    rounded-4xl
+                    text-xs
+                
+                    snap-center
+                    shrink-0
+                
+                    ${selectedTask?.id === task.id
+                                    ? 'bg-muted/10'
+                                    : 'bg-transparent'}
+                
+                    transition-colors
+                    duration-300
+                  `}
+                >
+                  <div>
+                    {task.emoji !== null && (
+                      <span className={`text-3xl size-9 pl-2 pr-2 cursor-default ${selectedTask?.id === task.id ? 'opacity-100' : 'opacity-20'} transition-opacity duration-300`}>
+                        {task.emoji}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex min-w-0 flex-1 flex-col gap-1">
+                    <div className="flex gap-2 items-center">
+                      <PulseDot color={getTaskColor(task, categories)} pulse={selectedTask?.id === task.id} />
+                      <span className={`min-w-0 truncate max-w-50 ${selectedTask?.id === task.id ? 'text-foreground font-normal' : 'text-muted font-normal'} transition-colors duration-300`}>
+                    {task.title}
+                  </span>
+                    </div>
+                    <div className={`flex items-center gap-2 text-xs ${selectedTask?.id === task.id ? 'text-foreground-secondary' : 'text-muted'} transition-colors duration-300`}>
+                  <span className="flex items-center gap-2 shrink-0">
+                    <Clock2 className="size-3"/> {getDuration(task.startAt, task.endAt)}
+                  </span>
+                      <span className="max-w-40 truncate">
+                    {getTimeRange(task.startAt, task.endAt, today)}
+                  </span>
+                    </div>
+                  </div>
+                </button>
+              ))
+            )}
+            {!showTaskView && (
+              <>
+                <div className="flex flex-col gap-2 text-foreground-secondary">
+                  {Object.entries(getDayStats()).map(([categoryName, stats]) => {
+                    if (stats.numTasks !== 0) {
+                      return (
+                        <div
+                          key={categoryName}
+                          className="
+                            flex
+                            flex-col
+                            gap-2
+                            p-3
+                            rounded-4xl
+                            text-xs
+                            bg-muted/10
+                          "
+                        >
+                          <div className="grid grid-cols-3 gap-4">
+                            {/*Color dot and name*/}
+                            <div className="flex gap-2 items-center">
+                              <PulseDot color={stats.color} pulse={false} />
+                              <span>{categoryName}</span>
+                            </div>
+                            {/*Divider*/}
+                            <span className="bg-muted/20 w-[2px]"/>
 
+                            {/*Num tasks and total time spent*/}
+                            <div className="flex text-muted gap-2">
+                              {activeStatus === "Time" && (
+                                <>
+                                  <Clock2 size={14}/>
+                                  <span> {stats.duration}m</span>
+                                </>
+                              )}
+                              {activeStatus === "Completed" && (
+                                <>
+                                  <Hash size={14}/>
+                                  <span> {stats.numTasks}</span>
+                                </>
+                              )}
+
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    )
-                  }
-                })}
-              </div>
-            </>
-          )}
+                      )
+                    }
+                  })}
+                </div>
+              </>
+            )}
+          </div>
         </div>
-      </div>
+        {/*Active circle*/}
+        <div>
+          <ActiveTaskCard
+            activeTask={displayedTask}
+            today={today}
+            onToggle={onToggle}
+            now={now}
+            totalTasksDurationMs={duration}
+            pastCompletedDurationMs={pastCompletedDurationMs}
+            categories={categories}
+            dayProgressGradient={dayProgressGradient}
+            size={100}
+            key={displayedTask?.id ?? 'no-active-task'}
+          />
+        </div>
 
-      <ActiveTaskCard
-        activeTask={displayedTask}
-        today={today}
-        onToggle={onToggle}
-        now={now}
-        totalTasksDurationMs={duration}
-        pastCompletedDurationMs={pastCompletedDurationMs}
-        categories={categories}
-        dayProgressGradient={dayProgressGradient}
-        key={displayedTask?.id ?? 'no-active-task'}
-      />
-    </div>
+      </div>
     </div>
   )
 }

@@ -14,7 +14,7 @@ type CategoriesProps = {
 
 function Categories( { categories, setIsAddCategoryOpen, handleDeleteCategory, tasks }: CategoriesProps ) {
   return (
-    <main className="flex h-full min-h-0 flex-1 z-0 flex-col px-10 gap-8 overflow-hidden">
+    <main className="flex h-full min-h-0 flex-1 z-0 flex-col px-4 lg:px-10 gap-0 lg:gap-8 overflow-hidden">
       <header className="flex gap-1 items-center justify-between">
         <LiveDateTime />
         <div className="flex gap-1 text-foreground-secondary">
@@ -23,7 +23,7 @@ function Categories( { categories, setIsAddCategoryOpen, handleDeleteCategory, t
         </div>
       </header>
       <section className="flex min-h-0 flex-1 flex-col gap-1">
-        <div className="flex justify-between mb-4 p-2">
+        <div className="flex justify-between p-2">
           <div className="flex justify-center items-center p-2 gap-3 text-foreground">
             <ListSortDescending className="size-5" />
             <h3 className="text-xl font-semibold">Active Workspaces.</h3>

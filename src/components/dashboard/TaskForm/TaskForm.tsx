@@ -7,11 +7,10 @@ import { getInitialTaskDateRange } from './DateTimeRangePicker/dateTimeFields.ts
 import {
   Calendar,
   ClockFading,
-  SmilePlus, SaveCheck, Trash2, LayoutDashboard, PlusIcon, ChevronsRight,
+  SmilePlus, Trash2, LayoutDashboard, PlusIcon, ChevronsRight, ChevronRight,
 } from 'lucide-react'
 import TaskEmojiPicker from "./EmojiPicker/TaskEmojiPicker.tsx";
 import { getDuration, getTimeRange } from "../../../utils/Datetime.ts";
-import SaveTemplateButton from '../../ui/SaveTemplateButton.tsx'
 import Checkbox2 from '../../ui/Checkbox2.tsx'
 import CategoryPicker from './CategoryPicker/CategoryPicker.tsx'
 import type { Category } from '../../../types/Category.ts'
@@ -211,10 +210,36 @@ function TaskForm ({initialValues, onClose, onSubmit, categories, today}: TaskFo
       }}
 
     >
+      {/*Header navigation buttons*/}
+      <div className="flex items-center text-foreground justify-between">
+        <Tooltip
+          content={
+            <div className="flex items-center gap-1 text-xs text-muted">
+              <PlusIcon size={14}/>
+              <span className="font-normal text-foreground-secondary">add to tasks</span>
+            </div>
+          }
+        >
+          <div className="flex max-w-xs items-center p-2">
+            <SubmitButton />
+          </div>
+        </Tooltip>
+        <Tooltip
+          content={
+            <div className="flex items-center gap-1 text-xs text-muted">
+              <ChevronsRight size={14}/>
+              <span className="font-normal text-foreground-secondary">close</span>
+            </div>
+          }
+        >
+          <div className="flex items-center flex-1 max-w-xs p-2">
+            <CancelButton onCancel={onClose} />
+          </div>
+        </Tooltip>
+      </div>
 
-      {/*Top: Title and Cancel/Add button*/}
-      <div className="flex gap-2">
-        {/*Icon and title*/}
+      {/*Top: Title/emoji*/}
+      <div className="flex gap-2 px-4">
         <div className="flex items-center justify-end gap-4">
           <div className="relative flex items-center text-foreground">
             <Tooltip
@@ -260,51 +285,12 @@ function TaskForm ({initialValues, onClose, onSubmit, categories, today}: TaskFo
           ${newTitle.trim() === '' ? 'text-muted' : 'text-foreground'}`}
           />
         </div>
-        {/*Header navigation buttons*/}
-        <div className="flex items-center text-foreground">
-          <Tooltip
-            content={
-              <div className="flex items-center gap-1 text-xs text-muted">
-                <SaveCheck size={14}/>
-                <span className="font-normal text-foreground-secondary">save as template</span>
-              </div>
-            }
-          >
-            <div className="flex flex-1 max-w-xs items-center p-2">
-              <SaveTemplateButton onSave={handleSaveTemplate} />
-            </div>
-          </Tooltip>
-          <Tooltip
-            content={
-              <div className="flex items-center gap-1 text-xs text-muted">
-                <PlusIcon size={14}/>
-                <span className="font-normal text-foreground-secondary">add to tasks</span>
-              </div>
-            }
-          >
-            <div className="flex flex-1 max-w-xs items-center p-2">
-              <SubmitButton />
-            </div>
-          </Tooltip>
-          <Tooltip
-            content={
-              <div className="flex items-center gap-1 text-xs text-muted">
-                <ChevronsRight size={14}/>
-                <span className="font-normal text-foreground-secondary">close</span>
-              </div>
-            }
-          >
-            <div className="flex items-center flex-1 max-w-xs p-2">
-              <CancelButton onCancel={onClose} />
-            </div>
-          </Tooltip>
-        </div>
       </div>
 
       {/*Main Property List*/}
       <div className="grid grid-cols-2 gap-4">
         {/*Calendar and date selection*/}
-        <div className="flex gap-6 text-foreground col-span-2 items-center justify-between solid-surface p-3">
+        <div className="flex text-foreground col-span-2 items-center justify-between solid-surface h-14 px-4">
           {/*Calendar Icon*/}
           <Calendar size={18} className="ml-2"/>
           {/*Date Time button*/}
@@ -324,8 +310,9 @@ function TaskForm ({initialValues, onClose, onSubmit, categories, today}: TaskFo
                 label="Choose dates"
                 canDismiss={() => canCloseDatePickerRef.current}
                 trigger={({ ref, props }) => (
-                  <button ref={ref} {...props} type="button" onClick={handleDatePickerToggle} className="text-foreground-secondary cursor-pointer">
+                  <button ref={ref} {...props} type="button" onClick={handleDatePickerToggle} className="flex items-center gap-2 text-foreground-secondary cursor-pointer">
                     {getTimeRange(newStartAt, newEndAt, today)}
+                    <ChevronRight size={16} className={`${isDatePickerOpen ? 'rotate-90' : ''} transition-all duration-300`}/>
                   </button>
                 )
                 }
@@ -344,7 +331,7 @@ function TaskForm ({initialValues, onClose, onSubmit, categories, today}: TaskFo
         </div>
 
         {/*Duration*/}
-        <div className="flex gap-2 text-foreground col-span-1 items-center justify-center solid-surface p-3">
+        <div className="flex gap-2 text-foreground col-span-1 items-center justify-center solid-surface h-14">
           <ClockFading size={18}/>
           <div className="flex items-center text-foreground">
             {
@@ -354,7 +341,7 @@ function TaskForm ({initialValues, onClose, onSubmit, categories, today}: TaskFo
         </div>
 
         {/*Completed*/}
-        <div className="flex gap-2 text-foreground col-span-1 items-center justify-center solid-surface p-3">
+        <div className="flex text-foreground col-span-1 items-center justify-center solid-surface h-14">
           <div className="flex text-muted">
             <Tooltip content={'Complete task'}>
               <Checkbox2
@@ -376,7 +363,7 @@ function TaskForm ({initialValues, onClose, onSubmit, categories, today}: TaskFo
 
 
         {/*Category*/}
-        <div className="flex gap-6 text-foreground col-span-2 items-center justify-between solid-surface p-3">
+        <div className="flex gap-6 text-foreground col-span-2 items-center justify-between solid-surface h-14 px-4">
 
           <LayoutDashboard size={18} className="ml-2"/>
           <div className="flex items-center relative">
@@ -422,6 +409,7 @@ function TaskForm ({initialValues, onClose, onSubmit, categories, today}: TaskFo
                       ) : (
                         <span>No Workspace</span>
                       )}
+                      <ChevronRight size={16} className={`${isCategoryPickerOpen ? 'rotate-90' : ''} transition-all duration-300`}/>
                     </button>
                   )}>
                   <CategoryPicker
@@ -431,27 +419,39 @@ function TaskForm ({initialValues, onClose, onSubmit, categories, today}: TaskFo
                   />
                 </FormPopover>
               </Tooltip>
-
             </div>
           </div>
         </div>
 
 
         {/*Templates*/}
-        <div className="flex text-foreground">
-          <div className="grid size-8 place-items-center">
-            <SaveCheck className="size-4"/>
-          </div>
-          <span className="p-1">
-          Templates
-          </span>
-        </div>
         <div className="col-span-2">
+          <div className="flex text-foreground-secondary">
+            <span className="p-1">
+              Templates
+            </span>
+          </div>
           <div className="template-scroll-wrapper relative">
-            <div className="flex flex-wrap gap-4 h-42 overflow-y-auto overflow-x-hidden dash-scrollbar py-6 template-scroll-fade">
+            <div className="grid grid-cols-1 gap-2 py-2 h-60 overflow-hidden overflow-y-auto scrollbar-none lg:pr-3 lg:dash-scrollbar template-scroll-fade">
+              {/*Save current as template*/}
+              <button
+                type="button"
+                key={'Add-Template'}
+                onClick={() => handleSaveTemplate()}
+                className="flex min-w-0 cursor-pointer p-3 text-foreground solid-surface h-14 hover:-translate-y-1/12 transition-transform w-full"
+              >
+
+
+                <div className="flex items-center gap-2">
+                  <PlusIcon size={14}/>
+                  <span className="truncate text-foreground-secondary">
+                    Add current Configuration
+                  </span>
+                </div>
+            </button>
               {templates.map((template) => (
                 <div
-                  className="flex border solid-surface h-14 hover:-translate-y-1/12 transition-transform"
+                  className="flex solid-surface h-14 hover:-translate-y-1/12 transition-transform"
                   key={template.id}
                 >
                   <button

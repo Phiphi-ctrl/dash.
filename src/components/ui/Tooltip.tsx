@@ -279,6 +279,8 @@ function Tooltip({
               }}
 
               className="
+                hidden
+                lg:flex
                 pointer-events-none
                 z-[120]
 

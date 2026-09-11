@@ -29,6 +29,7 @@ import { getTaskCategory, getTaskColor } from '../../../utils/Category.ts'
 import ViewSelector from '../ViewSelector.tsx'
 import GradientTaskButton from '../../ui/GradientTaskButton.tsx'
 import { useTimeOfDay } from '../../../context/TimeOfDayContext.ts'
+import { useResponsive } from '../../../context/ResponsiveContext.ts'
 import {
   buildTaskSegments,
   getCalendarDays,
@@ -38,6 +39,7 @@ import {
   type PositionedCalendarTaskSegment,
   type CalendarView,
 } from './calendarLayout.ts'
+import MonthCalendarWrapper from './MonthCalendarWrapper.tsx'
 
 type CalendarProps = {
   today: Date
@@ -193,6 +195,11 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
 
   const [now, setNow] = useState(() => new Date())
 
+  const { isMobile } = useResponsive()
+
+  const effectiveView: CalendarView =
+    isMobile ? 'day' : view
+
   useEffect(() => {
     const intervalId = window.setInterval(() => {
       setNow(new Date())
@@ -201,7 +208,7 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
     return () => {
       window.clearInterval(intervalId)
     }
-  })
+  },[])
 
   const [dragState, setDragState] =
       useState<DragState>(null)
@@ -231,6 +238,12 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
   const isTaskInfoOpen =
     infoTaskId !== null &&
     infoAnchorElement !== null
+
+  const [isSelectionCalendarOpen, setSelectionCalendarOpen] = useState<boolean>(false)
+
+  function toggleSelectionCalendarOpen() {
+    setSelectionCalendarOpen((current) => !current)
+  }
 
   const {
     floatingStyles: taskInfoFloatingStyles,
@@ -686,17 +699,17 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
   }
 
   function changeView(nextView: CalendarView) {
-    if (nextView === view) return
+    if (nextView === effectiveView) return
     resetCalendarInteraction()
     setView(nextView)
   }
 
   function navigateCalendar(direction: -1 | 1) {
     resetCalendarInteraction()
-    setVisibleDate((current) => shiftCalendarDate(current, view, direction))
+    setVisibleDate((current) => shiftCalendarDate(current, effectiveView, direction))
   }
 
-  const days = getCalendarDays(visibleDate, view)
+  const days = getCalendarDays(visibleDate, effectiveView)
   const visibleStart = days[0]
   const visibleEnd = days[days.length - 1]
   const gridTemplateColumns = `4rem repeat(${days.length}, minmax(0, 1fr))`
@@ -796,7 +809,7 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
               gridRow: timeSlot + 1,
               gridColumn: 1,
             }}
-            className="text-muted -translate-y-1/2"
+            className="text-muted -translate-y-1/2 select-none"
           >
             {`${timeSlot / 4}:00`}
           </time>
@@ -888,6 +901,7 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
             w-full
             border-r-1
             border-border/40
+            select-none
             transition-[border-radius,background-color,color]
             duration-600
             ease-out
@@ -1039,55 +1053,62 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
 
   return (
     <div className="flex min-h-0 flex-1 flex-col w-full gap-8">
-      <div className="flex flex-wrap gap-3 mt-5">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="text-3xl font-bold text-foreground whitespace-nowrap">
-            {monthFormatter.formatToParts(visibleStart).map((part, index) => (
-              <span
-                key={`${part.type}-${index}`}
-                className={part.type === 'year' ? `${timeOfDay.gradient} bg-clip-text text-transparent` : undefined}
-              >
+      <div className="flex flex-col gap-3 mt-5">
+        {/*Year*/}
+        <div className="text-3xl font-bold text-foreground whitespace-nowrap">
+          {monthFormatter.formatToParts(visibleStart).map((part, index) => (
+            <span
+              key={`${part.type}-${index}`}
+              className={part.type === 'year' ? `${timeOfDay.gradient} bg-clip-text text-transparent` : undefined}
+            >
                 {part.value}
               </span>
-            ))}
-          </div>
-          <div className="flex items-center gap-3">
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-1">
+          {/*Buttons*/}
+          <div className="flex items-center gap-2">
             <ViewSelector
-              view={view}
+              view={effectiveView}
               options={calendarViewOptions}
               label="Calendar view"
               onSelect={changeView}
+              disabled={isMobile}
             />
             <GradientTaskButton size="compact" onClick={onAddTask} />
           </div>
+          {/*Chevron day cycle*/}
+          <div className={`flex gap-4 text-foreground-secondary ml-auto glass-surface justify-between ${effectiveView === 'week' ? 'w-50' : 'w-35'}  max-w-full shrink-0 py-1`}>
+            <button
+              type="button"
+              aria-label={`Previous ${effectiveView}`}
+              className="cursor-pointer hover:scale-110 hover:text-foreground tranistion-all duration-300"
+              onClick={() => navigateCalendar(-1)}
+            >
+              <ChevronLeft className="size-6" />
+            </button>
+            <button type="button" onClick={() => toggleSelectionCalendarOpen()} className="flex items-center justify-center text-[14px]">
+              {effectiveView === 'day'
+                ? dayFormatter.format(visibleStart)
+                : getDayRange(visibleStart.toISOString(), visibleEnd.toISOString())}
+            </button>
+            <button
+              type="button"
+              aria-label={`Next ${effectiveView}`}
+              className="cursor-pointer hover:scale-110 hover:text-foreground tranistion-all duration-300"
+              onClick={() => navigateCalendar(1)}
+            >
+              <ChevronRight className="size-6" />
+            </button>
+          </div>
         </div>
-        <div className="flex gap-4 text-foreground-secondary ml-auto glass-surface justify-between w-60 max-w-full shrink-0">
-          <button
-            type="button"
-            aria-label={`Previous ${view}`}
-            className="cursor-pointer hover:scale-110 hover:text-foreground tranistion-all duration-300"
-            onClick={() => navigateCalendar(-1)}
-          >
-            <ChevronLeft className="size-6" />
-          </button>
-          <span className="flex items-center justify-center">
-            {view === 'day'
-              ? dayFormatter.format(visibleStart)
-              : getDayRange(visibleStart.toISOString(), visibleEnd.toISOString())}
-          </span>
-          <button
-            type="button"
-            aria-label={`Next ${view}`}
-            className="cursor-pointer hover:scale-110 hover:text-foreground tranistion-all duration-300"
-            onClick={() => navigateCalendar(1)}
-          >
-            <ChevronRight className="size-6" />
-          </button>
-        </div>
+        {isSelectionCalendarOpen && (
+          <MonthCalendarWrapper today={now} initialMonth={visibleDate} focusDate={visibleDate} selectedDate={days} onSelectDate={(day: Date) => {setVisibleDate(day)}}/>
+        )}
       </div>
       {/*Day grid*/}
       <div className="flex min-h-0 flex-1 flex-col w-full">
-        <div className="grid place-items-center pr-6 mb-4" style={{ gridTemplateColumns }}>
+        <div className="lg:grid place-items-center pr-6 mb-4 hidden" style={{ gridTemplateColumns }}>
           <time></time>
           {days.map((day) => (
             <button
@@ -1126,6 +1147,8 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
           grid-rows-[repeat(96,1.25rem)]
           w-full
           h-full min-h-0 flex-1 overflow-y-auto
+          scrollbar-none
+          lg:dash-scrollbar
           ${dragState !== null ? 'select-none' : ''}
           `}
           ref={calendarGridRef}
@@ -1299,11 +1322,11 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
 
                     <div className="flex min-w-0 max-w-full items-center gap-1 text-xs leading-4">
                       {segment.task.emoji !== null && (
-                        <span className="shrink-0 leading-none">
+                        <span className="shrink-0 leading-none select-none">
                           {segment.task.emoji}
                         </span>
                       )}
-                      <span className="min-w-0 truncate">
+                      <span className="min-w-0 truncate select-none">
                         {segment.task.title}
                       </span>
                     </div>
