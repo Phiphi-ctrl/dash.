@@ -2,11 +2,17 @@ import {
   arrow,
   autoUpdate,
   flip,
+  FloatingFocusManager,
   FloatingPortal,
   hide,
   offset,
   shift,
+  size,
+  useClick,
+  useDismiss,
   useFloating,
+  useInteractions,
+  useRole,
 } from '@floating-ui/react'
 import {
   dayFormatter,
@@ -240,10 +246,41 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
     infoAnchorElement !== null
 
   const [isSelectionCalendarOpen, setSelectionCalendarOpen] = useState<boolean>(false)
-
-  function toggleSelectionCalendarOpen() {
-    setSelectionCalendarOpen((current) => !current)
-  }
+  const [selectionCalendarAnchor, setSelectionCalendarAnchor] = useState<HTMLButtonElement | null>(null)
+  const [selectionCalendarElement, setSelectionCalendarElement] = useState<HTMLDivElement | null>(null)
+  const {
+    context: selectionCalendarContext,
+    floatingStyles: selectionCalendarStyles,
+    isPositioned: isSelectionCalendarPositioned,
+  } = useFloating({
+    open: isSelectionCalendarOpen,
+    onOpenChange: setSelectionCalendarOpen,
+    elements: { reference: selectionCalendarAnchor, floating: selectionCalendarElement },
+    placement: 'bottom',
+    strategy: 'fixed',
+    whileElementsMounted: autoUpdate,
+    middleware: [
+      offset(16),
+      flip({ padding: 12 }),
+      shift({ padding: 12 }),
+      size({
+        padding: 12,
+        apply({ availableWidth, availableHeight, elements }) {
+          Object.assign(elements.floating.style, {
+            maxWidth: `${Math.max(0, availableWidth)}px`,
+            maxHeight: `${Math.max(0, availableHeight)}px`,
+          })
+        },
+      }),
+    ],
+  })
+  const selectionCalendarClick = useClick(selectionCalendarContext)
+  const selectionCalendarDismiss = useDismiss(selectionCalendarContext)
+  const selectionCalendarRole = useRole(selectionCalendarContext, { role: 'dialog' })
+  const {
+    getReferenceProps: getSelectionCalendarReferenceProps,
+    getFloatingProps: getSelectionCalendarFloatingProps,
+  } = useInteractions([selectionCalendarClick, selectionCalendarDismiss, selectionCalendarRole])
 
   const {
     floatingStyles: taskInfoFloatingStyles,
@@ -1087,7 +1124,12 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
             >
               <ChevronLeft className="size-6" />
             </button>
-            <button type="button" onClick={() => toggleSelectionCalendarOpen()} className="flex items-center justify-center text-[14px]">
+            <button
+              ref={setSelectionCalendarAnchor}
+              type="button"
+              className="flex items-center justify-center text-[14px]"
+              {...getSelectionCalendarReferenceProps({ 'aria-label': 'Choose calendar date' })}
+            >
               {effectiveView === 'day'
                 ? dayFormatter.format(visibleStart)
                 : getDayRange(visibleStart.toISOString(), visibleEnd.toISOString())}
@@ -1103,7 +1145,25 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
           </div>
         </div>
         {isSelectionCalendarOpen && (
-          <MonthCalendarWrapper today={now} initialMonth={visibleDate} focusDate={visibleDate} selectedDate={days} onSelectDate={(day: Date) => {setVisibleDate(day)}}/>
+          <FloatingPortal>
+            <FloatingFocusManager
+              context={selectionCalendarContext}
+              modal={false}
+              disabled={!isSelectionCalendarPositioned}
+            >
+              <div
+                ref={setSelectionCalendarElement}
+                className="z-[100] rounded-4xl shadow-xl overflow-auto scrollbar-none outline-none"
+                style={{
+                  ...selectionCalendarStyles,
+                  visibility: isSelectionCalendarPositioned ? 'visible' : 'hidden',
+                }}
+                {...getSelectionCalendarFloatingProps({ 'aria-label': 'Calendar date picker' })}
+              >
+                <MonthCalendarWrapper today={now} initialMonth={visibleDate} focusDate={visibleDate} selectedDate={days} onSelectDate={(day: Date) => {setVisibleDate(day)}}/>
+              </div>
+            </FloatingFocusManager>
+          </FloatingPortal>
         )}
       </div>
       {/*Day grid*/}
