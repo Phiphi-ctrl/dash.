@@ -13,6 +13,7 @@ import {
 
 import CodeBlockView
   from '../CodeBlock/CodeBlockView.tsx'
+import { ignoreCodeBlockMutation } from '../CodeBlock/codeBlockMutations.ts'
 
 const lowlight =
   createLowlight(all)
@@ -21,7 +22,7 @@ const CodeBlock =
   CodeBlockLowlight
     .extend({
       addNodeView() {
-        return ReactNodeViewRenderer(
+        const renderNodeView = ReactNodeViewRenderer(
           CodeBlockView,
           {
             attrs: ({ node }) => {
@@ -41,6 +42,16 @@ const CodeBlock =
             },
           },
         )
+
+        return (props) => {
+          const nodeView = renderNodeView(props)
+
+          // Backport TipTap 3.31.1's mobile fix: React's wrapper is not editor content.
+          nodeView.ignoreMutation = (mutation) =>
+            ignoreCodeBlockMutation(mutation, nodeView.contentDOM)
+
+          return nodeView
+        }
       },
     })
     .configure({

@@ -1,18 +1,4 @@
 import {
-  autoUpdate,
-  flip,
-  FloatingFocusManager,
-  FloatingPortal,
-  offset,
-  shift,
-  size,
-  useClick,
-  useDismiss,
-  useFloating,
-  useInteractions,
-  useRole,
-} from '@floating-ui/react'
-import {
   dayFormatter,
   monthFormatter,
   getDayRange, getHourRange, getTimeRange, isSameDay, getDuration, timeFormatter,
@@ -44,7 +30,7 @@ import {
   type PositionedCalendarTaskSegment,
   type CalendarView,
 } from './calendarLayout.ts'
-import MonthCalendarWrapper from './MonthCalendarWrapper.tsx'
+import MonthCalendar from '../../ui/MonthCalendar/MonthCalendar.tsx'
 import Popover from '../../ui/Popover.tsx'
 
 type CalendarProps = {
@@ -191,56 +177,25 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
   const mobileResizeInteractionRef =
       useRef<MobileResizeInteraction | null>(null)
 
-  const [infoTaskId, setInfoTaskId] = useState<string | null>(null)
+  const [taskInfo, setTaskInfo] = useState<{ task: Task; anchor: HTMLButtonElement } | null>(null)
+  const [isTaskInfoOpen, setTaskInfoOpen] = useState(false)
+  const infoTaskId = taskInfo?.task.id ?? null
+  const infoAnchorElement = taskInfo?.anchor ?? null
 
   const [infoPortalElement, setInfoPortalElement] = useState<HTMLDivElement | null>(null)
 
-  const [
-    infoAnchorElement,
-    setInfoAnchorElement,
-  ] =
-    useState<HTMLButtonElement | null>(null)
+  const clearTaskInfo = useCallback(() => {
+    setTaskInfo(null)
+    setTaskInfoOpen(false)
+  }, [])
 
-  const isTaskInfoOpen =
-    infoTaskId !== null &&
-    infoAnchorElement !== null
+  const toggleTaskInfo = useCallback((task: Task, anchor: HTMLButtonElement) => {
+    const isClosing = isTaskInfoOpen && infoTaskId === task.id && infoAnchorElement === anchor
+    if (!isClosing) setTaskInfo({ task, anchor })
+    setTaskInfoOpen(!isClosing)
+  }, [isTaskInfoOpen, infoTaskId, infoAnchorElement])
 
   const [isSelectionCalendarOpen, setSelectionCalendarOpen] = useState<boolean>(false)
-  const [selectionCalendarAnchor, setSelectionCalendarAnchor] = useState<HTMLButtonElement | null>(null)
-  const [selectionCalendarElement, setSelectionCalendarElement] = useState<HTMLDivElement | null>(null)
-  const {
-    context: selectionCalendarContext,
-    floatingStyles: selectionCalendarStyles,
-    isPositioned: isSelectionCalendarPositioned,
-  } = useFloating({
-    open: isSelectionCalendarOpen,
-    onOpenChange: setSelectionCalendarOpen,
-    elements: { reference: selectionCalendarAnchor, floating: selectionCalendarElement },
-    placement: 'bottom',
-    strategy: 'fixed',
-    whileElementsMounted: autoUpdate,
-    middleware: [
-      offset(16),
-      flip({ padding: 12 }),
-      shift({ padding: 12 }),
-      size({
-        padding: 12,
-        apply({ availableWidth, availableHeight, elements }) {
-          Object.assign(elements.floating.style, {
-            maxWidth: `${Math.max(0, availableWidth)}px`,
-            maxHeight: `${Math.max(0, availableHeight)}px`,
-          })
-        },
-      }),
-    ],
-  })
-  const selectionCalendarClick = useClick(selectionCalendarContext)
-  const selectionCalendarDismiss = useDismiss(selectionCalendarContext)
-  const selectionCalendarRole = useRole(selectionCalendarContext, { role: 'dialog' })
-  const {
-    getReferenceProps: getSelectionCalendarReferenceProps,
-    getFloatingProps: getSelectionCalendarFloatingProps,
-  } = useInteractions([selectionCalendarClick, selectionCalendarDismiss, selectionCalendarRole])
 
   useEffect(() => {
     if (dragState === null) return
@@ -428,8 +383,7 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
       }
 
       pending.dragStarted = true
-      setInfoTaskId(null)
-      setInfoAnchorElement(null)
+      setTaskInfoOpen(false)
 
       const preview =
           getCalendarMovePreviewAtPoint(
@@ -468,21 +422,8 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
         return
       }
 
-      const isClosingCurrentInfo =
-        infoTaskId === pending.taskId &&
-        infoAnchorElement === pending.anchorElement
-
-      setInfoTaskId(
-        isClosingCurrentInfo
-          ? null
-          : pending.taskId
-      )
-
-      setInfoAnchorElement(
-        isClosingCurrentInfo
-          ? null
-          : pending.anchorElement
-      )
+      const task = tasks.find(task => task.id === pending.taskId)
+      if (task) toggleTaskInfo(task, pending.anchorElement)
     }
 
     function handlePointerCancel(event: PointerEvent) {
@@ -508,7 +449,7 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
       window.removeEventListener('pointerup', handlePointerUp)
       window.removeEventListener('pointercancel', handlePointerCancel)
     }
-  }, [infoAnchorElement, infoTaskId, isMobile, captureFirstRect])
+  }, [toggleTaskInfo, tasks, isMobile, captureFirstRect])
 
   useLayoutEffect(() => {
     const layoutElement = draggedLayoutRef.current
@@ -615,29 +556,7 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
   ])
 
   function closeTaskInfo() {
-    setInfoTaskId(null)
-    setInfoAnchorElement(null)
-  }
-
-  function toggleTaskInfo(
-      taskId: string,
-      anchorElement: HTMLButtonElement
-  ) {
-    const isClosingCurrentInfo =
-      infoTaskId === taskId &&
-      infoAnchorElement === anchorElement
-
-    setInfoTaskId(
-      isClosingCurrentInfo
-        ? null
-        : taskId
-    )
-
-    setInfoAnchorElement(
-      isClosingCurrentInfo
-        ? null
-        : anchorElement
-    )
+    setTaskInfoOpen(false)
   }
 
   function handleTaskSegmentPointerDown(
@@ -724,7 +643,7 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
   }
 
   function resetCalendarInteraction() {
-    closeTaskInfo()
+    clearTaskInfo()
     pendingSegmentInteractionRef.current = null
     mobileResizeInteractionRef.current = null
     setDragState(null)
@@ -967,17 +886,19 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
   const positionedTaskSegments =
       layoutTaskSegments(taskSegments, days.length)
 
-  const infoTask =
+  const liveInfoTask =
     infoTaskId === null
       ? undefined
       : displayTasks.find((task) => task.id === infoTaskId)
+
+  // Keep the last task and anchor available for the exit, including after deletion.
+  const infoTask = liveInfoTask ?? taskInfo?.task
 
   const infoTaskColor =
     getTaskColor(infoTask, categories)
 
   function renderTaskInfoPopover() {
     if (
-      !isTaskInfoOpen ||
       infoTask === undefined ||
       infoPortalElement === null
     ) {
@@ -986,8 +907,9 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
 
     return (
       <Popover
-        open={isTaskInfoOpen}
+        open={isTaskInfoOpen && liveInfoTask !== undefined}
         onOpenChange={(open) => { if (!open) closeTaskInfo() }}
+        onExitComplete={clearTaskInfo}
         referenceElement={infoAnchorElement}
         portalRoot={infoPortalElement}
         strategy="absolute"
@@ -1092,16 +1014,43 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
             >
               <ChevronLeft className="size-6" />
             </button>
-            <button
-              ref={setSelectionCalendarAnchor}
-              type="button"
-              className="flex items-center justify-center text-[14px]"
-              {...getSelectionCalendarReferenceProps({ 'aria-label': 'Choose calendar date' })}
+            <Popover
+              open={isSelectionCalendarOpen}
+              onOpenChange={setSelectionCalendarOpen}
+              label="Calendar date picker"
+              interaction="click"
+              placementInput="bottom"
+              offsetDistance={16}
+              viewportPadding={12}
+              showArrow
+              constrainToViewport
+              initialFocus={0}
+              returnFocus
+              closeOnFocusOut
+              className="z-[100] outline-none"
+              contentClassName="relative z-10 w-max rounded-3xl p-4 scrollbar-none"
+              trigger={({ ref, props }) => (
+                <button
+                  ref={ref}
+                  type="button"
+                  className="flex items-center justify-center text-[14px]"
+                  aria-label="Choose calendar date"
+                  {...props}
+                >
+                  {effectiveView === 'day'
+                    ? dayFormatter.format(visibleStart)
+                    : getDayRange(visibleStart.toISOString(), visibleEnd.toISOString())}
+                </button>
+              )}
             >
-              {effectiveView === 'day'
-                ? dayFormatter.format(visibleStart)
-                : getDayRange(visibleStart.toISOString(), visibleEnd.toISOString())}
-            </button>
+              <MonthCalendar
+                today={now}
+                initialMonth={visibleDate}
+                focusDate={visibleDate}
+                selectedDate={days}
+                onSelectDate={setVisibleDate}
+              />
+            </Popover>
             <button
               type="button"
               aria-label={`Next ${effectiveView}`}
@@ -1112,27 +1061,6 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
             </button>
           </div>
         </div>
-        {isSelectionCalendarOpen && (
-          <FloatingPortal>
-            <FloatingFocusManager
-              context={selectionCalendarContext}
-              modal={false}
-              disabled={!isSelectionCalendarPositioned}
-            >
-              <div
-                ref={setSelectionCalendarElement}
-                className="z-[100] rounded-4xl shadow-xl overflow-auto scrollbar-none outline-none"
-                style={{
-                  ...selectionCalendarStyles,
-                  visibility: isSelectionCalendarPositioned ? 'visible' : 'hidden',
-                }}
-                {...getSelectionCalendarFloatingProps({ 'aria-label': 'Calendar date picker' })}
-              >
-                <MonthCalendarWrapper today={now} initialMonth={visibleDate} focusDate={visibleDate} selectedDate={days} onSelectDate={(day: Date) => {setVisibleDate(day)}}/>
-              </div>
-            </FloatingFocusManager>
-          </FloatingPortal>
-        )}
       </div>
       {/*Day grid*/}
       <div className="flex min-h-0 flex-1 flex-col w-full">
@@ -1260,7 +1188,7 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
                 relative
                 m-0.5
                 ${
-                  infoTaskId === segment.task.id
+                  isTaskInfoOpen && infoTaskId === segment.task.id
                     ? 'z-50'
                     : 'z-10'
                 }
@@ -1313,7 +1241,7 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
                   {/*Text and time display in a segment*/}
                   <button
                     type="button"
-                    aria-expanded={infoTaskId === segment.task.id}
+                    aria-expanded={isTaskInfoOpen && infoTaskId === segment.task.id}
                     className={`
                     absolute
                     inset-0
@@ -1347,7 +1275,7 @@ function CalendarElement ({ today, tasks, onUpdateTask, onCreateTaskAt, onAddTas
                       }
 
                       toggleTaskInfo(
-                        segment.task.id,
+                        segment.task,
                         event.currentTarget
                       )
                     }}

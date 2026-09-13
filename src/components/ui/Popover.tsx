@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useId, useLayoutEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import {
   arrow,
   autoUpdate,
@@ -10,6 +10,7 @@ import {
   offset,
   safePolygon,
   shift,
+  size,
   useClick,
   useDismiss,
   useFloating,
@@ -26,6 +27,7 @@ import {
   popoverArrowWidth,
   popoverSurfacePadding,
   getPopoverArrowPadding,
+  getPopoverSurfaceOrigin,
   getPopoverSurfacePath,
   type PopoverSurface,
 } from './popoverSurface.ts'
@@ -33,6 +35,7 @@ import {
 type PopoverProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
+  onExitComplete?: () => void
   canDismiss?: () => boolean
   label: string
   trigger?: (reference: {
@@ -47,11 +50,14 @@ type PopoverProps = {
   fallbackPlacements?: Placement[]
   offsetDistance?: number
   viewportPadding?: number
+  constrainToViewport?: boolean
   hideWhenReferenceHidden?: boolean
   interaction?: 'manual' | 'click' | 'hover'
   outsidePressEvent?: 'pointerdown' | 'mousedown' | 'click'
   dismissOnScroll?: boolean
   closeOnFocusOut?: boolean
+  initialFocus?: number
+  returnFocus?: boolean
   className?: string
   showArrow?: boolean
   contentClassName?: string
@@ -73,18 +79,18 @@ function getTransitionStyles(scale: number, opacity: number, side: string) {
 }
 
 export default function Popover({
-  open, onOpenChange, canDismiss, label, trigger, children, placementInput, showArrow = false,
+  open, onOpenChange, onExitComplete, canDismiss, label, trigger, children, placementInput, showArrow = false,
   referenceElement, portalRoot, strategy = 'fixed', fallbackPlacements,
-  offsetDistance = 20, viewportPadding = 8, hideWhenReferenceHidden = false,
+  offsetDistance = 20, viewportPadding = 8, constrainToViewport = false, hideWhenReferenceHidden = false,
   interaction = 'manual', outsidePressEvent = 'click', dismissOnScroll = false,
-  closeOnFocusOut = false, className = 'z-[100]',
+  closeOnFocusOut = false, initialFocus = -1, returnFocus = false, className = 'z-[100]',
   contentClassName = 'relative z-10 p-4',
 }: PopoverProps) {
   const nodeId = useFloatingNodeId()
+  const shadowClipId = useId()
   const [triggerElement, setTriggerElement] = useState<HTMLButtonElement | null>(null)
   const [floatingElement, setFloatingElement] = useState<HTMLDivElement | null>(null)
   const [arrowElement, setArrowElement] = useState<HTMLSpanElement | null>(null)
-  const [settledTransition, setSettledTransition] = useState<CSSProperties | null>(null)
   const { context, floatingStyles, isPositioned, placement, middlewareData, update } = useFloating({
     nodeId,
     open,
@@ -97,6 +103,13 @@ export default function Popover({
       offset({ mainAxis: offsetDistance, crossAxis: 0 }),
       flip({ padding: viewportPadding, fallbackPlacements }),
       shift({ padding: viewportPadding }),
+      constrainToViewport && size({
+        padding: viewportPadding,
+        apply({ availableWidth, availableHeight, elements }) {
+          elements.floating.style.setProperty('--popover-available-width', `${Math.max(0, availableWidth)}px`)
+          elements.floating.style.setProperty('--popover-available-height', `${Math.max(0, availableHeight)}px`)
+        },
+      }),
       showArrow && arrow(({ rects, placement }) => ({
         element: arrowElement,
         padding: getPopoverArrowPadding(
@@ -141,10 +154,17 @@ export default function Popover({
   })
   const focus = useFocus(context, { enabled: interaction === 'hover' })
   const click = useClick(context, { enabled: interaction !== 'manual' })
+  const surface = middlewareData.surface as PopoverSurface | undefined
+  const side = placement.split('-')[0]
+  const hasArrow = showArrow && surface !== undefined &&
+    (side === 'left' || side === 'right' ? surface.arrowY !== undefined : surface.arrowX !== undefined)
   const {
     isMounted,
     styles: transitionStyles,
-  } = useTransitionStyles(context, {
+  } = useTransitionStyles({
+    ...context,
+    open: open && (!showArrow || (isPositioned && hasArrow)),
+  }, {
     duration: {
       open: 200,
       close: 300,
@@ -155,36 +175,49 @@ export default function Popover({
     close: ({ side }) => getTransitionStyles(0, 0, side),
   })
   useEffect(() => {
-    if (!showArrow || !floatingElement) return
-    // Placement changes can finish without emitting a clip-path transitionend.
-    let cancelled = false
-    const frame = requestAnimationFrame(() => {
-      const animations = floatingElement.firstElementChild?.getAnimations() ?? []
-      void Promise.all(animations.map(animation => animation.finished.catch(() => {}))).then(() => {
-        if (!cancelled) setSettledTransition(transitionStyles)
-      })
-    })
-    return () => {
-      cancelled = true
-      cancelAnimationFrame(frame)
+    if (!open && !isMounted) onExitComplete?.()
+  }, [open, isMounted, onExitComplete])
+
+  useLayoutEffect(() => {
+    if (!hasArrow || !surface || !floatingElement || !arrowElement) return
+    const glass = floatingElement.children[0] as HTMLElement
+    const content = floatingElement.children[1] as HTMLElement
+    const geometry = surface
+    const progressElement = arrowElement
+    let frame = 0
+
+    // An unpainted opacity transition is the clock; update both visible layers in the same frame.
+    function syncClip() {
+      const scale = Number(getComputedStyle(progressElement).opacity)
+      content.style.transform = `scale(${scale})`
+      content.style.opacity = String(scale)
+      glass.style.clipPath = `path('${getPopoverSurfacePath(geometry, side, scale)}')`
+      if (progressElement.getAnimations().some(animation => animation.playState === 'running' || animation.pending)) {
+        frame = requestAnimationFrame(syncClip)
+      }
     }
-  }, [floatingElement, showArrow, transitionStyles])
+    syncClip()
+    return () => cancelAnimationFrame(frame)
+  }, [floatingElement, arrowElement, hasArrow, surface, side, transitionStyles])
 
   const { clipPath, ...contentTransitionStyles } = transitionStyles
-  const surface = middlewareData.surface as PopoverSurface | undefined
-  const side = placement.split('-')[0]
-  const hasArrow = showArrow && surface !== undefined &&
-    (side === 'left' || side === 'right' ? surface.arrowY !== undefined : surface.arrowX !== undefined)
   const surfacePath = hasArrow ? getPopoverSurfacePath(surface, side) : undefined
   const surfaceClip = hasArrow
-    ? `path('${getPopoverSurfacePath(surface, side, transitionStyles.opacity === 1 ? 1 : 0)}')`
+    ? `path('${getPopoverSurfacePath(surface, side, 0)}')`
     : clipPath
   const surfaceBounds: CSSProperties | undefined = hasArrow ? {
     inset: -popoverSurfacePadding,
     width: `calc(100% + ${2 * popoverSurfacePadding}px)`,
     height: `calc(100% + ${2 * popoverSurfacePadding}px)`,
   } : undefined
-  const transformOrigin = side === 'left' ? 'right' : side === 'right' ? 'left' : side === 'top' ? 'bottom' : 'top'
+  const origin = hasArrow ? getPopoverSurfaceOrigin(surface, side) : undefined
+  const transformOrigin = origin
+    ? `${origin.x}px ${origin.y}px`
+    : side === 'left' ? 'right' : side === 'right' ? 'left' : side === 'top' ? 'bottom' : 'top'
+  // Leave room for shadow-2xl, while excluding the entire glass silhouette from its paint.
+  const shadowClipPath = hasArrow
+    ? `M -100 -100 H ${surface.width + 2 * popoverSurfacePadding + 100} V ${surface.height + 2 * popoverSurfacePadding + 100} H -100 Z ${surfacePath}`
+    : undefined
   const role = useRole(context, { role: 'dialog' })
   const { getReferenceProps, getFloatingProps } = useInteractions([hover, focus, click, dismiss, role])
 
@@ -195,21 +228,24 @@ export default function Popover({
         props: getReferenceProps(),
       })}
 
-      {isMounted && (
+      {(open || isMounted) && (
         <FloatingPortal root={portalRoot}>
           <FloatingFocusManager
             context={context}
             modal={false}
-            initialFocus={-1}
-            returnFocus={false}
+            disabled={!isPositioned}
+            initialFocus={initialFocus}
+            returnFocus={returnFocus}
             closeOnFocusOut={closeOnFocusOut}
           >
             <div
               ref={setFloatingElement}
+              inert={!open}
               className={`pointer-events-auto ${className}`}
               data-placement={placement}
               style={{
                 ...floatingStyles,
+                pointerEvents: open ? undefined : 'none',
                 visibility:
                   (open && !isPositioned) || (showArrow && !hasArrow) || middlewareData.hide?.referenceHidden
                     ? 'hidden'
@@ -226,8 +262,7 @@ export default function Popover({
                 style={{
                   ...surfaceBounds,
                   clipPath: surfaceClip,
-                  // Once open, geometry updates must move the glass and outline together.
-                  transitionProperty: hasArrow && settledTransition === transitionStyles ? 'none' : 'clip-path',
+                  transitionProperty: hasArrow ? 'none' : 'clip-path',
                   transitionDuration: transitionStyles.transitionDuration,
                   border: 'none',
                   borderRadius: 0,
@@ -237,8 +272,8 @@ export default function Popover({
               <div
                 className="relative motion-reduce:transition-none!"
                 style={{
-                  ...contentTransitionStyles,
-                  transitionProperty: 'opacity, transform',
+                  ...(showArrow ? { opacity: 0, transform: 'scale(0)' } : contentTransitionStyles),
+                  transitionProperty: showArrow ? 'none' : 'opacity, transform',
                   transformOrigin,
                 }}
               >
@@ -250,6 +285,7 @@ export default function Popover({
                     backdropFilter: 'none',
                     WebkitBackdropFilter: 'none',
                     border: hasArrow ? 'none' : undefined,
+                    clipPath: hasArrow ? `url(#${shadowClipId})` : undefined,
                   }}
                 />
                 {hasArrow && (
@@ -259,9 +295,25 @@ export default function Popover({
                     style={surfaceBounds}
                   >
                     <path d={surfacePath} fill="none" strokeWidth={1} strokeLinejoin="round" />
+                    <defs>
+                      <clipPath id={shadowClipId} clipPathUnits="userSpaceOnUse">
+                        <path
+                          d={shadowClipPath}
+                          transform={`translate(${-popoverSurfacePadding} ${-popoverSurfacePadding})`}
+                          clipRule="evenodd"
+                        />
+                      </clipPath>
+                    </defs>
                   </svg>
                 )}
-                <div className={contentClassName}>
+                <div
+                  className={contentClassName}
+                  style={constrainToViewport ? {
+                    maxWidth: 'var(--popover-available-width)',
+                    maxHeight: 'var(--popover-available-height)',
+                    overflow: 'auto',
+                  } : undefined}
+                >
                   {children}
                 </div>
               </div>
@@ -269,8 +321,13 @@ export default function Popover({
                 <span
                   ref={setArrowElement}
                   aria-hidden="true"
-                  className="absolute invisible pointer-events-none rounded-3xl"
-                  style={{ top: 0, left: 0, width: popoverArrowWidth, height: popoverArrowWidth }}
+                  className="absolute invisible pointer-events-none rounded-3xl motion-reduce:transition-none!"
+                  style={{
+                    top: 0, left: 0, width: popoverArrowWidth, height: popoverArrowWidth,
+                    opacity: transitionStyles.opacity,
+                    transitionProperty: 'opacity',
+                    transitionDuration: transitionStyles.transitionDuration,
+                  }}
                 />
               )}
             </div>

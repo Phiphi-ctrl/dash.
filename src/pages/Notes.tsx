@@ -24,6 +24,7 @@ import DashBlockEditor from "../components/editor/DashBlockEditor.tsx";
 import {dateTimeFormatter} from "../utils/Datetime.ts";
 import type { Category } from '../types/Category.ts'
 import type { NoteFolder } from '../types/NoteFolder.ts'
+import { useResponsive } from '../context/ResponsiveContext.ts'
 import NotesTreeSidebar, { type NotesTreeSidebarHandle }
   from '../components/notes/NotesTreeSidebar.tsx'
 import {
@@ -77,6 +78,7 @@ function Notes({
   onUpdateNote,
   onDeleteNote,
 }: NotesProps) {
+  const { isMobile } = useResponsive()
 
   const [selectedNoteId, setSelectedNoteId] =
     useState<string | null>(null)
@@ -347,6 +349,7 @@ function Notes({
     setIsNoteFullscreen(false)
     setIsNoteActionsMenuOpen(false)
     setSelectedNoteId(noteId)
+    if (isMobile) setIsNotesSidebarOpen(false)
   }
 
   function handleAddFolderToActiveFolder() {
@@ -385,6 +388,7 @@ function Notes({
     setIsNoteFullscreen(false)
     setSelectedNoteId(id)
     setIsNoteActionsMenuOpen(false)
+    if (isMobile) setIsNotesSidebarOpen(false)
   }
 
   function handleToggleSelectedNoteFullscreen() {
@@ -857,6 +861,7 @@ function Notes({
         className="
           shrink-0
           py-3
+          pl-9
         "
       >
         <div className="flex min-w-0 flex-col">
@@ -875,13 +880,13 @@ function Notes({
               pl-4
 
               bg-transparent
-              text-6xl
+              text-3xl lg:text-6xl
               font-bold
               text-foreground
               outline-none
             "
           />
-          <div className="flex pl-4 text-muted text-xs items-center">
+          <div className="flex flex-wrap lg:flex-nowrap pl-4 text-muted text-xs items-center">
               <span className="flex">
                   {dateTimeFormatter.format(Date.parse(selectedNote.createdAt))}
               </span>
@@ -929,6 +934,7 @@ function Notes({
           flex
           h-full
           min-h-0
+          min-w-0
           flex-col
           overflow-hidden
         "
@@ -938,10 +944,11 @@ function Notes({
           data-note-scroll-viewport
           className="
             min-h-0
+            min-w-0
             flex-1
             overflow-y-auto
             scrollbar-none
-            px-8
+            pr-9 lg:px-8
           "
         >
           {renderSelectedNoteHeader()}
@@ -953,7 +960,7 @@ function Notes({
   }
 
   return (
-    <main className="flex flex-1 flex-col px-4 lg:px-10">
+    <main className="flex min-w-0 flex-1 flex-col px-2 lg:px-10">
       {renderBreadcrumb()}
 
       <section className="flex flex-1 min-h-0 flex-col">
@@ -968,7 +975,7 @@ function Notes({
               duration-300
               ${
                 isNotesSidebarOpen
-                  ? 'w-64 pr-0 opacity-100'
+                  ? 'w-full lg:w-64 pr-0 opacity-100'
                   : 'pointer-events-none w-0 pr-0 opacity-0'
               }
             `}
@@ -995,7 +1002,7 @@ function Notes({
               flex-1
               transition-all
               duration-200
-              ${isNotesSidebarOpen ? 'pl-0' : 'pl-0'}
+              ${isNotesSidebarOpen ? 'hidden lg:block' : 'block'}
             `}
           >
             {selectedNote !== null && !isSelectedNoteFullscreen ? (
@@ -1010,7 +1017,7 @@ function Notes({
       </section>
 
       {selectedNote !== null && isSelectedNoteFullscreen && (
-        <div className="fixed inset-0 z-50 bg-canvas px-10">
+        <div className="fixed inset-0 z-50 bg-canvas px-2 lg:px-10">
           <div className="flex h-full min-h-0 flex-col">
             {renderBreadcrumb()}
             {renderNotesToolbar()}

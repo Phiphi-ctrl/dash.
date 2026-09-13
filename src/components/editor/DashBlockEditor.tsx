@@ -1446,7 +1446,7 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
     editorProps: {
       attributes: {
         class:
-            'dash-editor outline-none text-foreground px-4 lg:px-8',
+            'dash-editor min-w-0 outline-none text-foreground pl-13 pr-0 lg:px-8',
       },
 
       handleKeyDown: (
@@ -3629,6 +3629,7 @@ function DashBlockEditor({ value, onChange }: DashBlockEditorProps) {
 
       className="
       dash-editor-shell
+      min-w-0 w-full
       relative
       items-center
     "

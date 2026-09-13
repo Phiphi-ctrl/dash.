@@ -9,7 +9,7 @@ export type PopoverSurface = {
   arrowY?: number
 }
 
-function getSurfaceMetrics(width: number, height: number, cornerRadius: number, side: string) {
+function getSurfaceMetrics({ width, height, cornerRadius, arrowX, arrowY }: PopoverSurface, side: string) {
   const horizontal = side === 'left' || side === 'right'
   const edge = horizontal ? height : width
   const cross = horizontal ? width : height
@@ -21,23 +21,40 @@ function getSurfaceMetrics(width: number, height: number, cornerRadius: number, 
     (edge - 1) / 2 - half - shoulder,
   ))
 
-  return { half, shoulder, radius }
+  const margin = 0.5 + radius + half + shoulder
+  return {
+    half, shoulder, radius,
+    depth: Math.min(9, half),
+    tip: Math.min(2, half / 2),
+    centerX: Math.max(margin, Math.min(width - margin, (arrowX ?? 0) + popoverArrowWidth / 2)),
+    centerY: Math.max(margin, Math.min(height - margin, (arrowY ?? 0) + popoverArrowWidth / 2)),
+  }
 }
 
 export function getPopoverArrowPadding(width: number, height: number, cornerRadius: number, side = 'bottom') {
-  const { radius, shoulder } = getSurfaceMetrics(width, height, cornerRadius, side)
+  const { radius, shoulder } = getSurfaceMetrics({ width, height, cornerRadius }, side)
   return radius + shoulder + 1
 }
 
+export function getPopoverSurfaceOrigin(surface: PopoverSurface, side: string) {
+  const { centerX, centerY, depth, tip } = getSurfaceMetrics(surface, side)
+  // The rounded tip's outermost point is halfway along its quadratic curve.
+  const tipOffset = 0.5 - depth + tip / 2
+  return {
+    x: side === 'left' ? surface.width - tipOffset : side === 'right' ? tipOffset : centerX,
+    y: side === 'top' ? surface.height - tipOffset : side === 'bottom' ? tipOffset : centerY,
+  }
+}
+
 export function getPopoverSurfacePath(
-  { width, height, cornerRadius, arrowX, arrowY }: PopoverSurface,
+  surface: PopoverSurface,
   side: string,
   scale = 1,
 ): string {
-  const metrics = getSurfaceMetrics(width, height, cornerRadius, side)
+  const { width, height } = surface
+  const metrics = getSurfaceMetrics(surface, side)
   const padding = popoverSurfacePadding
-  const originX = side === 'left' ? width : side === 'right' ? 0 : width / 2
-  const originY = side === 'top' ? height : side === 'bottom' ? 0 : height / 2
+  const { x: originX, y: originY } = getPopoverSurfaceOrigin(surface, side)
   const x = (value: number) => padding + originX + (value - originX) * scale
   const y = (value: number) => padding + originY + (value - originY) * scale
   const left = x(0.5)
@@ -46,13 +63,12 @@ export function getPopoverSurfacePath(
   const bottom = y(height - 0.5)
   const radius = metrics.radius * scale
   const half = metrics.half * scale
-  const depth = Math.min(9, metrics.half) * scale
-  const tip = Math.min(2, metrics.half / 2) * scale
+  const depth = metrics.depth * scale
+  const tip = metrics.tip * scale
   const shoulder = metrics.shoulder * scale
   const slope = shoulder / 2
-  const margin = 0.5 + metrics.radius + metrics.half + metrics.shoulder
-  const centerX = x(Math.max(margin, Math.min(width - margin, (arrowX ?? 0) + popoverArrowWidth / 2)))
-  const centerY = y(Math.max(margin, Math.min(height - margin, (arrowY ?? 0) + popoverArrowWidth / 2)))
+  const centerX = x(metrics.centerX)
+  const centerY = y(metrics.centerY)
 
   // Scale path coordinates, not the backdrop layer. The outline uses the full-size path.
   return [

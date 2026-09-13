@@ -91,9 +91,10 @@ function CodeBlockView({
     <NodeViewWrapper
       className="
         dash-code-block
+        min-w-0 max-w-full
         my-3
         overflow-hidden
-        p-4
+        p-2 lg:p-4
         glass-surface
       "
     >
@@ -106,7 +107,7 @@ function CodeBlockView({
           justify-between
           border-b
           border-border
-          px-3
+          px-1 lg:px-3
         "
       >
         <div className="flex gap-2 items-center relative">
@@ -251,11 +252,12 @@ function CodeBlockView({
       <NodeViewContent
         className="
           dash-code-content
+          min-w-0 max-w-full
 
           overflow-x-auto
           whitespace-pre
 
-          px-4
+          px-1 lg:px-4
           py-4
 
           font-mono
